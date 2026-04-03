@@ -56,7 +56,7 @@ Built as a portfolio project and study path toward **CKA** and **CKS** certifica
 | Phase | Topic | Status |
 |---|---|---|
 | 0 | Foundations (Docker, Linux, Git) | ✅ Complete |
-| 1 | Cloud & Terraform (GCP, VPC, GKE) | ⬜ Not started |
+| 1 | Cloud & Terraform (GCP, VPC, GKE) | ✅ Complete |
 | 2 | Kubernetes Core (raw YAML) | ⬜ Not started |
 | 3 | Helm & Microservices | ⬜ Not started |
 | 4 | CI/CD Pipelines | ⬜ Not started |
@@ -98,6 +98,22 @@ Built as a portfolio project and study path toward **CKA** and **CKS** certifica
 ---
 
 ## Getting Started
+
+### GCP Account Setup
+
+Phases 1 and above require a GCP account with billing enabled.
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) and sign in with any Google account
+2. Click **Start free trial** — you get **$300 in free credits** (credit card required but not charged unless you manually upgrade)
+3. Install the `gcloud` CLI: [cloud.google.com/sdk/docs/install](https://cloud.google.com/sdk/docs/install)
+4. Authenticate locally:
+
+```bash
+gcloud auth login
+gcloud auth application-default login
+```
+
+> **Cost warning:** A running GKE cluster costs ~$5–20/day. Always run `terraform destroy` when you're done with a session.
 
 ### Prerequisites
 
