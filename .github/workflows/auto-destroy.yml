@@ -1,0 +1,86 @@
+name: Auto-Destroy GCP Resources
+
+# Runs every night at 8 PM UTC to prevent runaway GCP costs.
+# Can also be triggered manually from the GitHub Actions UI.
+# Set the repository variable AUTO_DESTROY_ENABLED to "false" to pause destruction.
+
+on:
+  schedule:
+    - cron: "0 20 * * *"   # 8 PM UTC daily
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DESTROY to confirm manual destruction"
+        required: true
+
+env:
+  TF_DIR: phase-1-terraform
+  TF_VERSION: "1.7.0"
+
+jobs:
+  auto-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check AUTO_DESTROY_ENABLED
+        if: vars.AUTO_DESTROY_ENABLED == 'false'
+        run: |
+          echo "AUTO_DESTROY_ENABLED is set to false — skipping destruction."
+          exit 0
+
+      - name: Validate manual confirmation
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm != 'DESTROY'
+        run: |
+          echo "Manual trigger requires typing DESTROY to confirm."
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
+
+      - name: Check for existing resources
+        id: check
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          STATE=$(terraform show -json 2>/dev/null | jq '.values.root_module.resources | length' 2>/dev/null || echo "0")
+          echo "resource_count=$STATE" >> $GITHUB_OUTPUT
+          echo "Found $STATE resources in state."
+
+      - name: Terraform Destroy
+        if: steps.check.outputs.resource_count != '0'
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform destroy -auto-approve
+        env:
+          TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
+          TF_VAR_region: us-central1
+          TF_VAR_environment: dev
+
+      - name: No resources to destroy
+        if: steps.check.outputs.resource_count == '0'
+        run: echo "No resources found in Terraform state — nothing to destroy."
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Auto-Destroy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Resources found:** ${{ steps.check.outputs.resource_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY

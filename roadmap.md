@@ -221,6 +221,9 @@ Provision infrastructure using Terraform across multiple environments.
 4. Configure kubectl access
 5. Structure Terraform for multiple environments (dev/staging/prod) using workspaces or separate state files
 6. Configure preemptible/spot nodes to minimize cost
+7. **Cost governance — automated nightly destroy (two approaches):**
+   * **GitHub Actions:** Create `.github/workflows/auto-destroy.yml` — scheduled workflow that runs `terraform destroy` every night at 8 PM UTC. Controlled via a `AUTO_DESTROY_ENABLED` repository variable
+   * **Cloud Run Job (bonus):** Build a Docker image with Terraform + gcloud installed, push it to Artifact Registry, and trigger it via Cloud Scheduler on the same cron. This is the GCP-native production equivalent
 
 ## Expected Outcome
 
@@ -228,8 +231,9 @@ Reusable Terraform modules for:
 
 * networking
 * Kubernetes cluster
+* BigQuery dataset
 
-Deployable to at least two environments (dev and staging) with environment-specific variables.
+Deployable to at least two environments (dev and staging) with environment-specific variables. Nightly auto-destroy in place to prevent runaway costs.
 
 ## ADRs
 
