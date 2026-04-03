@@ -38,6 +38,51 @@ terraform destroy
 
 ---
 
+## GitHub Actions — Auto-Destroy Setup
+
+The nightly auto-destroy workflow (`.github/workflows/auto-destroy.yml`) requires two secrets and one variable configured in GitHub.
+
+### 1. Create a service account key
+
+```bash
+# Find your service account
+gcloud iam service-accounts list --project platform-eng-lab-will
+
+# Generate a key
+gcloud iam service-accounts keys create key.json \
+  --iam-account=<SA_EMAIL>
+```
+
+### 2. Add GitHub secrets
+
+Go to **Settings → Secrets and variables → Actions → Secrets**:
+
+| Secret | Value |
+|---|---|
+| `GCP_SA_KEY` | Full contents of `key.json` |
+| `GCP_PROJECT_ID` | `platform-eng-lab-will` |
+
+Delete `key.json` locally after adding it to GitHub:
+```bash
+rm key.json
+```
+
+### 3. Add GitHub variable
+
+Go to **Settings → Secrets and variables → Actions → Variables**:
+
+| Variable | Value |
+|---|---|
+| `AUTO_DESTROY_ENABLED` | `true` |
+
+Set to `false` to pause nightly destruction during multi-day sessions.
+
+### 4. Test the workflow
+
+Go to **Actions → Auto-Destroy GCP Resources → Run workflow**, type `DESTROY`, and run. Check the Summary tab for the destruction report.
+
+---
+
 ## Troubleshooting
 
 ### 1. `Quota 'SSD_TOTAL_GB' exceeded`

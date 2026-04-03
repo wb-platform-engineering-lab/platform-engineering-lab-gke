@@ -57,6 +57,7 @@ build/
 service-account*.json
 credentials*.json
 *-sa-key.json
+key.json
 kubeconfig
 .kubeconfig
 vault-token
