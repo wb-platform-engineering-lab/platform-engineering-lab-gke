@@ -37,7 +37,30 @@ Before starting, ensure the following tools are installed and configured:
 **GCP Requirements:**
 * A GCP account with billing enabled
 * A GCP project with Owner or Editor IAM role
-* Estimated cost: ~$5–20/day when a GKE cluster is running — **always run `terraform destroy` when done with a phase**
+
+**Always run `terraform destroy` after each session to avoid unnecessary charges.**
+
+### Estimated Costs per Phase
+
+> Costs assume spot nodes (`e2-standard-2`) in `us-central1`. Destroy infrastructure between sessions.
+
+| Phase | New GCP Services | Est. Cost/Day | Notes |
+|---|---|---|---|
+| 0 | None (local Docker only) | $0 | No cloud resources |
+| 1 | GKE cluster, VPC, NAT, BigQuery | ~$4–6 | GKE mgmt fee $0.10/hr + 3 spot nodes ~$1.50/day + NAT ~$0.50/day |
+| 2 | None (uses Phase 1 cluster) | ~$4–6 | Same cluster |
+| 3 | Persistent disks for PostgreSQL + Redis | ~$5–7 | PVCs add ~$0.04/GB/month |
+| 4 | Artifact Registry | ~$5–7 | Registry storage ~$0.10/GB/month, negligible at lab scale |
+| 5 | None (ArgoCD runs on cluster) | ~$5–7 | Same cluster |
+| 6 | Additional nodes for Prometheus/Loki | ~$7–10 | Observability stack is memory-heavy, may trigger autoscale |
+| 7 | None (Vault runs on cluster) | ~$7–10 | Same cluster |
+| 8 | Temporary extra nodes during load tests | ~$8–12 | Autoscaler adds nodes under simulated load |
+| 9 | Airflow workers, BigQuery queries | ~$8–12 | Airflow needs more CPU/memory |
+| 10 | None | ~$7–10 | Same cluster |
+| 10b | None | ~$7–10 | Same cluster |
+| 11 | Everything running together | ~$15–25 | Full platform: all services active simultaneously |
+
+**Free tier:** New GCP accounts get **$300 in free credits** — enough to complete the entire lab if you destroy resources between sessions.
 
 **Recommended repository structure:**
 ```
@@ -174,13 +197,15 @@ Understand raw Kubernetes before abstractions.
 
 ## Objective
 
-Package and deploy applications properly.
+Package and deploy applications properly, including stateful services.
 
 ## Topics
 
 * Helm charts
 * Values.yaml
 * Templating
+* StatefulSets and PersistentVolumeClaims
+* Kubernetes-hosted databases and caching
 
 ## Challenges
 
@@ -191,6 +216,12 @@ Package and deploy applications properly.
    * backend (Python API)
 3. Use Helm values for environment configs
 4. Version and upgrade releases
+5. Deploy PostgreSQL via Helm (Bitnami chart) — backend connects to it
+6. Deploy Redis via Helm (Bitnami chart) — backend uses it for caching
+7. Connect the Python backend to both PostgreSQL and Redis
+
+## Note on managed vs self-hosted
+PostgreSQL and Redis are deployed as Kubernetes StatefulSets in this phase to practice PVCs, StatefulSets, and Helm. In production these would be Cloud SQL and Cloud Memorystore (managed GCP services) to reduce operational overhead.
 
 ---
 
