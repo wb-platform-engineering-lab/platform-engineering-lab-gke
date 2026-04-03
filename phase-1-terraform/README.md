@@ -38,6 +38,61 @@ terraform destroy
 
 ---
 
+## Troubleshooting
+
+### 1. `Quota 'SSD_TOTAL_GB' exceeded`
+**Symptom:** `terraform apply` fails during GKE node pool creation with SSD quota error.
+
+**Cause:** GKE uses SSD (`pd-ssd`) by default for node disks, including the temporary bootstrap node pool. Free tier GCP accounts have a 250GB SSD quota per region.
+
+**Fix:** Set `disk_type = "pd-standard"` on both the cluster's `node_config` (bootstrap pool) and the managed node pool:
+```hcl
+node_config {
+  disk_type    = "pd-standard"
+  disk_size_gb = 50
+}
+```
+
+---
+
+### 2. `Cannot destroy cluster because deletion_protection is set to true`
+**Symptom:** `terraform apply` or `terraform destroy` fails when trying to recreate the cluster.
+
+**Cause:** Recent versions of the Google Terraform provider enable `deletion_protection = true` by default on GKE clusters.
+
+**Fix:** Add `deletion_protection = false` to the cluster resource, then disable it on the existing cluster via gcloud before re-applying:
+```bash
+gcloud container clusters update <CLUSTER_NAME> --region <REGION> --no-deletion-protection
+```
+
+---
+
+### 3. `executable gke-gcloud-auth-plugin not found`
+**Symptom:** `kubectl` commands fail with `gke-gcloud-auth-plugin not found` even after installing via `gcloud components install`.
+
+**Cause:** When gcloud is installed via Homebrew, the components are installed to a path not on the default `$PATH`.
+
+**Fix:** Add the Homebrew gcloud bin directory to your PATH:
+```bash
+export PATH=$PATH:/opt/homebrew/share/google-cloud-sdk/bin
+# Make permanent
+echo 'export PATH=$PATH:/opt/homebrew/share/google-cloud-sdk/bin' >> ~/.zshrc
+```
+
+---
+
+### 4. `could not find default credentials`
+**Symptom:** `terraform init` fails with `storage.NewClient() failed: dialing: google: could not find default credentials`.
+
+**Cause:** Terraform uses Application Default Credentials (ADC) to authenticate with GCP. These are separate from `gcloud auth login`.
+
+**Fix:**
+```bash
+gcloud auth application-default login
+```
+
+---
+
 ## GKE Node Pool Design — Best Practices
 
 ### 1. Use spot (preemptible) nodes for non-production

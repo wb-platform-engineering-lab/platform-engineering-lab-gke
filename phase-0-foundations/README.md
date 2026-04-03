@@ -45,3 +45,34 @@ curl http://localhost:3000/
 ```bash
 docker compose down
 ```
+
+---
+
+## Troubleshooting
+
+### 1. Frontend returns `Could not reach backend`
+**Symptom:** `curl http://localhost:3000/` returns `{"error": "Could not reach backend"}`.
+
+**Cause:** The `BACKEND_URL` environment variable is not being picked up, so the frontend falls back to `http://localhost:5000` — which doesn't exist inside the frontend container.
+
+**Fix:** Make sure you are running via `docker compose up` and not `docker run`. The `BACKEND_URL=http://backend:5000` env var is only injected by docker-compose. Verify with:
+```bash
+docker exec frontend env | grep BACKEND_URL
+```
+
+### 2. Port already in use
+**Symptom:** `docker compose up` fails with `Bind for 0.0.0.0:5000 failed: port is already allocated`.
+
+**Fix:** Stop any previously running containers:
+```bash
+docker compose down
+docker ps -a  # find and remove leftover containers
+```
+
+### 3. Image not rebuilding after code changes
+**Symptom:** Changes to `app.py` or `app.js` are not reflected after restarting.
+
+**Fix:** Force a rebuild:
+```bash
+docker compose up --build
+```
