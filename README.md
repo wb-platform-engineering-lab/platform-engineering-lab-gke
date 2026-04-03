@@ -76,21 +76,23 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 
 ## Progress
 
-| Phase | Topic | Members | Status |
-|---|---|---|---|
-| 0 | Foundations (Docker, Linux, Git) | 0 | ✅ Complete |
-| 1 | Cloud & Terraform (GCP, VPC, GKE) | 50 | ✅ Complete |
-| 2 | Kubernetes Core (raw YAML) | 200 | ⬜ Not started |
-| 3 | Helm & Microservices + PostgreSQL + Redis | 1,000 | ⬜ Not started |
-| 4 | CI/CD Pipelines | 5,000 | ⬜ Not started |
-| 5 | GitOps with ArgoCD | 15,000 | ⬜ Not started |
-| 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | ⬜ Not started |
-| 7 | Secrets Management (Vault) | 100,000 | ⬜ Not started |
-| 8 | Advanced Kubernetes + **CKAD** + **CKA** | 250,000 | ⬜ Not started |
-| 9 | Data Platform (Airflow + dbt + BigQuery) + **GCP DevOps** | 500,000 | ⬜ Not started |
-| 10 | Security & Production Hardening | 1,000,000 | ⬜ Not started |
-| 10b | CKS Exam Preparation + **CKS** | 1,000,000 | ⬜ Not started |
-| 11 | Capstone Project | 2,000,000+ | ⬜ Not started |
+| Phase | Topic | Members | Est. Time | Status |
+|---|---|---|---|---|
+| 0 | Foundations (Docker, Linux, Git) | 0 | 2–3 days | ✅ Complete |
+| 1 | Cloud & Terraform (GCP, VPC, GKE) | 50 | 4–6 days | ✅ Complete |
+| 2 | Kubernetes Core (raw YAML) | 200 | 2–3 days | ⬜ Not started |
+| 3 | Helm & Microservices + PostgreSQL + Redis | 1,000 | 5–7 days | ⬜ Not started |
+| 4 | CI/CD Pipelines | 5,000 | 3–4 days | ⬜ Not started |
+| 5 | GitOps with ArgoCD | 15,000 | 2–3 days | ⬜ Not started |
+| 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ⬜ Not started |
+| 7 | Secrets Management (Vault) | 100,000 | 4–5 days | ⬜ Not started |
+| 8 | Advanced Kubernetes + **CKAD** + **CKA** | 250,000 | 3–4 days + 4–8 wks cert | ⬜ Not started |
+| 9 | Data Platform (Airflow + dbt + BigQuery) + **GCP DevOps** | 500,000 | 6–8 days | ⬜ Not started |
+| 10 | Security & Production Hardening | 1,000,000 | 3–4 days | ⬜ Not started |
+| 10b | CKS Exam Preparation + **CKS** | 1,000,000 | 5–7 days + 4–6 wks cert | ⬜ Not started |
+| 11 | Capstone Project | 2,000,000+ | 7–10 days | ⬜ Not started |
+| | **Total lab work** | | **~55–75 days** | |
+| | **With cert study** | | **~6–9 months** | |
 
 ---
 
@@ -181,7 +183,7 @@ git push origin phase-2
 
 ## Architecture Decision Records
 
-9 ADRs documented in [`docs/decisions/`](./docs/decisions/) covering every major tool choice — from why GKE over self-managed Kubernetes to why Kubernetes-hosted databases over Cloud SQL.
+21 ADRs documented in [`docs/decisions/`](./docs/decisions/) — one for every major tool choice across all phases, from why GKE over self-managed Kubernetes to why Falco over Sysdig for runtime security.
 
 ---
 

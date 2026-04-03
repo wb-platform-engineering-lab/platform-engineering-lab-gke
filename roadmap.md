@@ -169,6 +169,11 @@ Build strong fundamentals before touching Kubernetes.
 * Multi-stage Dockerfiles for both services with optimized image sizes
 * Basic understanding of container networking and inter-service communication
 
+## ADRs
+
+* `adr-004-flask-backend.md` — Why Python Flask over Node.js, Go, FastAPI
+* `adr-005-docker-compose-local.md` — Why Docker Compose over Podman, Minikube, manual `docker run`
+
 ## Claude Efficiency
 
 | | |
@@ -179,6 +184,7 @@ Build strong fundamentals before touching Kubernetes.
 | **Watch for** | Use `Bash` to run `docker images` and verify image sizes after each build |
 | **Est. tokens** | ~60–80K |
 | **Est. cost** | ~$0.40–0.55 |
+| **Est. time** | 2–3 days |
 
 ---
 
@@ -225,6 +231,13 @@ Reusable Terraform modules for:
 
 Deployable to at least two environments (dev and staging) with environment-specific variables.
 
+## ADRs
+
+* `adr-001-gke-over-self-managed.md` — Why GKE over EKS, AKS, kubeadm
+* `adr-002-spot-nodes.md` — Why spot nodes over on-demand for dev/staging
+* `adr-003-vpc-native-cluster.md` — Why VPC-native networking over routes-based
+* `adr-006-bigquery.md` — Why BigQuery over Snowflake, Redshift, self-hosted
+
 ## Claude Efficiency
 
 | | |
@@ -235,6 +248,7 @@ Deployable to at least two environments (dev and staging) with environment-speci
 | **Watch for** | Terraform errors are verbose — paste the full error, not just the last line. Use `Bash` to run `terraform plan` before `apply` |
 | **Est. tokens** | ~150–200K (debugging GCP quota and auth issues adds tokens) |
 | **Est. cost** | ~$1.00–1.35 |
+| **Est. time** | 4–6 days |
 
 > **Cost reminder:** Run `terraform destroy` after completing this phase to avoid ongoing GCP charges.
 
@@ -285,6 +299,7 @@ Understand raw Kubernetes before abstractions.
 | **Watch for** | Paste full `kubectl describe pod` output when debugging — not just the error line |
 | **Est. tokens** | ~70–100K |
 | **Est. cost** | ~$0.45–0.65 |
+| **Est. time** | 2–3 days |
 
 ---
 
@@ -329,6 +344,12 @@ Package and deploy applications properly, including stateful services.
 ## Note on managed vs self-hosted
 PostgreSQL and Redis are deployed as Kubernetes StatefulSets in this phase to practice PVCs, StatefulSets, and Helm. In production these would be Cloud SQL and Cloud Memorystore (managed GCP services) to reduce operational overhead.
 
+## ADRs
+
+* `adr-007-postgresql.md` — Why PostgreSQL over MySQL, MongoDB, Cloud SQL
+* `adr-008-redis.md` — Why Redis over Memcached, Cloud Memorystore
+* `adr-009-kubernetes-hosted-vs-managed.md` — Why Helm-deployed databases over managed GCP services for this lab
+
 ## Claude Efficiency
 
 | | |
@@ -339,6 +360,7 @@ PostgreSQL and Redis are deployed as Kubernetes StatefulSets in this phase to pr
 | **Watch for** | Use `helm template` to render charts locally before deploying — catches templating errors early |
 | **Est. tokens** | ~180–230K (Helm templating + StatefulSet debugging is token-heavy) |
 | **Est. cost** | ~$1.20–1.55 |
+| **Est. time** | 5–7 days |
 
 ---
 
@@ -373,6 +395,11 @@ Automate build and delivery before introducing GitOps — so there is a real pip
 4. Update the Helm chart image tag automatically
 5. Add a test stage before image push
 
+## ADRs
+
+* `adr-010-github-actions-vs-gitlab-ci.md` — Why GitHub Actions (or GitLab CI) over the alternative
+* `adr-011-artifact-registry-vs-dockerhub.md` — Why GCP Artifact Registry over Docker Hub or GCR
+
 ## Claude Efficiency
 
 | | |
@@ -383,6 +410,7 @@ Automate build and delivery before introducing GitOps — so there is a real pip
 | **Watch for** | Share the full pipeline run log on failure — GitHub Actions truncates errors in the UI |
 | **Est. tokens** | ~120–160K |
 | **Est. cost** | ~$0.80–1.05 |
+| **Est. time** | 3–4 days |
 
 ---
 
@@ -428,6 +456,7 @@ Write `docs/decisions/adr-001-argocd-over-flux.md` explaining why ArgoCD was cho
 | **Watch for** | Share `argocd app get <name>` output when debugging sync failures — it contains the full diff |
 | **Est. tokens** | ~70–100K |
 | **Est. cost** | ~$0.45–0.65 |
+| **Est. time** | 2–3 days |
 
 ---
 
@@ -466,6 +495,11 @@ Monitor and debug systems.
 
 ---
 
+## ADRs
+
+* `adr-012-kube-prometheus-stack.md` — Why kube-prometheus-stack over standalone Prometheus + Grafana installs
+* `adr-013-loki-vs-elasticsearch.md` — Why Loki over Elasticsearch/OpenSearch for log aggregation
+
 ## Claude Efficiency
 
 | | |
@@ -476,6 +510,7 @@ Monitor and debug systems.
 | **Watch for** | This phase is memory-heavy — if pods are OOMKilled, share `kubectl top nodes` output. Prometheus scrape config errors are silent by default — check Prometheus UI targets page |
 | **Est. tokens** | ~200–260K (most config-heavy phase after Capstone) |
 | **Est. cost** | ~$1.35–1.75 |
+| **Est. time** | 5–7 days |
 
 > **Certification Milestone: Prometheus Certified Associate (PCA)**
 > After completing Phase 6 you have the hands-on knowledge for the **Prometheus Certified Associate (PCA)** exam — covers PromQL, alerting, recording rules, Alertmanager, and Grafana dashboards. [Study guide](https://training.linuxfoundation.org/certification/prometheus-certified-associate/)
@@ -513,6 +548,10 @@ Secure secrets properly — injecting them into both pods and CI/CD pipelines.
 4. Rotate secrets dynamically
 5. Integrate Vault with the CI/CD pipeline from Phase 4
 
+## ADRs
+
+* `adr-014-vault-over-k8s-secrets.md` — Why HashiCorp Vault over native Kubernetes Secrets or GCP Secret Manager
+
 ## Claude Efficiency
 
 | | |
@@ -523,6 +562,7 @@ Secure secrets properly — injecting them into both pods and CI/CD pipelines.
 | **Watch for** | Vault errors are often cryptic — share the full `vault status` and `kubectl logs` of the Vault agent injector when debugging injection failures |
 | **Est. tokens** | ~130–170K |
 | **Est. cost** | ~$0.85–1.15 |
+| **Est. time** | 4–5 days |
 
 ---
 
@@ -555,7 +595,9 @@ Operate production-grade clusters.
 3. Set resource limits and tune performance
 4. Configure scale-to-zero for non-production environments
 
----
+## ADRs
+
+* `adr-015-hpa-over-keda.md` — Why native HPA over KEDA for autoscaling in this lab
 
 ## Claude Efficiency
 
@@ -567,6 +609,7 @@ Operate production-grade clusters.
 | **Watch for** | HPA won't scale without metrics-server installed — verify with `kubectl get hpa` showing `<unknown>` targets. Share full output |
 | **Est. tokens** | ~110–150K |
 | **Est. cost** | ~$0.75–1.00 |
+| **Est. time** | 3–4 days lab + 4–8 weeks cert study (CKAD then CKA) |
 
 > **Certification Milestone: CKAD + CKA**
 > After completing Phase 8 you have the practical knowledge for two Kubernetes certifications — attempt them in order:
@@ -606,6 +649,11 @@ Build a modern data pipeline.
 3. Use dbt for transformations
 4. Store results in a data warehouse
 
+## ADRs
+
+* `adr-016-airflow-over-prefect.md` — Why Apache Airflow over Prefect, Dagster for orchestration
+* `adr-017-dbt-transformations.md` — Why dbt over custom SQL scripts or Spark for transformations
+
 ## Claude Efficiency
 
 | | |
@@ -616,6 +664,7 @@ Build a modern data pipeline.
 | **Watch for** | Airflow DAG import errors are silent — always check the Airflow UI "Import Errors" tab. Share full dbt run output on failure, not just the last line |
 | **Est. tokens** | ~250–320K (most Python-heavy phase — DAGs + dbt models + BigQuery schemas) |
 | **Est. cost** | ~$1.65–2.15 |
+| **Est. time** | 6–8 days |
 
 ---
 
@@ -654,6 +703,10 @@ Make system production-ready.
 3. Scan container images (Trivy or Grype)
 4. Enable and review Kubernetes audit logs
 
+## ADRs
+
+* `adr-018-trivy-over-snyk.md` — Why Trivy (or Grype) over Snyk, Twistlock for image scanning
+
 ## Claude Efficiency
 
 | | |
@@ -664,6 +717,7 @@ Make system production-ready.
 | **Watch for** | NetworkPolicy is additive — a missing policy is not the same as an allow-all. Test with `kubectl exec` + curl to verify policies work as expected |
 | **Est. tokens** | ~110–150K |
 | **Est. cost** | ~$0.75–1.00 |
+| **Est. time** | 3–4 days |
 
 ---
 
@@ -721,6 +775,11 @@ Cover all six CKS exam domains with hands-on challenges. Requires CKA certificat
 * Falco documentation
 * CIS Kubernetes Benchmark (PDF)
 
+## ADRs
+
+* `adr-019-falco-over-sysdig.md` — Why Falco over Sysdig for runtime threat detection
+* `adr-020-kyverno-over-opa-gatekeeper.md` — Why Kyverno (or OPA Gatekeeper) for policy enforcement
+
 ## Claude Efficiency
 
 | | |
@@ -731,6 +790,7 @@ Cover all six CKS exam domains with hands-on challenges. Requires CKA certificat
 | **Watch for** | CKS exam is time-pressured — use Claude to understand concepts, but practice commands manually without assistance to build speed |
 | **Est. tokens** | ~200–270K (many new security tools with complex configs) |
 | **Est. cost** | ~$1.35–1.80 |
+| **Est. time** | 5–7 days lab + 4–6 weeks cert study (CKS) |
 
 > **Certification Milestone: CKS**
 > After completing Phase 10b, attempt the **Certified Kubernetes Security Specialist (CKS)** exam. The exam is performance-based (2 hours, live cluster). Practice speed — you will not have time to read docs for every answer.
@@ -774,6 +834,10 @@ Deploy a production-like system with:
 * Automated deployments
 * Multi-environment promotion (dev → staging → prod)
 
+## ADRs
+
+* `adr-021-multi-env-promotion.md` — How dev → staging → prod promotion is implemented (branch strategy, Terraform workspaces, ArgoCD ApplicationSets)
+
 ## Claude Efficiency
 
 | | |
@@ -784,6 +848,7 @@ Deploy a production-like system with:
 | **Watch for** | Start with a fresh `terraform apply` and document every manual step you have to take — those are the gaps to automate. Use `Plan` agent if stuck on how to wire two components together |
 | **Est. tokens** | ~350–500K (touches all phases, highest debugging surface) |
 | **Est. cost** | ~$2.30–3.35 |
+| **Est. time** | 7–10 days |
 
 ---
 
@@ -830,21 +895,22 @@ Completing all seven certifications alongside this project is equivalent to seni
 
 ## Total Claude Usage Estimate
 
-| Phase | Est. Tokens | Est. Cost |
-|---|---|---|
-| 0 — Foundations | 60–80K | ~$0.40–0.55 |
-| 1 — Terraform | 150–200K | ~$1.00–1.35 |
-| 2 — Kubernetes Core | 70–100K | ~$0.45–0.65 |
-| 3 — Helm & Microservices | 180–230K | ~$1.20–1.55 |
-| 4 — CI/CD | 120–160K | ~$0.80–1.05 |
-| 5 — GitOps | 70–100K | ~$0.45–0.65 |
-| 6 — Observability | 200–260K | ~$1.35–1.75 |
-| 7 — Vault | 130–170K | ~$0.85–1.15 |
-| 8 — Advanced Kubernetes | 110–150K | ~$0.75–1.00 |
-| 9 — Data Platform | 250–320K | ~$1.65–2.15 |
-| 10 — Security | 110–150K | ~$0.75–1.00 |
-| 10b — CKS Prep | 200–270K | ~$1.35–1.80 |
-| 11 — Capstone | 350–500K | ~$2.30–3.35 |
-| **Total** | **~2.0–2.5M** | **~$13–18** |
+| Phase | Est. Time | Est. Tokens | Est. Cost |
+|---|---|---|---|
+| 0 — Foundations | 2–3 days | 60–80K | ~$0.40–0.55 |
+| 1 — Terraform | 4–6 days | 150–200K | ~$1.00–1.35 |
+| 2 — Kubernetes Core | 2–3 days | 70–100K | ~$0.45–0.65 |
+| 3 — Helm & Microservices | 5–7 days | 180–230K | ~$1.20–1.55 |
+| 4 — CI/CD | 3–4 days | 120–160K | ~$0.80–1.05 |
+| 5 — GitOps | 2–3 days | 70–100K | ~$0.45–0.65 |
+| 6 — Observability | 5–7 days | 200–260K | ~$1.35–1.75 |
+| 7 — Vault | 4–5 days | 130–170K | ~$0.85–1.15 |
+| 8 — Advanced Kubernetes | 3–4 days + 4–8 wks cert | 110–150K | ~$0.75–1.00 |
+| 9 — Data Platform | 6–8 days | 250–320K | ~$1.65–2.15 |
+| 10 — Security | 3–4 days | 110–150K | ~$0.75–1.00 |
+| 10b — CKS Prep | 5–7 days + 4–6 wks cert | 200–270K | ~$1.35–1.80 |
+| 11 — Capstone | 7–10 days | 350–500K | ~$2.30–3.35 |
+| **Total lab** | **~55–75 days** | **~2.0–2.5M** | **~$13–18** |
+| **With cert study** | **~6–9 months** | | |
 
 > Estimates assume Claude Sonnet pricing ($3/M input tokens, $15/M output tokens) with a typical 70/30 input/output ratio. Debugging-heavy sessions will be at the higher end. The full lab costs less than a single technical book.
