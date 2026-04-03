@@ -1,8 +1,31 @@
 # Platform Engineering Lab — GKE
 
-A hands-on, end-to-end platform engineering project built on Google Kubernetes Engine. Each phase covers a real-world DevOps skill, progressing from Docker fundamentals to a fully automated, production-like platform with GitOps, observability, secrets management, and CI/CD.
+A hands-on, end-to-end platform engineering project built on Google Kubernetes Engine. Each phase solves a real business problem faced by **CoverLine** — a fictional digital health insurance platform (Alan-style) — as it grows from a 2-person startup to a 2,000,000-member enterprise.
 
-Built as a portfolio project and study path toward **CKA** and **CKS** certifications.
+Built as a portfolio project and study path toward **7 industry certifications**: Terraform Associate, GCP ACE, Prometheus Certified Associate, CKAD, CKA, GCP Professional Cloud DevOps Engineer, and CKS.
+
+---
+
+## The Product — CoverLine
+
+CoverLine is a B2B2C digital health insurer. Companies subscribe to offer health coverage to their employees. Members submit claims, manage their policy, and access their provider network through a web app.
+
+Each phase is motivated by a real engineering problem that emerged as CoverLine grew:
+
+| Phase | Members | Problem Solved |
+|---|---|---|
+| 0 | 0 | App only runs on one laptop — can't demo to investors |
+| 1 | 50 | Infrastructure provisioned by hand — can't reproduce it |
+| 2 | 200 | One bad deploy takes down the entire platform |
+| 3 | 1,000 | Teams block each other — everything deploys as one unit |
+| 4 | 5,000 | Manual deploys take half a day, releases are delayed |
+| 5 | 15,000 | Someone pushed to prod on a Friday and broke claims processing |
+| 6 | 50,000 | 4-hour outage — found out from a customer, not monitoring |
+| 7 | 100,000 | GDPR audit: DB credentials found in plaintext in Git |
+| 8 | 250,000 | Open enrollment — 10x traffic spike, app unresponsive for 45min |
+| 9 | 500,000 | Actuarial team manually exporting CSVs every Monday |
+| 10 | 1,000,000 | ISO 27001 audit — pods running as root, no network policies |
+| 11 | 2,000,000+ | Full platform — zero manual steps, multi-environment |
 
 ---
 
@@ -21,53 +44,67 @@ Built as a portfolio project and study path toward **CKA** and **CKS** certifica
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
 ![Apache Airflow](https://img.shields.io/badge/Airflow-017CEE?style=flat&logo=apache-airflow&logoColor=white)
 ![dbt](https://img.shields.io/badge/dbt-FF694B?style=flat&logo=dbt&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat&logo=redis&logoColor=white)
+![BigQuery](https://img.shields.io/badge/BigQuery-4285F4?style=flat&logo=google-cloud&logoColor=white)
 
 ---
 
 ## Architecture
 
 ```
-                        ┌─────────────────────────────────────────┐
-                        │              GCP Project                │
-                        │                                         │
-                        │  ┌─────────────────────────────────┐   │
-                        │  │            VPC                  │   │
-                        │  │                                 │   │
-                        │  │  ┌──────────┐  ┌────────────┐  │   │
-   Developer  ──push──▶ │  │  │  GKE     │  │  Artifact  │  │   │
-                        │  │  │  Cluster │  │  Registry  │  │   │
-   GitHub CI  ──build──▶│  │  │          │  └────────────┘  │   │
-              ──push──▶ │  │  │ ArgoCD   │                   │   │
-                        │  │  │ Helm     │                   │   │
-   ArgoCD  ──sync──────▶│  │  │ Vault    │                   │   │
-                        │  │  │ Prometheus│                  │   │
-                        │  │  │ Grafana  │                   │   │
-                        │  │  │ Loki     │                   │   │
-                        │  │  │ Falco    │                   │   │
-                        │  │  └──────────┘                   │   │
-                        │  └─────────────────────────────────┘   │
-                        └─────────────────────────────────────────┘
+                        ┌──────────────────────────────────────────────────┐
+                        │                   GCP Project                    │
+                        │                                                  │
+                        │  ┌────────────────────────────────────────────┐ │
+                        │  │                   VPC                      │ │
+                        │  │                                            │ │
+                        │  │  ┌─────────────────────┐  ┌────────────┐  │ │
+   Developer  ──push──▶ │  │  │    GKE Cluster       │  │  Artifact  │ │ │
+                        │  │  │                      │  │  Registry  │ │ │
+   GitHub CI  ──build──▶│  │  │  ArgoCD  │ Helm      │  └────────────┘ │ │
+              ──push──▶ │  │  │  Vault   │ Falco     │                  │ │
+                        │  │  │  Prometheus│ Grafana │  ┌────────────┐  │ │
+   ArgoCD  ──sync──────▶│  │  │  Loki    │ Airflow   │  │  BigQuery  │ │ │
+                        │  │  │  PostgreSQL│ Redis   │  └────────────┘  │ │
+                        │  │  └─────────────────────┘                   │ │
+                        │  └────────────────────────────────────────────┘ │
+                        └──────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Progress
 
-| Phase | Topic | Status |
+| Phase | Topic | Members | Status |
+|---|---|---|---|
+| 0 | Foundations (Docker, Linux, Git) | 0 | ✅ Complete |
+| 1 | Cloud & Terraform (GCP, VPC, GKE) | 50 | ✅ Complete |
+| 2 | Kubernetes Core (raw YAML) | 200 | ⬜ Not started |
+| 3 | Helm & Microservices + PostgreSQL + Redis | 1,000 | ⬜ Not started |
+| 4 | CI/CD Pipelines | 5,000 | ⬜ Not started |
+| 5 | GitOps with ArgoCD | 15,000 | ⬜ Not started |
+| 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | ⬜ Not started |
+| 7 | Secrets Management (Vault) | 100,000 | ⬜ Not started |
+| 8 | Advanced Kubernetes + **CKAD** + **CKA** | 250,000 | ⬜ Not started |
+| 9 | Data Platform (Airflow + dbt + BigQuery) + **GCP DevOps** | 500,000 | ⬜ Not started |
+| 10 | Security & Production Hardening | 1,000,000 | ⬜ Not started |
+| 10b | CKS Exam Preparation + **CKS** | 1,000,000 | ⬜ Not started |
+| 11 | Capstone Project | 2,000,000+ | ⬜ Not started |
+
+---
+
+## Certification Path
+
+| Certification | Issuer | After Phase |
 |---|---|---|
-| 0 | Foundations (Docker, Linux, Git) | ✅ Complete |
-| 1 | Cloud & Terraform (GCP, VPC, GKE) | ✅ Complete |
-| 2 | Kubernetes Core (raw YAML) | ⬜ Not started |
-| 3 | Helm & Microservices | ⬜ Not started |
-| 4 | CI/CD Pipelines | ⬜ Not started |
-| 5 | GitOps with ArgoCD | ⬜ Not started |
-| 6 | Observability (Prometheus, Grafana, Loki) | ⬜ Not started |
-| 7 | Secrets Management (Vault) | ⬜ Not started |
-| 8 | Advanced Kubernetes + **CKA** | ⬜ Not started |
-| 9 | Data Platform (Airflow + dbt) | ⬜ Not started |
-| 10 | Security & Production Hardening | ⬜ Not started |
-| 10b | CKS Exam Preparation + **CKS** | ⬜ Not started |
-| 11 | Capstone Project | ⬜ Not started |
+| Terraform Associate (003) | HashiCorp | Phase 1 |
+| Google Cloud Associate Cloud Engineer | Google | Phase 1 |
+| Prometheus Certified Associate (PCA) | CNCF | Phase 6 |
+| Certified Kubernetes Application Developer (CKAD) | CNCF | Phase 8 |
+| Certified Kubernetes Administrator (CKA) | CNCF | Phase 8 |
+| GCP Professional Cloud DevOps Engineer | Google | Phase 9 |
+| Certified Kubernetes Security Specialist (CKS) | CNCF | Phase 10b |
 
 ---
 
@@ -76,12 +113,13 @@ Built as a portfolio project and study path toward **CKA** and **CKS** certifica
 ```
 .
 ├── docs/
-│   └── decisions/        # Architecture Decision Records
+│   └── decisions/        # Architecture Decision Records (9 ADRs)
 ├── phase-0-foundations/
 ├── phase-1-terraform/
 │   └── modules/
 │       ├── networking/
-│       └── gke/
+│       ├── gke/
+│       └── bigquery/
 ├── phase-2-kubernetes/
 ├── phase-3-helm/
 ├── phase-4-ci-cd/
@@ -113,7 +151,7 @@ gcloud auth login
 gcloud auth application-default login
 ```
 
-> **Cost warning:** A running GKE cluster costs ~$5–20/day. Always run `terraform destroy` when you're done with a session.
+> **Cost warning:** A running GKE cluster costs ~$5–20/day. Always run `terraform destroy` when done with a session.
 
 ### Prerequisites
 
@@ -133,20 +171,20 @@ gcloud --version
 Each phase is developed on its own branch and merged via PR:
 
 ```bash
-git checkout -b phase-0
+git checkout -b phase-2
 # do work
-git push origin phase-0
-# open PR → merge to main
+git push origin phase-2
+# open PR → merge to main → tag release
 ```
 
 ---
 
 ## Architecture Decision Records
 
-Key design decisions are documented in [`docs/decisions/`](./docs/decisions/).
+9 ADRs documented in [`docs/decisions/`](./docs/decisions/) covering every major tool choice — from why GKE over self-managed Kubernetes to why Kubernetes-hosted databases over Cloud SQL.
 
 ---
 
 ## Roadmap
 
-See [roadmap.md](./roadmap.md) for the full phase-by-phase plan, challenges, and certification milestones.
+See [roadmap.md](./roadmap.md) for the full phase-by-phase plan, CoverLine business context, cost estimates, and certification milestones.

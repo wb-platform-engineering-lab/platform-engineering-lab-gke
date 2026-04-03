@@ -169,6 +169,17 @@ Build strong fundamentals before touching Kubernetes.
 * Multi-stage Dockerfiles for both services with optimized image sizes
 * Basic understanding of container networking and inter-service communication
 
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase, `simplify` after writing Dockerfiles |
+| **Agents** | None needed — files are small and self-contained |
+| **Key tools** | `Write`, `Edit`, `Bash` (docker build/run), `WebFetch` (Docker docs) |
+| **Watch for** | Use `Bash` to run `docker images` and verify image sizes after each build |
+| **Est. tokens** | ~60–80K |
+| **Est. cost** | ~$0.40–0.55 |
+
 ---
 
 # Phase 1 — Cloud & Terraform (GCP)
@@ -214,6 +225,17 @@ Reusable Terraform modules for:
 
 Deployable to at least two environments (dev and staging) with environment-specific variables.
 
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase, `simplify` after writing modules |
+| **Agents** | `Plan` before designing module structure — ask it to design the VPC + GKE module layout first |
+| **Key tools** | `Write`, `Edit`, `Bash` (terraform commands + gcloud), `WebFetch` (GCP provider docs) |
+| **Watch for** | Terraform errors are verbose — paste the full error, not just the last line. Use `Bash` to run `terraform plan` before `apply` |
+| **Est. tokens** | ~150–200K (debugging GCP quota and auth issues adds tokens) |
+| **Est. cost** | ~$1.00–1.35 |
+
 > **Cost reminder:** Run `terraform destroy` after completing this phase to avoid ongoing GCP charges.
 
 ---
@@ -252,6 +274,17 @@ Understand raw Kubernetes before abstractions.
 2. Expose it via Service + Ingress
 3. Inject environment variables via ConfigMaps
 4. Debug a failing pod
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase, `simplify` after writing YAML manifests |
+| **Agents** | `Explore` to navigate existing manifests; none needed for new YAML |
+| **Key tools** | `Write`, `Edit`, `Bash` (kubectl commands), `WebFetch` (Kubernetes docs) |
+| **Watch for** | Paste full `kubectl describe pod` output when debugging — not just the error line |
+| **Est. tokens** | ~70–100K |
+| **Est. cost** | ~$0.45–0.65 |
 
 ---
 
@@ -296,6 +329,17 @@ Package and deploy applications properly, including stateful services.
 ## Note on managed vs self-hosted
 PostgreSQL and Redis are deployed as Kubernetes StatefulSets in this phase to practice PVCs, StatefulSets, and Helm. In production these would be Cloud SQL and Cloud Memorystore (managed GCP services) to reduce operational overhead.
 
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase, `simplify` after writing Helm chart templates |
+| **Agents** | `Plan` before designing the Helm chart structure — especially for multi-service layout |
+| **Key tools** | `Write`, `Edit`, `Bash` (helm install/upgrade/template), `WebFetch` (Bitnami chart docs) |
+| **Watch for** | Use `helm template` to render charts locally before deploying — catches templating errors early |
+| **Est. tokens** | ~180–230K (Helm templating + StatefulSet debugging is token-heavy) |
+| **Est. cost** | ~$1.20–1.55 |
+
 ---
 
 # Phase 4 — CI/CD Pipelines
@@ -328,6 +372,17 @@ Automate build and delivery before introducing GitOps — so there is a real pip
 3. Push to container registry (GCR or Artifact Registry)
 4. Update the Helm chart image tag automatically
 5. Add a test stage before image push
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase, `update-config` if adding new env vars to settings |
+| **Agents** | `Explore` to inspect existing Helm charts before writing the pipeline |
+| **Key tools** | `Write` (workflow YAML), `Edit`, `WebFetch` (GitHub Actions / GitLab CI docs), `Bash` (test pipeline locally with `act`) |
+| **Watch for** | Share the full pipeline run log on failure — GitHub Actions truncates errors in the UI |
+| **Est. tokens** | ~120–160K |
+| **Est. cost** | ~$0.80–1.05 |
 
 ---
 
@@ -362,6 +417,17 @@ Automate deployments using GitOps, driven by the CI/CD pipeline from Phase 4.
 ## ADR
 
 Write `docs/decisions/adr-001-argocd-over-flux.md` explaining why ArgoCD was chosen.
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase |
+| **Agents** | None needed — ArgoCD Application YAML is compact |
+| **Key tools** | `Write` (Application YAML), `Bash` (argocd CLI + kubectl), `WebFetch` (ArgoCD docs) |
+| **Watch for** | Share `argocd app get <name>` output when debugging sync failures — it contains the full diff |
+| **Est. tokens** | ~70–100K |
+| **Est. cost** | ~$0.45–0.65 |
 
 ---
 
@@ -400,6 +466,17 @@ Monitor and debug systems.
 
 ---
 
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase, `simplify` after writing PromQL alert rules |
+| **Agents** | `Plan` for designing the full observability stack before installing — Prometheus, Grafana, and Loki have many config options |
+| **Key tools** | `Write` (PrometheusRule, Grafana dashboard JSON), `Bash` (helm install, kubectl port-forward), `WebFetch` (PromQL docs, kube-prometheus-stack docs) |
+| **Watch for** | This phase is memory-heavy — if pods are OOMKilled, share `kubectl top nodes` output. Prometheus scrape config errors are silent by default — check Prometheus UI targets page |
+| **Est. tokens** | ~200–260K (most config-heavy phase after Capstone) |
+| **Est. cost** | ~$1.35–1.75 |
+
 > **Certification Milestone: Prometheus Certified Associate (PCA)**
 > After completing Phase 6 you have the hands-on knowledge for the **Prometheus Certified Associate (PCA)** exam — covers PromQL, alerting, recording rules, Alertmanager, and Grafana dashboards. [Study guide](https://training.linuxfoundation.org/certification/prometheus-certified-associate/)
 
@@ -436,6 +513,17 @@ Secure secrets properly — injecting them into both pods and CI/CD pipelines.
 4. Rotate secrets dynamically
 5. Integrate Vault with the CI/CD pipeline from Phase 4
 
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase, `simplify` after writing Vault policies |
+| **Agents** | `Plan` before setting up Kubernetes auth — the Vault + K8s trust chain has several steps that must be done in order |
+| **Key tools** | `Write` (Vault policies, agent config), `Bash` (vault CLI commands), `WebFetch` (Vault K8s auth docs) |
+| **Watch for** | Vault errors are often cryptic — share the full `vault status` and `kubectl logs` of the Vault agent injector when debugging injection failures |
+| **Est. tokens** | ~130–170K |
+| **Est. cost** | ~$0.85–1.15 |
+
 ---
 
 # Phase 8 — Advanced Kubernetes
@@ -468,6 +556,17 @@ Operate production-grade clusters.
 4. Configure scale-to-zero for non-production environments
 
 ---
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase, `simplify` after writing HPA and PDB configs |
+| **Agents** | `Explore` to review existing deployments before adding autoscaling — resource limits must exist before HPA works |
+| **Key tools** | `Write` (HPA, PDB YAML), `Bash` (kubectl top, load testing with `k6` or `hey`), `WebFetch` (HPA docs) |
+| **Watch for** | HPA won't scale without metrics-server installed — verify with `kubectl get hpa` showing `<unknown>` targets. Share full output |
+| **Est. tokens** | ~110–150K |
+| **Est. cost** | ~$0.75–1.00 |
 
 > **Certification Milestone: CKAD + CKA**
 > After completing Phase 8 you have the practical knowledge for two Kubernetes certifications — attempt them in order:
@@ -507,6 +606,17 @@ Build a modern data pipeline.
 3. Use dbt for transformations
 4. Store results in a data warehouse
 
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase, `simplify` after writing Airflow DAGs and dbt models |
+| **Agents** | `Plan` before designing the DAG and dbt model structure — this is the most architecturally complex phase. `general-purpose` agent for researching Airflow + BigQuery integration patterns |
+| **Key tools** | `Write` (DAGs, dbt models, schemas), `Edit`, `Bash` (airflow CLI, dbt run/test), `WebFetch` (Airflow docs, dbt-bigquery adapter docs) |
+| **Watch for** | Airflow DAG import errors are silent — always check the Airflow UI "Import Errors" tab. Share full dbt run output on failure, not just the last line |
+| **Est. tokens** | ~250–320K (most Python-heavy phase — DAGs + dbt models + BigQuery schemas) |
+| **Est. cost** | ~$1.65–2.15 |
+
 ---
 
 > **Certification Milestone: Google Cloud Professional Cloud DevOps Engineer**
@@ -543,6 +653,17 @@ Make system production-ready.
 2. Apply least privilege IAM and service account bindings
 3. Scan container images (Trivy or Grype)
 4. Enable and review Kubernetes audit logs
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase, `simplify` after writing NetworkPolicy and RBAC YAML |
+| **Agents** | `Explore` to audit existing RBAC and service account configs before writing new policies |
+| **Key tools** | `Write` (NetworkPolicy, RBAC), `Bash` (trivy/grype scan commands, kubectl auth can-i), `WebFetch` (CIS Kubernetes Benchmark) |
+| **Watch for** | NetworkPolicy is additive — a missing policy is not the same as an allow-all. Test with `kubectl exec` + curl to verify policies work as expected |
+| **Est. tokens** | ~110–150K |
+| **Est. cost** | ~$0.75–1.00 |
 
 ---
 
@@ -600,6 +721,17 @@ Cover all six CKS exam domains with hands-on challenges. Requires CKA certificat
 * Falco documentation
 * CIS Kubernetes Benchmark (PDF)
 
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at end of phase |
+| **Agents** | `general-purpose` agent for researching specific CKS topics (AppArmor syntax, seccomp profiles, OPA Gatekeeper policies) — these are niche and benefit from web search |
+| **Key tools** | `Write` (AppArmor profiles, Falco rules, Kyverno policies), `Bash` (kube-bench, kubectl), `WebFetch` (Kubernetes security docs, Falco docs) |
+| **Watch for** | CKS exam is time-pressured — use Claude to understand concepts, but practice commands manually without assistance to build speed |
+| **Est. tokens** | ~200–270K (many new security tools with complex configs) |
+| **Est. cost** | ~$1.35–1.80 |
+
 > **Certification Milestone: CKS**
 > After completing Phase 10b, attempt the **Certified Kubernetes Security Specialist (CKS)** exam. The exam is performance-based (2 hours, live cluster). Practice speed — you will not have time to read docs for every answer.
 
@@ -641,6 +773,17 @@ Deploy a production-like system with:
 * Secure secret handling
 * Automated deployments
 * Multi-environment promotion (dev → staging → prod)
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at each milestone, `simplify` across all phases, `/review-pr` before merging the final PR |
+| **Agents** | `Plan` to design the assembly strategy before starting — critical for avoiding conflicts between phases. `Explore` to audit all previous phase outputs before wiring them together |
+| **Key tools** | All tools — this phase touches every part of the codebase |
+| **Watch for** | Start with a fresh `terraform apply` and document every manual step you have to take — those are the gaps to automate. Use `Plan` agent if stuck on how to wire two components together |
+| **Est. tokens** | ~350–500K (touches all phases, highest debugging surface) |
+| **Est. cost** | ~$2.30–3.35 |
 
 ---
 
@@ -684,3 +827,24 @@ By completing this roadmap, the user should be able to:
 | CKS | CNCF / Linux Foundation | Phase 10b | Kubernetes security |
 
 Completing all seven certifications alongside this project is equivalent to senior-level Platform Engineering experience, with industry-recognized credentials to prove it.
+
+## Total Claude Usage Estimate
+
+| Phase | Est. Tokens | Est. Cost |
+|---|---|---|
+| 0 — Foundations | 60–80K | ~$0.40–0.55 |
+| 1 — Terraform | 150–200K | ~$1.00–1.35 |
+| 2 — Kubernetes Core | 70–100K | ~$0.45–0.65 |
+| 3 — Helm & Microservices | 180–230K | ~$1.20–1.55 |
+| 4 — CI/CD | 120–160K | ~$0.80–1.05 |
+| 5 — GitOps | 70–100K | ~$0.45–0.65 |
+| 6 — Observability | 200–260K | ~$1.35–1.75 |
+| 7 — Vault | 130–170K | ~$0.85–1.15 |
+| 8 — Advanced Kubernetes | 110–150K | ~$0.75–1.00 |
+| 9 — Data Platform | 250–320K | ~$1.65–2.15 |
+| 10 — Security | 110–150K | ~$0.75–1.00 |
+| 10b — CKS Prep | 200–270K | ~$1.35–1.80 |
+| 11 — Capstone | 350–500K | ~$2.30–3.35 |
+| **Total** | **~2.0–2.5M** | **~$13–18** |
+
+> Estimates assume Claude Sonnet pricing ($3/M input tokens, $15/M output tokens) with a typical 70/30 input/output ratio. Debugging-heavy sessions will be at the higher end. The full lab costs less than a single technical book.
