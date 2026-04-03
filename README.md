@@ -55,7 +55,7 @@ Built as a portfolio project and study path toward **CKA** and **CKS** certifica
 
 | Phase | Topic | Status |
 |---|---|---|
-| 0 | Foundations (Docker, Linux, Git) | ⬜ Not started |
+| 0 | Foundations (Docker, Linux, Git) | ✅ Complete |
 | 1 | Cloud & Terraform (GCP, VPC, GKE) | ⬜ Not started |
 | 2 | Kubernetes Core (raw YAML) | ⬜ Not started |
 | 3 | Helm & Microservices | ⬜ Not started |
