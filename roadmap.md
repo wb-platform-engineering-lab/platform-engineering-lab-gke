@@ -44,6 +44,7 @@ Every phase is grounded in a realistic business scenario. The product is **Cover
 | 10 | Enterprise | 1,000,000 members | ISO 27001 audit — need verifiable proof of least privilege, network isolation, and image provenance |
 | 10b | CKS prep | 1,000,000 members | Security team formalises Kubernetes hardening ahead of certification audit |
 | 11 | Capstone | 2,000,000+ members | Full platform, zero manual steps, multi-region ready |
+| 12 | GenAI & Agentic | 3,000,000+ members | AI claims triage assistant cuts manual review by 60% — platform team needs to deploy, observe, and govern LLM workloads |
 
 ---
 
@@ -89,6 +90,7 @@ Before starting, ensure the following tools are installed and configured:
 | 10 | None | ~$7–10 | Same cluster |
 | 10b | None | ~$7–10 | Same cluster |
 | 11 | Everything running together | ~$15–25 | Full platform: all services active simultaneously |
+| 12 | Claude API calls (~500K tokens/day in testing) | ~$5–8 + ~$1–3 API | Cluster cost unchanged; Claude API usage billed separately (~$3/M input tokens) |
 
 **Free tier:** New GCP accounts get **$300 in free credits** — enough to complete the entire lab if you destroy resources between sessions.
 
@@ -113,7 +115,8 @@ platform-engineering-lab-gke/
 ├── phase-9-data-platform/
 ├── phase-10-security/
 ├── phase-10b-cks/
-└── phase-11-capstone/
+├── phase-11-capstone/
+└── phase-12-genai/
 ```
 
 ---
@@ -856,6 +859,85 @@ Deploy a production-like system with:
 
 ---
 
+# Phase 12 — GenAI & Agentic Platform
+
+## Business Context
+
+> **CoverLine — Series D, 3,000,000+ covered members**
+> CoverLine's claims operations team is drowning. With 3M members, over 8,000 claims are submitted every day. Manual triage takes 48–72 hours and costs €4 per claim in human review time. The medical director proposes an AI triage assistant: an agentic system that reads incoming claims, queries the member's policy and history from the database, decides whether to auto-approve, flag for review, or reject, and posts a structured explanation to the case management system.
+>
+> The platform team is tasked with deploying, observing, and governing this system — without touching the ML model itself.
+
+## Objective
+
+Deploy an agentic AI workflow on top of the existing platform. Integrate the Claude API into real infrastructure — not a toy demo.
+
+## Topics
+
+* Claude API + Anthropic SDK (Python)
+* Agentic workflows — tool use, multi-step reasoning
+* LLM observability — token usage, latency, cost tracking in Prometheus/Grafana
+* Prompt management and versioning
+* Rate limiting and cost controls for LLM APIs
+* Airflow DAG triggering an agentic pipeline
+* Structured outputs and schema validation
+
+## Challenges
+
+1. **Claims triage agent** — Build an agent using the Anthropic SDK that reads a claim from the PostgreSQL database, queries the member's policy, and returns a structured triage decision (approve / review / reject + reason)
+2. **Airflow integration** — Wrap the agent in an Airflow DAG so it runs automatically on new claims batches
+3. **LLM observability** — Track token usage, latency, and cost per claim in Prometheus; build a Grafana dashboard showing daily spend and p95 response times
+4. **Weekly summary agent** — Agent that queries BigQuery for weekly claims trends and posts a structured Slack/webhook report — replacing the manual CSV export from Phase 9
+5. **On-call assistant** (bonus) — Agent that reads Grafana alert state, queries recent logs via Loki API, and posts a root cause hypothesis to a webhook
+
+## Agentic Architecture
+
+```
+Airflow DAG (daily)
+    └── Python operator → Claude API (claude-sonnet-4-6)
+            ├── Tool: query_claim(claim_id) → PostgreSQL
+            ├── Tool: get_policy(member_id) → PostgreSQL
+            ├── Tool: get_claim_history(member_id) → PostgreSQL
+            └── Returns: TriageDecision { decision, confidence, reason }
+                    └── Write result → PostgreSQL (claims.triage table)
+                    └── Emit metrics → Prometheus pushgateway
+```
+
+## Expected Outcome
+
+* A working claims triage agent deployed as an Airflow DAG, processing real (seeded) claim data
+* Grafana dashboard showing LLM cost per day, tokens per claim, and triage decision distribution
+* Weekly summary agent replacing the manual reporting workflow from Phase 9
+* ADR documenting LLM governance decisions
+
+## GenAI Woven Into Earlier Phases
+
+These additions can be applied retroactively to earlier phases or picked up in Phase 12:
+
+| Phase | GenAI Addition |
+|---|---|
+| Phase 6 (Observability) | On-call assistant: agent reads Grafana alerts + Loki logs and posts root cause hypothesis |
+| Phase 9 (Data Platform) | Replace manual CSV export with a weekly claims summary agent posting to Slack |
+
+## ADRs
+
+* `adr-023-llm-provider.md` — Why Claude (Anthropic) over OpenAI, Gemini, self-hosted Ollama
+* `adr-024-agentic-framework.md` — Why raw Anthropic SDK over LangChain, LlamaIndex, CrewAI
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` at each agent milestone, `claude-api` skill for Anthropic SDK patterns |
+| **Agents** | `Plan` to design the tool schema before building the agent. `Explore` to map existing Phase 9 DAGs before adding the new one |
+| **Key tools** | `Write` (agent code, DAG), `Edit` (add metrics instrumentation), `Bash` (test agent locally, check Prometheus metrics) |
+| **Watch for** | Always validate structured output schema before writing to DB. Add token count logging from day one — cost surprises happen fast in agentic loops |
+| **Est. tokens** | ~150–200K |
+| **Est. cost** | ~$1.00–1.35 (Claude Code) + Claude API usage during testing |
+| **Est. time** | 4–6 days |
+
+---
+
 # Instructions for Claude
 
 When guiding the user:
@@ -882,6 +964,7 @@ By completing this roadmap, the user should be able to:
 * Build CI/CD pipelines
 * Monitor and secure production systems
 * Deploy data pipelines
+* Build and operate agentic AI workflows on production infrastructure
 
 ## Certification Path
 
@@ -896,6 +979,8 @@ By completing this roadmap, the user should be able to:
 | CKS | CNCF / Linux Foundation | Phase 10b | Kubernetes security |
 
 Completing all seven certifications alongside this project is equivalent to senior-level Platform Engineering experience, with industry-recognized credentials to prove it.
+
+> **Phase 12 note:** No dedicated certification exists yet for agentic AI on Kubernetes, but the skills map directly to the Google Cloud Professional Machine Learning Engineer and the emerging AI Engineering role. The Anthropic API proficiency demonstrated in Phase 12 is increasingly a hiring filter at cloud-native companies.
 
 ## Total Claude Usage Estimate
 
@@ -914,7 +999,8 @@ Completing all seven certifications alongside this project is equivalent to seni
 | 10 — Security | 3–4 days | 110–150K | ~$0.75–1.00 |
 | 10b — CKS Prep | 5–7 days + 4–6 wks cert | 200–270K | ~$1.35–1.80 |
 | 11 — Capstone | 7–10 days | 350–500K | ~$2.30–3.35 |
-| **Total lab** | **~55–75 days** | **~2.0–2.5M** | **~$13–18** |
+| 12 — GenAI & Agentic | 4–6 days | 150–200K | ~$1.00–1.35 |
+| **Total lab** | **~60–80 days** | **~2.2–2.7M** | **~$14–19** |
 | **With cert study** | **~6–9 months** | | |
 
 > Estimates assume Claude Sonnet pricing ($3/M input tokens, $15/M output tokens) with a typical 70/30 input/output ratio. Debugging-heavy sessions will be at the higher end. The full lab costs less than a single technical book.

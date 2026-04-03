@@ -47,6 +47,7 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat&logo=redis&logoColor=white)
 ![BigQuery](https://img.shields.io/badge/BigQuery-4285F4?style=flat&logo=google-cloud&logoColor=white)
+![Claude](https://img.shields.io/badge/Claude_API-D97757?style=flat&logo=anthropic&logoColor=white)
 
 ---
 
@@ -91,7 +92,8 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 10 | Security & Production Hardening | 1,000,000 | 3–4 days | ⬜ Not started |
 | 10b | CKS Exam Preparation + **CKS** | 1,000,000 | 5–7 days + 4–6 wks cert | ⬜ Not started |
 | 11 | Capstone Project | 2,000,000+ | 7–10 days | ⬜ Not started |
-| | **Total lab work** | | **~55–75 days** | |
+| 12 | GenAI & Agentic Workflows (Claude API, Airflow + LLM) | 3,000,000+ | 4–6 days | ⬜ Not started |
+| | **Total lab work** | | **~60–80 days** | |
 | | **With cert study** | | **~6–9 months** | |
 
 ---
@@ -132,7 +134,8 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 ├── phase-9-data-platform/
 ├── phase-10-security/
 ├── phase-10b-cks/
-└── phase-11-capstone/
+├── phase-11-capstone/
+└── phase-12-genai/
 ```
 
 ---
