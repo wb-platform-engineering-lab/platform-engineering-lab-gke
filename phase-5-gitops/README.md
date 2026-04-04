@@ -9,6 +9,19 @@
 - Automated sync with self-heal and prune enabled
 - GitOps loop verified: change `values.yaml` → push to main → ArgoCD auto-syncs → cluster updated
 
+## Screenshots
+
+### Applications — Synced & Healthy
+![ArgoCD Applications](screenshots/argocd-apps.png)
+
+### Backend — Resource Graph
+![ArgoCD Backend Graph](screenshots/argocd-backend-graph.png)
+
+### Sync History
+![ArgoCD Sync History](screenshots/argocd-sync-history.png)
+
+---
+
 ## GitOps Flow
 
 ```
