@@ -91,9 +91,10 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 9 | Data Platform (Airflow + dbt + BigQuery) + **GCP DevOps** | 500,000 | 6–8 days | ⬜ Not started |
 | 10 | Security & Production Hardening | 1,000,000 | 3–4 days | ⬜ Not started |
 | 10b | CKS Exam Preparation + **CKS** | 1,000,000 | 5–7 days + 4–6 wks cert | ⬜ Not started |
+| 10c | Backup & Disaster Recovery (Velero, pg_dump, DR runbook) | 1,000,000 | 3–4 days | ⬜ Not started |
 | 11 | Capstone Project | 2,000,000+ | 7–10 days | ⬜ Not started |
 | 12 | GenAI & Agentic Workflows (Claude API, Airflow + LLM) | 3,000,000+ | 4–6 days | ⬜ Not started |
-| | **Total lab work** | | **~60–80 days** | |
+| | **Total lab work** | | **~63–84 days** | |
 | | **With cert study** | | **~6–9 months** | |
 
 ---
@@ -134,6 +135,7 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 ├── phase-9-data-platform/
 ├── phase-10-security/
 ├── phase-10b-cks/
+├── phase-10c-backup-dr/
 ├── phase-11-capstone/
 └── phase-12-genai/
 ```

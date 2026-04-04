@@ -43,6 +43,7 @@ Every phase is grounded in a realistic business scenario. The product is **Cover
 | 9 | Data team hired | 500,000 members | Actuarial team needs claims analytics in BigQuery — developers manually exporting CSVs every week |
 | 10 | Enterprise | 1,000,000 members | ISO 27001 audit — need verifiable proof of least privilege, network isolation, and image provenance |
 | 10b | CKS prep | 1,000,000 members | Security team formalises Kubernetes hardening ahead of certification audit |
+| 10c | Backup & DR | 1,000,000 members | Enterprise client SLA requires RTO 4h / RPO 1h — no tested DR plan exists |
 | 11 | Capstone | 2,000,000+ members | Full platform, zero manual steps, multi-region ready |
 | 12 | GenAI & Agentic | 3,000,000+ members | AI claims triage assistant cuts manual review by 60% — platform team needs to deploy, observe, and govern LLM workloads |
 
@@ -89,6 +90,7 @@ Before starting, ensure the following tools are installed and configured:
 | 9 | Airflow workers, BigQuery queries | ~$8–12 | Airflow needs more CPU/memory |
 | 10 | None | ~$7–10 | Same cluster |
 | 10b | None | ~$7–10 | Same cluster |
+| 10c | GCS buckets for backups (~$0.02/GB/month) | ~$7–10 | Velero + pg_dump + Vault snapshots stored in GCS — negligible storage cost at lab scale |
 | 11 | Everything running together | ~$15–25 | Full platform: all services active simultaneously |
 | 12 | Claude API calls (~500K tokens/day in testing) | ~$5–8 + ~$1–3 API | Cluster cost unchanged; Claude API usage billed separately (~$3/M input tokens) |
 
@@ -115,6 +117,7 @@ platform-engineering-lab-gke/
 ├── phase-9-data-platform/
 ├── phase-10-security/
 ├── phase-10b-cks/
+├── phase-10c-backup-dr/
 ├── phase-11-capstone/
 └── phase-12-genai/
 ```
@@ -804,6 +807,89 @@ Cover all six CKS exam domains with hands-on challenges. Requires CKA certificat
 
 ---
 
+# Phase 10c — Backup & Disaster Recovery
+
+## Business Context
+
+> **CoverLine — 1,000,000 covered members, enterprise SLA**
+> A major corporate client — a 12,000-employee company — signs a master services agreement with a contractual RTO of 4 hours and RPO of 1 hour for claims data. Legal flags that CoverLine has no tested DR plan. The engineering team has backups in theory but has never restored from them. A tabletop exercise reveals that a full cluster loss would take 2–3 days to recover from manually.
+>
+> **Goal:** Implement and test a DR strategy that meets the contractual SLA.
+
+## Objective
+
+Design, implement, and test a backup and disaster recovery strategy for all stateful components of the platform.
+
+## Topics
+
+* GCS bucket versioning and lifecycle policies
+* PostgreSQL continuous backup — WAL archiving + `pg_dump` CronJobs to GCS
+* Velero — Kubernetes workload and PVC backup/restore
+* Vault snapshot automation
+* Terraform state backup (GCS versioning already in place)
+* RTO/RPO concepts and how to measure them
+* DR runbook — written, version-controlled, and tested
+
+## Challenges
+
+1. **PostgreSQL backup** — Deploy a Kubernetes CronJob that runs `pg_dump` nightly, uploads to GCS, and alerts via Prometheus if the job fails
+2. **Restore test** — Simulate a PostgreSQL failure, restore from the latest GCS backup, and measure actual RTO
+3. **Velero** — Install Velero with a GCS backend. Back up the `coverline` namespace. Delete the namespace. Restore it. Verify data integrity
+4. **Vault snapshots** — Configure automated Vault snapshots to GCS on a schedule
+5. **DR runbook** — Write a step-by-step runbook in `docs/runbooks/dr-recovery.md` covering: cluster loss, database loss, Vault loss. Each section must include estimated time and validation steps
+6. **RTO/RPO measurement** — Run a timed DR drill. Record actual recovery time against the 4-hour contractual RTO. Document gaps
+
+## Backup Architecture
+
+```
+PostgreSQL (nightly)
+    └── pg_dump CronJob → GCS bucket (versioned, 30-day retention)
+
+Kubernetes workloads (daily)
+    └── Velero → GCS bucket (namespace snapshots)
+
+Vault (hourly)
+    └── vault operator raft snapshot → GCS bucket
+
+Terraform state
+    └── GCS backend with versioning (already in place from Phase 1)
+```
+
+## Expected Outcome
+
+* All stateful components have automated backups running on schedule
+* A tested restore procedure with measured RTO (target: < 4 hours)
+* DR runbook committed to the repo at `docs/runbooks/dr-recovery.md`
+* Prometheus alert firing if any backup job fails
+
+## Backup Woven Into Earlier Phases
+
+These additions reinforce DR concepts in context:
+
+| Phase | DR Addition |
+|---|---|
+| Phase 3 (Helm) | Add `pg_dump` CronJob to PostgreSQL Helm values |
+| Phase 7 (Vault) | Add Vault snapshot CronJob |
+| Phase 9 (Data Platform) | BigQuery dataset export to GCS as part of Airflow DAG |
+
+## ADRs
+
+* `adr-025-velero-backup.md` — Why Velero over manual `kubectl` exports or GCP-native Backup for GKE
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` after each backup component is tested end-to-end |
+| **Agents** | `Explore` to audit existing StatefulSets and PVCs before designing backup scope |
+| **Key tools** | `Write` (CronJob manifests, DR runbook), `Bash` (velero CLI, gsutil, pg_restore), `WebFetch` (Velero docs) |
+| **Watch for** | Always test restore, not just backup — a backup that has never been restored is not a backup. Run the drill before marking the phase complete |
+| **Est. tokens** | ~100–140K |
+| **Est. cost** | ~$0.65–0.95 |
+| **Est. time** | 3–4 days |
+
+---
+
 # Phase 11 — Capstone Project
 
 ## Business Context
@@ -998,9 +1084,10 @@ Completing all seven certifications alongside this project is equivalent to seni
 | 9 — Data Platform | 6–8 days | 250–320K | ~$1.65–2.15 |
 | 10 — Security | 3–4 days | 110–150K | ~$0.75–1.00 |
 | 10b — CKS Prep | 5–7 days + 4–6 wks cert | 200–270K | ~$1.35–1.80 |
+| 10c — Backup & DR | 3–4 days | 100–140K | ~$0.65–0.95 |
 | 11 — Capstone | 7–10 days | 350–500K | ~$2.30–3.35 |
 | 12 — GenAI & Agentic | 4–6 days | 150–200K | ~$1.00–1.35 |
-| **Total lab** | **~60–80 days** | **~2.2–2.7M** | **~$14–19** |
+| **Total lab** | **~63–84 days** | **~2.3–2.84M** | **~$15–20** |
 | **With cert study** | **~6–9 months** | | |
 
 > Estimates assume Claude Sonnet pricing ($3/M input tokens, $15/M output tokens) with a typical 70/30 input/output ratio. Debugging-heavy sessions will be at the higher end. The full lab costs less than a single technical book.
