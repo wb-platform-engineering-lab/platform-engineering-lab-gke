@@ -126,6 +126,21 @@ echo 'export PATH=$PATH:/opt/homebrew/share/google-cloud-sdk/bin' >> ~/.zshrc
 
 ---
 
+### 5. `TLS handshake timeout` when running kubectl
+
+**Symptom:** `kubectl get nodes` fails with `net/http: TLS handshake timeout` after the plugin is found.
+
+**Cause:** The GKE cluster no longer exists — the nightly auto-destroy workflow deleted it.
+
+**Fix:** Reprovision the cluster and reconnect kubectl:
+```bash
+cd phase-1-terraform && terraform apply -auto-approve
+gcloud container clusters get-credentials platform-eng-lab-will-gke \
+  --region us-central1 --project platform-eng-lab-will
+```
+
+---
+
 ### 4. `could not find default credentials`
 **Symptom:** `terraform init` fails with `storage.NewClient() failed: dialing: google: could not find default credentials`.
 
