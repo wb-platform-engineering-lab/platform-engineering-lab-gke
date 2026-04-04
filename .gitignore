@@ -17,6 +17,7 @@ crash.*.log
 # Helm
 *.tgz
 charts/
+!phase-*/charts/
 
 # Docker
 .dockerignore
