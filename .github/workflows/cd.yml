@@ -71,13 +71,13 @@ jobs:
 
       - name: Deploy backend
         run: |
-          helm upgrade coverline phase-3-helm/charts/backend/ \
+          helm upgrade --install coverline phase-3-helm/charts/backend/ \
             --set image.tag=${{ github.sha }} \
             --wait --timeout 5m
 
       - name: Deploy frontend
         run: |
-          helm upgrade coverline-frontend phase-3-helm/charts/frontend/ \
+          helm upgrade --install coverline-frontend phase-3-helm/charts/frontend/ \
             --set image.tag=${{ github.sha }} \
             --wait --timeout 5m
 
