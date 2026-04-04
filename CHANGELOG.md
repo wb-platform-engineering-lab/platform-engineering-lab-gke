@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.0.0] — 2026-04-04
+
+### Phase 5 — GitOps with ArgoCD
+
+#### Added
+- ArgoCD installed on GKE via official manifests
+- `coverline-backend` ArgoCD Application watching `phase-3-helm/charts/backend` on `main` branch
+- `coverline-frontend` ArgoCD Application watching `phase-3-helm/charts/frontend` on `main` branch
+- Automated sync with `selfHeal: true` and `prune: true` — cluster always matches repo state
+- GitOps loop verified end-to-end: change `values.yaml` → push to main → ArgoCD auto-syncs → pods updated
+- Phase 5 README with GitOps flow diagram, install steps, and troubleshooting
+
+---
+
 ## [4.0.0] — 2026-04-04
 
 ### Phase 4 — CI/CD Pipelines
