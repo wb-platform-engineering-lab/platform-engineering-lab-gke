@@ -1,4 +1,4 @@
-replicaCount: 2
+replicaCount: 3
 
 image:
   repository: us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend
