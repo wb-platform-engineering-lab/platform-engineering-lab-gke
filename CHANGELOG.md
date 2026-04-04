@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.0] — 2026-04-04
+
+### Phase 4 — CI/CD Pipelines
+
+#### Added
+- GitHub Actions CI workflow (`ci.yml`) — builds and pushes Docker images to Artifact Registry on every feature branch push, tagged with git SHA and `dev`
+- GitHub Actions CD workflow (`cd.yml`) — builds, pushes images tagged with SHA and `latest`, deploys to GKE via Helm on every merge to main
+- GCP Workload Identity Federation — GitHub Actions authenticates to GCP via OIDC, no JSON keys stored in GitHub secrets
+- Dedicated `github-ci` service account with least-privilege permissions (`artifactregistry.writer` + `container.developer`)
+- Phase 4 README with pipeline overview, full GCP setup commands, and troubleshooting
+
+#### Fixed
+- `gke-gcloud-auth-plugin` installed in CD runner to fix `Kubernetes cluster unreachable` error
+- `--install` flag added to `helm upgrade` to handle first-time deploys
+- CD `paths` trigger extended to include `.github/workflows/cd.yml` to allow workflow-only changes to trigger deploys
+
+---
+
 ## [3.0.0] — 2026-04-04
 
 ### Phase 3 — Helm & Microservices
