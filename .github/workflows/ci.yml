@@ -1,0 +1,63 @@
+name: CI — Build & Push
+
+on:
+  push:
+    branches-ignore:
+      - main
+    paths:
+      - "phase-3-helm/app/**"
+      - ".github/workflows/ci.yml"
+
+env:
+  PROJECT_ID: platform-eng-lab-will
+  REGION: us-central1
+  REGISTRY: us-central1-docker.pkg.dev/platform-eng-lab-will/coverline
+
+jobs:
+  build:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/253419630104/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-ci@platform-eng-lab-will.iam.gserviceaccount.com
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: phase-3-helm/app/backend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/backend:${{ github.sha }}
+            ${{ env.REGISTRY }}/backend:dev
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: phase-3-helm/app/frontend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/frontend:${{ github.sha }}
+            ${{ env.REGISTRY }}/frontend:dev
+
+      - name: Summary
+        run: |
+          echo "## CI Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend:** \`${{ env.REGISTRY }}/backend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend:** \`${{ env.REGISTRY }}/frontend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
