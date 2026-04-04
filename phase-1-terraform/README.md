@@ -126,6 +126,23 @@ echo 'export PATH=$PATH:/opt/homebrew/share/google-cloud-sdk/bin' >> ~/.zshrc
 
 ---
 
+### 6. Auto-destroy reports "Found 0 resources" but resources exist
+
+**Symptom:** The nightly auto-destroy workflow runs but skips destruction with "No resources found in Terraform state" even though the GKE cluster and VPC are running.
+
+**Cause:** The original jq query checked `.values.root_module.resources` but all resources in this project live in **child modules** (`module.gke`, `module.networking`, `module.bigquery`). The root module has no direct resources, so the count was always 0.
+
+**Fix:** The query was updated to traverse all child modules recursively:
+```bash
+# Before (broken — only checks root module)
+terraform show -json | jq '.values.root_module.resources | length'
+
+# After (fixed — checks root + all child modules)
+terraform show -json | jq '[.values.root_module | .. | objects | .resources? // empty | .[]] | length'
+```
+
+---
+
 ### 5. `TLS handshake timeout` when running kubectl
 
 **Symptom:** `kubectl get nodes` fails with `net/http: TLS handshake timeout` after the plugin is found.
