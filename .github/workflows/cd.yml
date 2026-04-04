@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "phase-3-helm/app/**"
+      - ".github/workflows/cd.yml"
 
 env:
   PROJECT_ID: platform-eng-lab-will
