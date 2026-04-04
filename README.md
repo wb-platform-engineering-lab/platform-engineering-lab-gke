@@ -83,7 +83,7 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 0 | Foundations (Docker, Linux, Git) | 0 | 2–3 days | ✅ Complete |
 | 1 | Cloud & Terraform (GCP, VPC, GKE) | 50 | 4–6 days | ✅ Complete |
 | 2 | Kubernetes Core (raw YAML) | 200 | 2–3 days | ✅ Complete |
-| 3 | Helm & Microservices + PostgreSQL + Redis | 1,000 | 5–7 days | ⬜ Not started |
+| 3 | Helm & Microservices + PostgreSQL + Redis | 1,000 | 5–7 days | ✅ Complete |
 | 3b | Event-Driven Architecture (Kafka + Strimzi) | 2,000 | 3–4 days | ⬜ Not started |
 | 4 | CI/CD Pipelines | 5,000 | 3–4 days | ⬜ Not started |
 | 5 | GitOps with ArgoCD | 15,000 | 2–3 days | ⬜ Not started |
