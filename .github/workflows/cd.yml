@@ -67,6 +67,9 @@ jobs:
             --member="serviceAccount:github-ci@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
             --role="roles/container.developer" --quiet 2>/dev/null || true
 
+      - name: Install gke-gcloud-auth-plugin
+        run: gcloud components install gke-gcloud-auth-plugin --quiet
+
       - name: Set up Helm
         uses: azure/setup-helm@v3
 
