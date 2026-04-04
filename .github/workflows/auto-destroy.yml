@@ -59,7 +59,7 @@ jobs:
         id: check
         working-directory: ${{ env.TF_DIR }}
         run: |
-          STATE=$(terraform show -json 2>/dev/null | jq '.values.root_module.resources | length' 2>/dev/null || echo "0")
+          STATE=$(terraform show -json 2>/dev/null | jq '[.values.root_module | .. | objects | .resources? // empty | .[]] | length' 2>/dev/null || echo "0")
           echo "resource_count=$STATE" >> $GITHUB_OUTPUT
           echo "Found $STATE resources in state."
 
