@@ -35,6 +35,7 @@ Every phase is grounded in a realistic business scenario. The product is **Cover
 | 1 | Seed round | 50 (first B2B client) | Infrastructure provisioned by hand on a single VM — can't reproduce it |
 | 2 | Early beta | 200 members | One bad deploy takes down claims processing and the member portal at the same time |
 | 3 | Series A | 1,000 members | Claims, member portal, and provider API all in one repo — teams constantly blocking each other |
+| 3b | Post-Series A | 2,000 members | Synchronous HTTP between services — triage slowdown cascades into claims timeouts |
 | 4 | Growing | 5,000 members | 5 engineers — deploying takes half a day, releases are delayed by 2 weeks |
 | 5 | Scaling | 15,000 members | Engineer pushed untested code to prod on a Friday — claims processing was down for 2 hours |
 | 6 | Series B | 50,000 members | Claims SLA breached — support team found out before engineering did |
@@ -82,6 +83,7 @@ Before starting, ensure the following tools are installed and configured:
 | 1 | GKE cluster, VPC, NAT, BigQuery | ~$4–6 | GKE mgmt fee $0.10/hr + 3 spot nodes ~$1.50/day + NAT ~$0.50/day |
 | 2 | None (uses Phase 1 cluster) | ~$4–6 | Same cluster |
 | 3 | Persistent disks for PostgreSQL + Redis | ~$5–7 | PVCs add ~$0.04/GB/month |
+| 3b | Kafka brokers (3 pods, memory-heavy) | ~$7–10 | Strimzi brokers need ~512MB RAM each — may trigger autoscale to 4 nodes |
 | 4 | Artifact Registry | ~$5–7 | Registry storage ~$0.10/GB/month, negligible at lab scale |
 | 5 | None (ArgoCD runs on cluster) | ~$5–7 | Same cluster |
 | 6 | Additional nodes for Prometheus/Loki | ~$7–10 | Observability stack is memory-heavy, may trigger autoscale |
@@ -371,6 +373,77 @@ PostgreSQL and Redis are deployed as Kubernetes StatefulSets in this phase to pr
 | **Est. tokens** | ~180–230K (Helm templating + StatefulSet debugging is token-heavy) |
 | **Est. cost** | ~$1.20–1.55 |
 | **Est. time** | 5–7 days |
+
+---
+
+# Phase 3b — Event-Driven Architecture (Kafka)
+
+## Business Context
+
+> **CoverLine — 2,000 covered members, post-Series A**
+> Claims volume doubled in 90 days. The claims service calls the triage service synchronously over HTTP — when triage is under load, response times spike and claims submission starts timing out. On a busy Monday morning, a 30-second triage delay caused the claims API to return 504s for 12 minutes. 400 members couldn't submit claims.
+>
+> The root cause: tight coupling. If triage is slow, claims is slow. If triage crashes, claims crashes with it. The team needs to decouple the pipeline so each service can fail and recover independently.
+>
+> **Goal:** Replace synchronous HTTP calls between services with an event-driven pipeline. Claims publishes an event. Triage consumes it. Neither service knows about the other.
+
+## Objective
+
+Deploy a Kafka cluster on Kubernetes and build a producer/consumer pipeline for the CoverLine claims workflow.
+
+## Topics
+
+* Event-driven architecture — producers, consumers, topics, partitions, consumer groups
+* Kafka on Kubernetes via Strimzi operator (industry standard) or Redpanda (simpler, Kafka-compatible)
+* Kubernetes operators — how they extend the Kubernetes API
+* Dead letter queues — handling failed message processing
+* Kafka UI — observability for event streams
+* Exactly-once vs at-least-once delivery semantics
+
+## Challenges
+
+1. **Deploy Kafka** — Install the Strimzi operator via Helm and provision a 3-broker Kafka cluster as a Kubernetes custom resource (`Kafka` CR). Alternatively use Redpanda for a lighter setup
+2. **Claims producer** — Modify the Python backend so every successful claim submission publishes a `claim.submitted` event to a `claims` topic (JSON payload: claim_id, member_id, amount, timestamp)
+3. **Triage consumer** — Write a Python consumer service that reads from the `claims` topic, simulates triage logic (approve / review / reject), and writes the result back to a `claims.triage` topic
+4. **Dead letter queue** — Route failed triage events (malformed payload, processing error) to a `claims.dlq` topic. Add a Prometheus alert when DLQ depth exceeds 10 messages
+5. **Kafka UI** — Deploy Kafka UI (or Redpanda Console) to browse topics, inspect messages, and monitor consumer group lag
+6. **End-to-end test** — Submit 100 seeded claims via the API, verify all 100 appear in the triage topic, and measure consumer lag under load
+
+## Event Flow
+
+```
+Member submits claim
+    └── Claims API (Python)
+            └── Publishes → Kafka topic: claims.submitted
+                    └── Triage Consumer (Python)
+                            ├── Success → Kafka topic: claims.triage
+                            └── Failure → Kafka topic: claims.dlq
+                                    └── Prometheus alert: dlq_depth > 10
+```
+
+## Expected Outcome
+
+* Kafka cluster running on GKE with 3 brokers
+* Producer and consumer services deployed as Kubernetes Deployments
+* DLQ in place with a Prometheus alert
+* Kafka UI accessible for topic inspection
+* Claims and triage services fully decoupled — triage can be taken down without affecting claim submission
+
+## ADRs
+
+* `adr-026-kafka-strimzi-vs-redpanda.md` — Why Strimzi (or Redpanda) for Kafka on Kubernetes
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` after each service (producer, consumer, DLQ) is working end-to-end |
+| **Agents** | `Plan` before writing the producer/consumer code — design the topic schema and consumer group strategy first. `WebFetch` for Strimzi CRD docs |
+| **Key tools** | `Write` (Kafka CRs, producer/consumer Python), `Bash` (kubectl, kafka-topics.sh), `WebFetch` (Strimzi docs) |
+| **Watch for** | Strimzi operator takes 2–3 minutes to provision brokers — don't assume it's stuck. Check `kubectl get kafka` for status |
+| **Est. tokens** | ~150–180K |
+| **Est. cost** | ~$1.00–1.20 |
+| **Est. time** | 3–4 days |
 
 ---
 
@@ -1076,6 +1149,7 @@ Completing all seven certifications alongside this project is equivalent to seni
 | 1 — Terraform | 4–6 days | 150–200K | ~$1.00–1.35 |
 | 2 — Kubernetes Core | 2–3 days | 70–100K | ~$0.45–0.65 |
 | 3 — Helm & Microservices | 5–7 days | 180–230K | ~$1.20–1.55 |
+| 3b — Event-Driven (Kafka) | 3–4 days | 150–180K | ~$1.00–1.20 |
 | 4 — CI/CD | 3–4 days | 120–160K | ~$0.80–1.05 |
 | 5 — GitOps | 2–3 days | 70–100K | ~$0.45–0.65 |
 | 6 — Observability | 5–7 days | 200–260K | ~$1.35–1.75 |
@@ -1087,7 +1161,7 @@ Completing all seven certifications alongside this project is equivalent to seni
 | 10c — Backup & DR | 3–4 days | 100–140K | ~$0.65–0.95 |
 | 11 — Capstone | 7–10 days | 350–500K | ~$2.30–3.35 |
 | 12 — GenAI & Agentic | 4–6 days | 150–200K | ~$1.00–1.35 |
-| **Total lab** | **~63–84 days** | **~2.3–2.84M** | **~$15–20** |
+| **Total lab** | **~66–88 days** | **~2.45–3.02M** | **~$16–21** |
 | **With cert study** | **~6–9 months** | | |
 
 > Estimates assume Claude Sonnet pricing ($3/M input tokens, $15/M output tokens) with a typical 70/30 input/output ratio. Debugging-heavy sessions will be at the higher end. The full lab costs less than a single technical book.

@@ -43,6 +43,7 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
 ![Apache Airflow](https://img.shields.io/badge/Airflow-017CEE?style=flat&logo=apache-airflow&logoColor=white)
+![Apache Kafka](https://img.shields.io/badge/Kafka-231F20?style=flat&logo=apache-kafka&logoColor=white)
 ![dbt](https://img.shields.io/badge/dbt-FF694B?style=flat&logo=dbt&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat&logo=redis&logoColor=white)
@@ -81,8 +82,9 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 |---|---|---|---|---|
 | 0 | Foundations (Docker, Linux, Git) | 0 | 2–3 days | ✅ Complete |
 | 1 | Cloud & Terraform (GCP, VPC, GKE) | 50 | 4–6 days | ✅ Complete |
-| 2 | Kubernetes Core (raw YAML) | 200 | 2–3 days | ⬜ Not started |
+| 2 | Kubernetes Core (raw YAML) | 200 | 2–3 days | ✅ Complete |
 | 3 | Helm & Microservices + PostgreSQL + Redis | 1,000 | 5–7 days | ⬜ Not started |
+| 3b | Event-Driven Architecture (Kafka + Strimzi) | 2,000 | 3–4 days | ⬜ Not started |
 | 4 | CI/CD Pipelines | 5,000 | 3–4 days | ⬜ Not started |
 | 5 | GitOps with ArgoCD | 15,000 | 2–3 days | ⬜ Not started |
 | 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ⬜ Not started |
@@ -94,7 +96,7 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 10c | Backup & Disaster Recovery (Velero, pg_dump, DR runbook) | 1,000,000 | 3–4 days | ⬜ Not started |
 | 11 | Capstone Project | 2,000,000+ | 7–10 days | ⬜ Not started |
 | 12 | GenAI & Agentic Workflows (Claude API, Airflow + LLM) | 3,000,000+ | 4–6 days | ⬜ Not started |
-| | **Total lab work** | | **~63–84 days** | |
+| | **Total lab work** | | **~66–88 days** | |
 | | **With cert study** | | **~6–9 months** | |
 
 ---
