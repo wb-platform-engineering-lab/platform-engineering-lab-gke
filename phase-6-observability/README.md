@@ -131,37 +131,37 @@ Run them in **Grafana → Explore → Loki**.
 
 ---
 
-### 1. Tous les erreurs d'un namespace — vue d'ensemble immédiate
+### 1. All errors in a namespace — immediate overview
 
 ```logql
 {namespace="default"} |= "error" or "ERROR" or "Error"
 ```
 
-**Quand l'utiliser :** première requête lors d'un incident — tu identifies quel pod génère des erreurs avant d'aller plus loin.
+**When to use:** First query during an incident — identify which pod is generating errors before going further.
 
 ---
 
-### 2. Logs d'un pod spécifique — zoom sur le backend CoverLine
+### 2. Logs from a specific pod — zoom in on the CoverLine backend
 
 ```logql
 {namespace="default", app="coverline-backend"} | json
 ```
 
-**Quand l'utiliser :** le backend répond en erreur, tu veux voir ses logs structurés en JSON pour identifier la cause exacte (connexion DB, timeout Redis, exception Python).
+**When to use:** The backend is returning errors — view structured JSON logs to pinpoint the exact cause (DB connection, Redis timeout, Python exception).
 
 ---
 
-### 3. Erreurs HTTP 5xx — incidents API en production
+### 3. HTTP 5xx errors — API incidents in production
 
 ```logql
 {namespace="default"} | json | status >= 500
 ```
 
-**Quand l'utiliser :** le taux d'erreur monte sur ton dashboard — tu veux voir quelles requêtes échouent et avec quel message.
+**When to use:** Error rate is rising on your dashboard — see exactly which requests are failing and with what message.
 
 ---
 
-### 4. Taux d'erreurs par pod sur les 5 dernières minutes — quel pod est malade ?
+### 4. Error rate per pod over the last 5 minutes — which pod is unhealthy?
 
 ```logql
 sum by (pod) (
@@ -169,21 +169,21 @@ sum by (pod) (
 )
 ```
 
-**Quand l'utiliser :** plusieurs pods tournent, tu veux savoir lequel génère le plus d'erreurs sans lire les logs un par un.
+**When to use:** Multiple pods are running — find out which one is generating the most errors without reading logs one by one.
 
 ---
 
-### 5. Logs de crash / OOMKill — pod tué par manque de mémoire
+### 5. Crash / OOMKill logs — pod killed due to memory pressure
 
 ```logql
 {namespace="default"} |= "OOMKilled" or "out of memory" or "killed"
 ```
 
-**Quand l'utiliser :** un pod redémarre en boucle, tu veux confirmer que c'est un problème mémoire avant d'ajuster les `limits`.
+**When to use:** A pod is restarting in a loop — confirm it's a memory issue before adjusting resource `limits`.
 
 ---
 
-### 6. Logs des dernières 15 minutes avant un incident — timeline d'un post-mortem
+### 6. Logs from the 15 minutes before an incident — post-mortem timeline
 
 ```logql
 {namespace="default", app="coverline-backend"}
@@ -191,13 +191,13 @@ sum by (pod) (
   | line_format "{{.time}} [{{.level}}] {{.message}}"
 ```
 
-Avec la plage de temps définie sur l'heure de l'incident dans Grafana.
+Set the time range to the incident window in Grafana.
 
-**Quand l'utiliser :** post-mortem — tu reconstituent la séquence exacte des événements.
+**When to use:** Post-mortem — reconstruct the exact sequence of events leading to the incident.
 
 ---
 
-### 7. Slow queries PostgreSQL — requêtes lentes détectées dans les logs
+### 7. Slow PostgreSQL queries — slow queries detected in logs
 
 ```logql
 {namespace="default", app="postgresql"} |= "duration"
@@ -205,31 +205,31 @@ Avec la plage de temps définie sur l'heure de l'incident dans Grafana.
   | duration_ms > 500
 ```
 
-**Quand l'utiliser :** le backend est lent, tu veux savoir si c'est la DB qui ralentit les appels `/claims`.
+**When to use:** The backend is slow — check whether the DB is the bottleneck slowing down `/claims` calls.
 
 ---
 
-### 8. Erreurs de connexion Redis — cache indisponible
+### 8. Redis connection errors — cache unavailable
 
 ```logql
 {namespace="default"} |= "redis" |= "connection refused" or "timeout" or "ECONNREFUSED"
 ```
 
-**Quand l'utiliser :** le cache Redis est tombé — les requêtes `/claims` frappent directement PostgreSQL et le temps de réponse explose.
+**When to use:** Redis is down — `/claims` requests are hitting PostgreSQL directly and response times are spiking.
 
 ---
 
-### 9. Logs Kubernetes system — événements cluster (evictions, scheduling)
+### 9. Kubernetes system logs — cluster events (evictions, scheduling failures)
 
 ```logql
 {namespace="kube-system"} |= "Evicted" or "FailedScheduling" or "OOMKilling"
 ```
 
-**Quand l'utiliser :** des pods disparaissent sans raison apparente — tu veux voir si le scheduler ou le kubelet les a evictés.
+**When to use:** Pods are disappearing without obvious cause — check whether the scheduler or kubelet evicted them.
 
 ---
 
-### 10. Volume de logs par pod — quel service est le plus verbeux ?
+### 10. Log volume per pod — which service is the most verbose?
 
 ```logql
 sum by (pod) (
@@ -237,7 +237,7 @@ sum by (pod) (
 )
 ```
 
-**Quand l'utiliser :** les coûts de stockage Loki augmentent — tu identifies quel service log trop et tu ajustes son niveau de log (`INFO` → `WARNING`).
+**When to use:** Loki storage costs are increasing — identify which service is over-logging and tune its log level (`INFO` → `WARNING`).
 
 ---
 
