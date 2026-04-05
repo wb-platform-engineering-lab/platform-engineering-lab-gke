@@ -89,17 +89,21 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 3b | Event-Driven Architecture (Kafka + Strimzi) | 2,000 | 3–4 days | ⬜ Not started |
 | 4 | CI/CD Pipelines | 5,000 | 3–4 days | ✅ Complete |
 | 5 | GitOps with ArgoCD | 15,000 | 2–3 days | ✅ Complete |
+| 5b | Progressive Delivery (Argo Rollouts) | 20,000 | 2–3 days | ⬜ Not started |
 | 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ✅ Complete |
-| 7 | Secrets Management (Vault) | 100,000 | 4–5 days | ⬜ Not started |
+| 7 | Secrets Management (Vault) | 100,000 | 4–5 days | 🔄 In progress |
 | 8 | Advanced Kubernetes + **CKAD** + **CKA** | 250,000 | 3–4 days + 4–8 wks cert | ⬜ Not started |
+| 8b | Service Mesh (Istio — mTLS, tracing) | 300,000 | 3–4 days | ⬜ Not started |
 | 9 | Data Platform (Airflow + dbt + BigQuery) + **GCP DevOps** | 500,000 | 6–8 days | ⬜ Not started |
 | 10 | Security & Production Hardening | 1,000,000 | 3–4 days | ⬜ Not started |
 | 10b | CKS Exam Preparation + **CKS** | 1,000,000 | 5–7 days + 4–6 wks cert | ⬜ Not started |
 | 10c | Backup & Disaster Recovery (Velero, pg_dump, DR runbook) | 1,000,000 | 3–4 days | ⬜ Not started |
-| 11 | Capstone Project | 2,000,000+ | 7–10 days | ⬜ Not started |
+| 10d | Chaos Engineering (LitmusChaos) | 1,000,000 | 3–4 days | ⬜ Not started |
+| 10e | FinOps & Cost Visibility (Kubecost) | 1,000,000 | 2–3 days | ⬜ Not started |
+| 11 | Capstone Project (+ Backstage IDP) | 2,000,000+ | 7–10 days | ⬜ Not started |
 | 12 | GenAI & Agentic Workflows (Claude API, Airflow + LLM) | 3,000,000+ | 4–6 days | ⬜ Not started |
-| | **Total lab work** | | **~66–88 days** | |
-| | **With cert study** | | **~6–9 months** | |
+| | **Total lab work** | | **~80–107 days** | |
+| | **With cert study** | | **~7–10 months** | |
 
 ---
 

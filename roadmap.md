@@ -38,13 +38,17 @@ Every phase is grounded in a realistic business scenario. The product is **Cover
 | 3b | Post-Series A | 2,000 members | Synchronous HTTP between services — triage slowdown cascades into claims timeouts |
 | 4 | Growing | 5,000 members | 5 engineers — deploying takes half a day, releases are delayed by 2 weeks |
 | 5 | Scaling | 15,000 members | Engineer pushed untested code to prod on a Friday — claims processing was down for 2 hours |
+| 5b | Scaling+ | 20,000 members | Every deploy reaches 100% of users instantly — one bad release caused a 12% error spike before anyone noticed |
 | 6 | Series B | 50,000 members | Claims SLA breached — support team found out before engineering did |
 | 7 | Enterprise sales | 100,000 members | GDPR audit: database credentials found in plaintext environment variables |
 | 8 | High growth | 250,000 members | Open enrollment period — 10x traffic spike, app unresponsive for 45 minutes |
+| 8b | High growth | 300,000 members | Pentest found plaintext HTTP between all services — compromised pod can reach the database directly |
 | 9 | Data team hired | 500,000 members | Actuarial team needs claims analytics in BigQuery — developers manually exporting CSVs every week |
 | 10 | Enterprise | 1,000,000 members | ISO 27001 audit — need verifiable proof of least privilege, network isolation, and image provenance |
 | 10b | CKS prep | 1,000,000 members | Security team formalises Kubernetes hardening ahead of certification audit |
 | 10c | Backup & DR | 1,000,000 members | Enterprise client SLA requires RTO 4h / RPO 1h — no tested DR plan exists |
+| 10d | Resilience | 1,000,000 members | PodDisruptionBudgets and HPA configured but never tested — node failure exercise exposed gaps |
+| 10e | FinOps | 1,000,000 members | CFO asks for cost breakdown by team — no visibility into €18k/month GKE spend |
 | 11 | Capstone | 2,000,000+ members | Full platform, zero manual steps, multi-region ready |
 | 12 | GenAI & Agentic | 3,000,000+ members | AI claims triage assistant cuts manual review by 60% — platform team needs to deploy, observe, and govern LLM workloads |
 
@@ -232,6 +236,7 @@ Provision infrastructure using Terraform across multiple environments.
 7. **Cost governance — automated nightly destroy (two approaches):**
    * **GitHub Actions:** Create `.github/workflows/auto-destroy.yml` — scheduled workflow that runs `terraform destroy` every night at 8 PM UTC. Controlled via a `AUTO_DESTROY_ENABLED` repository variable
    * **Cloud Run Job (bonus):** Build a Docker image with Terraform + gcloud installed, push it to Artifact Registry, and trigger it via Cloud Scheduler on the same cron. This is the GCP-native production equivalent
+8. **Enable Workload Identity on the GKE cluster** — required for pods to authenticate to GCP services (KMS, Secret Manager) without JSON keys. Add `workload_identity_config` to the GKE module and `workload_metadata_config { mode = "GKE_METADATA" }` on the node pool.
 
 ## Expected Outcome
 
@@ -241,7 +246,7 @@ Reusable Terraform modules for:
 * Kubernetes cluster
 * BigQuery dataset
 
-Deployable to at least two environments (dev and staging) with environment-specific variables. Nightly auto-destroy in place to prevent runaway costs.
+Deployable to at least two environments (dev and staging) with environment-specific variables. Nightly auto-destroy in place to prevent runaway costs. Workload Identity enabled on the cluster — required for Phase 7 (Vault KMS auto-unseal) and Phase 10 (Falco, OPA).
 
 ## ADRs
 
@@ -543,6 +548,54 @@ Write `docs/decisions/adr-001-argocd-over-flux.md` explaining why ArgoCD was cho
 
 ---
 
+# Phase 5b — Progressive Delivery (Argo Rollouts)
+
+## Business Context
+
+> **CoverLine — 20,000 covered members**
+> After adopting GitOps, the team ships faster — but every deploy is still all-or-nothing. A bad release of the claims service reaches 100% of members instantly. The SRE team wants to ship to 10% of traffic first, watch the error rate for 5 minutes, and only proceed if metrics are healthy. One release caused a 12% increase in 5xx errors that went undetected for 18 minutes before someone checked Grafana manually.
+>
+> **Goal:** Deploy with confidence — canary releases that promote automatically on green metrics and roll back automatically on errors.
+
+## Objective
+
+Implement progressive delivery on top of the existing GitOps stack.
+
+## Topics
+
+* Argo Rollouts controller
+* Canary deployments with traffic splitting
+* Analysis templates (PromQL success rate gates)
+* Automatic rollback on metric thresholds
+* Blue/green deployments
+
+## Challenges
+
+1. Install Argo Rollouts on the cluster
+2. Convert the `coverline-backend` Deployment to a Rollout resource
+3. Define a canary strategy: 10% → 30% → 100% with 2-minute pause between steps
+4. Create an AnalysisTemplate using Prometheus to gate promotion (error rate < 1%)
+5. Simulate a bad deploy — verify automatic rollback fires before 100% traffic
+6. Integrate with ArgoCD — Rollouts as the deployment mechanism within the GitOps flow
+
+## ADRs
+
+* `adr-023-argo-rollouts-over-flagger.md` — Why Argo Rollouts over Flagger for progressive delivery
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` after each rollout strategy is tested end-to-end |
+| **Agents** | `Plan` before converting Deployments to Rollouts — the ArgoCD + Argo Rollouts integration has ordering constraints |
+| **Key tools** | `Write` (Rollout, AnalysisTemplate YAML), `Bash` (kubectl-argo-rollouts plugin, watch rollout status), `WebFetch` (Argo Rollouts docs) |
+| **Watch for** | Argo Rollouts requires the `kubectl-argo-rollouts` plugin for the `kubectl argo rollouts` commands. Verify it's installed before starting |
+| **Est. tokens** | ~90–130K |
+| **Est. cost** | ~$0.60–0.85 |
+| **Est. time** | 2–3 days |
+
+---
+
 # Phase 6 — Observability Stack
 
 ## Business Context
@@ -700,6 +753,57 @@ Operate production-grade clusters.
 > - **Certified Kubernetes Administrator (CKA)** — covers cluster administration, networking, storage, RBAC, troubleshooting, and upgrades. Attempt after CKAD. [Study guide](https://training.linuxfoundation.org/certification/certified-kubernetes-administrator-cka/)
 >
 > Complete both before moving to Phase 9.
+
+---
+
+# Phase 8b — Service Mesh (Istio)
+
+## Business Context
+
+> **CoverLine — 300,000 covered members**
+> The security team ran a penetration test on the internal cluster network. They found that a compromised claims pod could open a direct TCP connection to the PostgreSQL database — no authentication, no encryption, no audit trail inside the cluster. All traffic between services was plaintext HTTP. A rogue engineer with kubectl access could intercept service-to-service calls in real time.
+>
+> A second finding: the team has no visibility into which service is calling which, how long each call takes, or where latency originates in a chain of 5+ services. Debugging a slow `/claims` response means reading logs from 4 different pods manually.
+>
+> **Goal:** Enforce mutual TLS between all services automatically. Get distributed tracing without changing application code.
+
+## Objective
+
+Secure and observe service-to-service communication with a service mesh.
+
+## Topics
+
+* Istio architecture (control plane / data plane, Envoy sidecar)
+* mTLS — automatic encryption and authentication between pods
+* Traffic management — canary weights, circuit breakers, retries, timeouts
+* Distributed tracing with Jaeger
+* Observability — Istio metrics in Prometheus, service graph in Kiali
+
+## Challenges
+
+1. Install Istio on the cluster (istioctl or Helm)
+2. Enable sidecar injection for the `default` namespace
+3. Verify mTLS is enforced between `coverline-backend` and `postgresql` using `istioctl authn tls-check`
+4. Configure a VirtualService and DestinationRule for the backend (retries, 5s timeout)
+5. Deploy Jaeger — trace a full `/claims` request through frontend → backend → PostgreSQL
+6. Enable Kiali — visualize the live service graph
+7. Simulate a failing service — verify circuit breaker opens and returns a fallback
+
+## ADRs
+
+* `adr-024-istio-over-linkerd.md` — Why Istio over Linkerd, Consul Connect for the service mesh
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` after mTLS is verified and after tracing is working |
+| **Agents** | `Plan` before installing — Istio has significant resource overhead and sidecar injection can break existing pods if done in the wrong order |
+| **Key tools** | `Bash` (istioctl, kubectl), `Write` (VirtualService, DestinationRule, PeerAuthentication YAML), `WebFetch` (Istio docs) |
+| **Watch for** | Istio sidecar injection adds ~50MB RAM per pod — verify the cluster has enough capacity before enabling namespace-wide injection. Share `kubectl top nodes` before starting |
+| **Est. tokens** | ~150–200K |
+| **Est. cost** | ~$1.00–1.35 |
+| **Est. time** | 3–4 days |
 
 ---
 
@@ -963,6 +1067,106 @@ These additions reinforce DR concepts in context:
 
 ---
 
+# Phase 10d — Chaos Engineering (LitmusChaos)
+
+## Business Context
+
+> **CoverLine — 1,000,000 covered members**
+> The SRE team has PodDisruptionBudgets, HPA, circuit breakers, and alerting in place. But nobody has verified they actually work under real failure conditions. During a GCP zone outage simulation exercise, the team discovered that 2 of 3 backend pods were on the same node — the PodAntiAffinity rule was configured but not enforced because the cluster didn't have enough nodes. The HPA didn't scale fast enough because the Prometheus scrape interval was too slow.
+>
+> The CTO's question: *"Can you prove the platform survives a node failure without an outage?"*
+>
+> **Goal:** Systematically inject failures in a controlled way and verify the platform's resilience guarantees hold.
+
+## Objective
+
+Validate that reliability configurations work under real failure conditions.
+
+## Topics
+
+* Chaos engineering principles (Chaos Monkey, GameDays)
+* LitmusChaos — pod kill, node drain, network latency, CPU stress
+* Hypothesis-driven experiments: define the expected system behaviour before injecting chaos
+* SLO validation — confirm error budget is not consumed during experiments
+* Chaos as a CI gate — run lightweight experiments on every deploy
+
+## Challenges
+
+1. Install LitmusChaos on the cluster
+2. Run a pod-kill experiment on `coverline-backend` — verify the service remains available (HPA replaces the pod within 30s, no 5xx to users)
+3. Run a node-drain experiment — verify PodDisruptionBudgets prevent total downtime
+4. Inject network latency (200ms) on the backend → PostgreSQL path — verify circuit breaker opens before timeout
+5. Run a CPU stress experiment — verify HPA scales out before latency SLO is breached
+6. Schedule a weekly chaos GameDay: automated experiment suite that runs every Monday at 9 AM and posts a Slack report
+
+## ADRs
+
+* `adr-026-litmuschaos-over-chaosmonkey.md` — Why LitmusChaos over Chaos Monkey, Chaos Mesh for Kubernetes chaos engineering
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` after each experiment is defined and baseline hypothesis documented |
+| **Agents** | `Plan` to design the experiment suite — chaos experiments must be run in a defined order to avoid cascading failures masking each other |
+| **Key tools** | `Write` (ChaosEngine, ChaosExperiment YAML), `Bash` (litmusctl, kubectl), `WebFetch` (LitmusChaos docs) |
+| **Watch for** | Never run chaos experiments without a defined hypothesis and a way to abort. Always verify the blast radius before running — share `kubectl get pods --all-namespaces` before each experiment |
+| **Est. tokens** | ~110–150K |
+| **Est. cost** | ~$0.75–1.00 |
+| **Est. time** | 3–4 days |
+
+---
+
+# Phase 10e — FinOps & Cost Visibility (Kubecost)
+
+## Business Context
+
+> **CoverLine — 1,000,000 covered members, Series C budget review**
+> The CFO asked the engineering team to break down cloud spend by product team. The answer was: "We don't know — it's one big cluster." GCP billing shows €18,000/month on GKE but nobody can say which service, which team, or which feature is responsible for what portion. The data platform (Airflow + BigQuery) might be cheaper than expected, or it might be consuming 40% of the budget — there's no visibility.
+>
+> Three teams are fighting over node capacity. One team's batch job runs at peak hours and starves the claims service of CPU. Nobody knows until claims latency spikes.
+>
+> **Goal:** Give every team visibility into what their workloads cost and enforce fair resource usage across the cluster.
+
+## Objective
+
+Implement cost visibility and FinOps practices for the platform.
+
+## Topics
+
+* Kubecost — cost allocation per namespace, deployment, label
+* GCP billing export to BigQuery — cluster-level cost breakdown
+* Cost allocation labels (team, environment, product)
+* Budget alerts — GCP budget notifications when spend exceeds threshold
+* Resource rightsizing — identify over-provisioned workloads
+
+## Challenges
+
+1. Install Kubecost on the cluster
+2. Label all workloads with `team=`, `env=`, and `product=` labels
+3. View cost breakdown per namespace in the Kubecost UI
+4. Identify the top 3 most expensive workloads — verify resource requests match actual usage
+5. Set up a GCP budget alert at 80% and 100% of the monthly budget
+6. Export GCP billing to BigQuery — build a simple dbt model showing cost per phase
+
+## ADRs
+
+* `adr-027-kubecost-finops.md` — Why Kubecost over OpenCost, GCP-native billing for cluster cost allocation
+
+## Claude Efficiency
+
+| | |
+|---|---|
+| **Skills** | `/commit` after labeling all workloads and after budget alerts are configured |
+| **Agents** | `Explore` to audit all existing deployments before adding cost labels — missing labels mean uncategorized spend |
+| **Key tools** | `Edit` (add labels to all Helm values.yaml), `Bash` (kubectl, gcloud billing), `WebFetch` (Kubecost docs) |
+| **Watch for** | Kubecost requires Prometheus — verify the Phase 6 observability stack is running before installing |
+| **Est. tokens** | ~80–110K |
+| **Est. cost** | ~$0.55–0.75 |
+| **Est. time** | 2–3 days |
+
+---
+
 # Phase 11 — Capstone Project
 
 ## Business Context
@@ -989,6 +1193,9 @@ Combine everything into one platform.
 * Vault secrets
 * CI/CD pipeline
 * Data pipeline (Airflow + dbt)
+* Progressive delivery (Argo Rollouts)
+* Service mesh (Istio — mTLS, distributed tracing)
+* Internal Developer Portal (Backstage) — service catalog, self-service scaffolding, TechDocs
 
 ## Final Challenge
 
