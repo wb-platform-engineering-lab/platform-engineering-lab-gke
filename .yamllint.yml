@@ -7,8 +7,5 @@ rules:
   # Allow both true/false and yes/no (Helm uses both)
   truthy:
     allowed-values: ["true", "false"]
-  # Helm templates use {{ }} which yamllint sees as duplicate braces
-  braces:
-    forbid-flow-sequences: false
   # Allow multiple documents in one file (---  separator)
   document-start: disable
