@@ -1,21 +1,48 @@
 server:
-  dev:
-    enabled: false
+  # Annotate pods with Workload Identity so they can use the vault GCP SA
+  serviceAccount:
+    annotations:
+      iam.gke.io/gcp-service-account: vault@platform-eng-lab-will.iam.gserviceaccount.com
 
-  standalone:
+  # HA mode with Raft integrated storage — 3 nodes, no external storage dependency
+  ha:
     enabled: true
-    config: |
-      ui = true
+    replicas: 3
+    raft:
+      enabled: true
+      setNodeId: true
+      config: |
+        ui = true
 
-      listener "tcp" {
-        tls_disable = 1
-        address = "[::]:8200"
-        cluster_address = "[::]:8201"
-      }
+        listener "tcp" {
+          tls_disable = 1
+          address     = "[::]:8200"
+          cluster_address = "[::]:8201"
+        }
 
-      storage "file" {
-        path = "/vault/data"
-      }
+        storage "raft" {
+          path = "/vault/data"
+
+          retry_join {
+            leader_api_addr = "http://vault-0.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-1.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-2.vault-internal:8200"
+          }
+        }
+
+        # Auto-unseal using GCP KMS — no manual unseal key required
+        seal "gcpckms" {
+          project    = "platform-eng-lab-will"
+          region     = "global"
+          key_ring   = "vault-keyring"
+          crypto_key = "vault-unseal-key"
+        }
+
+        service_registration "kubernetes" {}
 
   resources:
     requests:
@@ -28,6 +55,12 @@ server:
   persistence:
     enabled: true
     size: 1Gi
+
+  # Audit log volume — mounted at /vault/logs
+  extraVolumes:
+    - type: emptyDir
+      name: audit-logs
+      mountPath: /vault/logs
 
 injector:
   enabled: true

@@ -12,6 +12,7 @@ env:
   PROJECT_ID: platform-eng-lab-will
   REGION: us-central1
   REGISTRY: us-central1-docker.pkg.dev/platform-eng-lab-will/coverline
+  VAULT_ADDR: http://vault.vault.svc.cluster.local:8200
 
 jobs:
   deploy:
@@ -19,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # needed to push the values.yaml update
-      id-token: write
+      id-token: write   # needed for GCP Workload Identity + Vault JWT auth
 
     steps:
       - name: Checkout
@@ -32,6 +33,18 @@ jobs:
         with:
           workload_identity_provider: projects/253419630104/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: github-ci@platform-eng-lab-will.iam.gserviceaccount.com
+
+      - name: Authenticate to Vault and retrieve secrets
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ env.VAULT_ADDR }}
+          method: jwt
+          path: jwt/github
+          role: github-ci
+          # Secrets exposed as masked env vars — never logged or stored in CI
+          secrets: |
+            secret/data/coverline/backend db_host | DB_HOST ;
+            secret/data/coverline/backend db_name | DB_NAME
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
@@ -79,3 +92,4 @@ jobs:
           echo "- **Backend image:** \`${{ env.REGISTRY }}/backend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Frontend image:** \`${{ env.REGISTRY }}/frontend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **values.yaml updated** — ArgoCD will sync automatically" >> $GITHUB_STEP_SUMMARY
+          echo "- **Vault secrets** retrieved via JWT auth (no static secrets in CI)" >> $GITHUB_STEP_SUMMARY
