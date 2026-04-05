@@ -4,8 +4,8 @@ rules:
   # Kubernetes and Helm YAML can be verbose
   line-length:
     max: 150
-  # Allow both true/false and yes/no (Helm uses both)
+  # Allow on/off in addition to true/false (GitHub Actions uses `on:` as trigger key)
   truthy:
-    allowed-values: ["true", "false"]
+    allowed-values: ["true", "false", "on", "off"]
   # Allow multiple documents in one file (---  separator)
   document-start: disable

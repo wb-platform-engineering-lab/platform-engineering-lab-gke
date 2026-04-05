@@ -59,7 +59,8 @@ jobs:
         id: check
         working-directory: ${{ env.TF_DIR }}
         run: |
-          STATE=$(terraform show -json 2>/dev/null | jq '[.values.root_module | .. | objects | .resources? // empty | .[]] | length' 2>/dev/null || echo "0")
+          JQ_QUERY='[.values.root_module | .. | objects | .resources? // empty | .[]] | length'
+          STATE=$(terraform show -json 2>/dev/null | jq "$JQ_QUERY" 2>/dev/null || echo "0")
           echo "resource_count=$STATE" >> $GITHUB_OUTPUT
           echo "Found $STATE resources in state."
 
@@ -70,7 +71,6 @@ jobs:
         env:
           TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
           TF_VAR_region: us-central1
-          TF_VAR_environment: dev
 
       - name: No resources to destroy
         if: steps.check.outputs.resource_count == '0'
