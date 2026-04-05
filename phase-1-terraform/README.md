@@ -251,17 +251,17 @@ disk_size_gb = 50  # used in this phase
 
 ## Production Considerations
 
-### 1. Séparer les environnements avec des workspaces Terraform
-Dans ce lab, tout tourne dans un seul projet GCP. En production, chaque environnement (dev, staging, prod) doit avoir son propre projet GCP et son propre state Terraform isolé. Les workspaces Terraform ou des répertoires séparés par environnement évitent qu'un `terraform apply` en dev impacte la prod.
+### 1. Separate environments with Terraform workspaces
+In this lab, everything runs in a single GCP project. In production, each environment (dev, staging, prod) should have its own GCP project and isolated Terraform state. Terraform workspaces or separate directories per environment prevent a `terraform apply` in dev from impacting prod.
 
 ```hcl
-# Pattern recommandé en prod
+# Recommended pattern in production
 terraform workspace new prod
 terraform workspace new staging
 ```
 
-### 2. Activer le state locking
-Ce lab utilise un bucket GCS pour le remote state, mais sans locking explicite. En production avec plusieurs ingénieurs, deux `terraform apply` simultanés peuvent corrompre le state. GCS supporte nativement le locking via les object locks — toujours l'activer.
+### 2. Enable state locking
+This lab uses a GCS bucket for remote state but without explicit locking. In production with multiple engineers, two simultaneous `terraform apply` runs can corrupt the state. GCS natively supports locking via object locks — always enable it.
 
 ```hcl
 backend "gcs" {
@@ -271,8 +271,8 @@ backend "gcs" {
 }
 ```
 
-### 3. Versionner les modules Terraform
-Dans ce lab, les modules sont appelés localement (`./modules/gke`). En production, les modules doivent être versionnés et publiés dans un registry (Terraform Registry ou Git avec tags) pour garantir la reproductibilité entre environnements.
+### 3. Version Terraform modules
+In this lab, modules are referenced locally (`./modules/gke`). In production, modules should be versioned and published to a registry (Terraform Registry or Git with tags) to guarantee reproducibility across environments.
 
 ```hcl
 module "gke" {
@@ -280,11 +280,11 @@ module "gke" {
 }
 ```
 
-### 4. Remplacer les spot nodes par des on-demand en production
-Les spot nodes (preemptible) sont reclamés par GCP avec 30 secondes de préavis. Idéaux pour les labs et les workloads batch, mais inacceptables pour les services critiques en production. Utiliser un mix : spot pour les workers stateless, on-demand pour les composants système et les bases de données.
+### 4. Replace spot nodes with on-demand in production
+Spot (preemptible) nodes are reclaimed by GCP with 30 seconds notice. Ideal for labs and batch workloads, but unacceptable for critical production services. Use a mix: spot for stateless workers, on-demand for system components and databases.
 
-### 5. Activer Binary Authorization
-En production, seules les images signées et approuvées doivent pouvoir tourner sur le cluster. Binary Authorization sur GKE permet d'imposer cette politique et d'empêcher le déploiement d'images non vérifiées ou venant de registries non approuvés.
+### 5. Enable Binary Authorization
+In production, only signed and approved images should be allowed to run on the cluster. Binary Authorization on GKE enforces this policy and prevents deployment of unverified images or images from unapproved registries.
 
-### 6. Supprimer le `deletion_protection = false`
-Ce lab désactive la protection pour faciliter les `terraform destroy`. En production, `deletion_protection = true` doit toujours être activé sur le cluster GKE pour éviter une destruction accidentelle de l'infrastructure.
+### 6. Remove `deletion_protection = false`
+This lab disables deletion protection to make `terraform destroy` easier. In production, `deletion_protection = true` should always be enabled on the GKE cluster to prevent accidental infrastructure destruction.

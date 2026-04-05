@@ -111,8 +111,8 @@ kubectl rollout status deployment/backend
 
 ## Production Considerations
 
-### 1. Ajouter des PodDisruptionBudgets (PDB)
-Dans ce lab, Kubernetes peut supprimer tous les pods d'un Deployment en même temps lors d'une mise à jour de node. En production, un PDB garantit qu'un minimum de réplicas reste disponible pendant les opérations de maintenance, évitant les coupures de service.
+### 1. Add PodDisruptionBudgets (PDB)
+In this lab, Kubernetes can remove all pods from a Deployment simultaneously during a node upgrade. In production, a PDB guarantees a minimum number of replicas remain available during maintenance operations, preventing service outages.
 
 ```yaml
 apiVersion: policy/v1
@@ -126,11 +126,11 @@ spec:
       app: coverline-backend
 ```
 
-### 2. Mettre en place des NetworkPolicies
-Par défaut, tous les pods d'un cluster Kubernetes peuvent communiquer entre eux. En production, un pod compromis peut atteindre directement la base de données. Les NetworkPolicies restreignent les flux : seul le backend peut parler à PostgreSQL, seul le frontend peut parler au backend.
+### 2. Implement NetworkPolicies
+By default, all pods in a Kubernetes cluster can communicate with each other. In production, a compromised pod can reach the database directly. NetworkPolicies restrict traffic flows: only the backend can talk to PostgreSQL, only the frontend can talk to the backend.
 
 ```yaml
-# Exemple : seul le backend peut accéder à PostgreSQL
+# Example: only the backend can access PostgreSQL
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -146,11 +146,11 @@ spec:
             app: coverline-backend
 ```
 
-### 3. Ne jamais utiliser le namespace `default` en production
-Ce lab déploie tout dans `default`. En production, chaque service ou équipe doit avoir son propre namespace pour isoler les ressources, appliquer des quotas, et limiter le blast radius en cas d'incident.
+### 3. Never use the `default` namespace in production
+This lab deploys everything into `default`. In production, each service or team should have its own namespace to isolate resources, apply quotas, and limit blast radius during incidents.
 
-### 4. Configurer des Resource Quotas par namespace
-Sans quotas, un seul Deployment peut consommer toute la mémoire du cluster et évincer les autres services. En production, des ResourceQuotas par namespace garantissent une allocation équitable des ressources.
+### 4. Configure ResourceQuotas per namespace
+Without quotas, a single Deployment can consume all cluster memory and evict other services. In production, ResourceQuotas per namespace guarantee fair resource allocation.
 
 ```yaml
 apiVersion: v1
@@ -166,8 +166,8 @@ spec:
     limits.memory: 8Gi
 ```
 
-### 5. Utiliser un Ingress avec TLS
-Ce lab expose le service en HTTP. En production, l'Ingress doit terminer TLS avec un certificat valide. cert-manager avec Let's Encrypt automatise le renouvellement des certificats sur GKE.
+### 5. Use an Ingress with TLS
+This lab exposes services over HTTP. In production, the Ingress must terminate TLS with a valid certificate. cert-manager with Let's Encrypt automates certificate renewal on GKE.
 
-### 6. Définir un `revisionHistoryLimit`
-Par défaut, Kubernetes conserve 10 versions de chaque Deployment. En production avec des déploiements fréquents, cela consomme de l'espace inutilement. Une valeur de 3 est généralement suffisante pour pouvoir rollback.
+### 6. Set a `revisionHistoryLimit`
+By default, Kubernetes keeps 10 versions of each Deployment. In production with frequent deploys, this wastes storage unnecessarily. A value of 3 is generally sufficient to support rollbacks.

@@ -123,11 +123,11 @@ kubectl get secrets | grep postgresql
 
 ## Production Considerations
 
-### 1. Ne jamais mettre les mots de passe dans values.yaml
-Dans ce lab, les credentials PostgreSQL sont passés en clair via `--set auth.password=coverline123`. En production, les secrets doivent être injectés via Vault (Phase 7) ou des Kubernetes Secrets chiffrés — jamais dans un fichier versionné dans Git.
+### 1. Never put passwords in values.yaml
+In this lab, PostgreSQL credentials are passed in plaintext via `--set auth.password=coverline123`. In production, secrets must be injected via Vault (Phase 7) or encrypted Kubernetes Secrets — never in a file versioned in Git.
 
-### 2. Utiliser Helmfile pour gérer plusieurs environnements
-Helm seul ne gère pas bien les différences entre dev, staging et prod. Helmfile permet de définir l'ensemble des releases et leurs values par environnement dans un seul fichier déclaratif, évitant les scripts shell fragiles.
+### 2. Use Helmfile to manage multiple environments
+Helm alone does not handle differences between dev, staging, and prod well. Helmfile lets you define all releases and their values per environment in a single declarative file, replacing fragile shell scripts.
 
 ```yaml
 # helmfile.yaml
@@ -141,11 +141,11 @@ environments:
   prod:
 ```
 
-### 3. Versionner les charts et utiliser un Chart Museum privé
-Dans ce lab, les charts sont référencés localement. En production, chaque chart doit être packagé, versionné (semver) et publié dans un registry privé (OCI registry sur Artifact Registry ou Chart Museum). Cela garantit la traçabilité et permet le rollback vers une version précise du chart.
+### 3. Version charts and use a private Chart registry
+In this lab, charts are referenced locally. In production, each chart should be packaged, versioned (semver), and published to a private registry (OCI registry on Artifact Registry or Chart Museum). This guarantees traceability and enables rollback to a specific chart version.
 
-### 4. Configurer des PodAntiAffinity sur les déploiements critiques
-Ce lab déploie 2 réplicas qui peuvent atterrir sur le même node. Si ce node tombe, les deux pods disparaissent en même temps. En production, les règles d'anti-affinité forcent la distribution des réplicas sur des nodes différents.
+### 4. Configure PodAntiAffinity on critical deployments
+This lab deploys 2 replicas that can land on the same node. If that node goes down, both pods disappear simultaneously. In production, anti-affinity rules force replicas to be distributed across different nodes.
 
 ```yaml
 affinity:
@@ -157,8 +157,8 @@ affinity:
         topologyKey: kubernetes.io/hostname
 ```
 
-### 5. Activer la persistence sur PostgreSQL avec des backups automatiques
-Ce lab utilise `persistence.size=1Gi` sans backup. En production, les données PostgreSQL doivent être sauvegardées régulièrement. Sur GCP, Cloud SQL est une alternative managée qui gère les backups, le failover et les mises à jour automatiquement.
+### 5. Enable PostgreSQL persistence with automated backups
+This lab uses `persistence.size=1Gi` with no backups. In production, PostgreSQL data must be backed up regularly. On GCP, Cloud SQL is a managed alternative that handles backups, failover, and updates automatically.
 
-### 6. Augmenter le TTL Redis ou adopter une stratégie d'invalidation explicite
-Le cache à 30s de TTL est fonctionnel pour un lab mais trop court pour la prod (trop de requêtes PostgreSQL) et trop long pour des données critiques comme les sinistres. En production, l'invalidation doit être event-driven : le cache est purgé dès qu'un sinistre est modifié, pas après un délai fixe.
+### 6. Increase Redis TTL or adopt an explicit invalidation strategy
+The 30-second TTL cache works for a lab but is too short for production (too many PostgreSQL hits) and too long for critical data like claims. In production, invalidation should be event-driven: the cache is purged as soon as a claim is modified, not after a fixed delay.

@@ -115,27 +115,27 @@ helm upgrade --install coverline phase-3-helm/charts/backend/
 
 ## Production Considerations
 
-### 1. Ajouter une gate d'approbation avant le déploiement en prod
-Dans ce lab, le CD déploie automatiquement à chaque merge sur main. En production, un déploiement en prod doit passer par une approbation manuelle. GitHub Actions supporte les `environments` avec des reviewers obligatoires — le workflow se met en pause jusqu'à validation.
+### 1. Add an approval gate before production deployment
+In this lab, CD deploys automatically on every merge to main. In production, a deployment to prod should require manual approval. GitHub Actions supports `environments` with required reviewers — the workflow pauses until validated.
 
 ```yaml
 jobs:
   deploy-prod:
     environment:
-      name: production  # requiert une approbation dans GitHub Settings
+      name: production  # requires approval in GitHub Settings
 ```
 
-### 2. Signer les images Docker avec cosign
-Ce lab pousse des images non signées sur Artifact Registry. En production, chaque image doit être signée avec cosign (supply chain security) pour garantir que seules les images buildées par le pipeline CI officiel peuvent être déployées — en combinaison avec Binary Authorization sur GKE.
+### 2. Sign Docker images with cosign
+This lab pushes unsigned images to Artifact Registry. In production, every image must be signed with cosign (supply chain security) to guarantee that only images built by the official CI pipeline can be deployed — combined with Binary Authorization on GKE.
 
-### 3. Scanner les images pour les CVEs avant le push
-Ce lab ne scanne pas les images buildées. En production, un scan de vulnérabilités (Trivy, Grype) doit bloquer le pipeline si des CVEs critiques sont détectées dans l'image avant qu'elle n'atteigne le registry. Prévu en Phase 10.
+### 3. Scan images for CVEs before pushing
+This lab does not scan built images. In production, a vulnerability scanner (Trivy, Grype) should block the pipeline if critical CVEs are detected in the image before it reaches the registry. Planned in Phase 10.
 
-### 4. Séparer le CI du CD dans des repos distincts (GitOps strict)
-Ce lab utilise un seul repo pour le code et la config. En production, l'architecture recommandée est : un repo applicatif (code + Dockerfile) et un repo de config séparé (Helm values, manifests). Le CI met à jour le repo de config avec le nouveau tag d'image, ArgoCD déploie depuis le repo de config. Le CD ne fait plus de `helm upgrade` directement — il commit le tag dans `values.yaml` et ArgoCD prend le relais. C'est le pattern implémenté dans ce lab depuis Phase 5.
+### 4. Separate CI from CD into distinct repos (strict GitOps)
+This lab uses a single repo for both code and config. In production, the recommended architecture is: one application repo (code + Dockerfile) and a separate config repo (Helm values, manifests). CI updates the config repo with the new image tag, ArgoCD deploys from the config repo. CD no longer runs `helm upgrade` directly — it commits the tag into `values.yaml` and ArgoCD takes over. This is the pattern implemented in this lab since Phase 5.
 
-### 5. Mettre en place des branch protection rules
-Ce lab n'a pas de protection sur la branche `main`. En production, la branche principale doit exiger : au moins 1 reviewer, les checks CI verts, et interdire les force pushes. Cela empêche les déploiements accidentels depuis des branches non testées.
+### 5. Set up branch protection rules
+This lab has no protection on the `main` branch. In production, the main branch should require: at least 1 reviewer, green CI checks, and forbid force pushes. This prevents accidental deployments from untested branches.
 
-### 6. Utiliser des runners self-hosted pour les workloads sensibles
-Les runners GitHub hébergés (ubuntu-latest) sont partagés entre tous les clients GitHub. Pour les projets sensibles (données de santé dans le cas de CoverLine), des runners self-hosted dans le VPC GCP garantissent que le code et les artefacts ne transitent jamais hors du périmètre sécurisé.
+### 6. Use self-hosted runners for sensitive workloads
+GitHub-hosted runners (ubuntu-latest) are shared across all GitHub customers. For sensitive projects (health data in CoverLine's case), self-hosted runners inside the GCP VPC guarantee that code and artefacts never leave the secure perimeter.

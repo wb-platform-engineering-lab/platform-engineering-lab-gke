@@ -265,11 +265,11 @@ resultsCache:
 
 ## Production Considerations
 
-### 1. Stocker les métriques Prometheus sur le long terme avec Thanos ou GCS
-Dans ce lab, Prometheus conserve 7 jours de métriques en mémoire/disque local. En production, les données historiques sont essentielles pour analyser des tendances, faire du capacity planning, et répondre aux audits. Thanos ou Grafana Mimir permettent de stocker des années de métriques sur GCS à faible coût.
+### 1. Store Prometheus metrics long-term with Thanos or GCS
+In this lab, Prometheus retains 7 days of metrics in local memory/disk. In production, historical data is essential for trend analysis, capacity planning, and audit responses. Thanos or Grafana Mimir allow storing years of metrics on GCS at low cost.
 
-### 2. Configurer Alertmanager pour router vers PagerDuty ou Slack
-Ce lab crée des règles d'alerte mais Alertmanager n'est pas configuré pour notifier qui que ce soit. En production, les alertes critiques (BackendDown, PodCrashLooping) doivent déclencher une page PagerDuty avec escalade, tandis que les warnings (HighMemoryUsage) peuvent aller dans un channel Slack.
+### 2. Configure Alertmanager to route to PagerDuty or Slack
+This lab creates alert rules but Alertmanager is not configured to notify anyone. In production, critical alerts (BackendDown, PodCrashLooping) should trigger a PagerDuty page with escalation, while warnings (HighMemoryUsage) can go to a Slack channel.
 
 ```yaml
 # alertmanager config
@@ -281,14 +281,14 @@ route:
       receiver: pagerduty-oncall
 ```
 
-### 3. Définir des SLOs et des error budgets
-Ce lab mesure des métriques brutes (CPU, mémoire, restarts). En production, l'équipe doit définir des SLOs (ex: 99.9% des requêtes `/claims` répondent en moins de 500ms) et calculer le burn rate de l'error budget. Grafana SLO ou sloth permettent de générer automatiquement les règles PromQL correspondantes.
+### 3. Define SLOs and error budgets
+This lab measures raw metrics (CPU, memory, restarts). In production, the team should define SLOs (e.g.: 99.9% of `/claims` requests respond in under 500ms) and calculate the error budget burn rate. Grafana SLO or sloth can automatically generate the corresponding PromQL rules.
 
-### 4. Activer la rétention des logs Loki sur GCS
-Ce lab utilise le filesystem local pour Loki — les logs disparaissent si le pod redémarre. En production, Loki doit stocker les chunks sur GCS avec une politique de rétention par namespace (ex: 30 jours pour les logs applicatifs, 90 jours pour les logs d'audit de sécurité).
+### 4. Enable Loki log retention on GCS
+This lab uses local filesystem for Loki — logs disappear if the pod restarts. In production, Loki should store chunks on GCS with a retention policy per namespace (e.g.: 30 days for application logs, 90 days for security audit logs).
 
-### 5. Isoler le namespace monitoring avec des NetworkPolicies
-Dans ce lab, Prometheus peut scraper n'importe quel pod du cluster. En production, les NetworkPolicies doivent restreindre les accès : seul Prometheus peut contacter les endpoints `/metrics` des services, et seul Grafana peut interroger Prometheus. Cela évite qu'un pod compromis exfiltre des métriques sensibles.
+### 5. Isolate the monitoring namespace with NetworkPolicies
+In this lab, Prometheus can scrape any pod in the cluster. In production, NetworkPolicies should restrict access: only Prometheus can contact service `/metrics` endpoints, and only Grafana can query Prometheus. This prevents a compromised pod from exfiltrating sensitive metrics.
 
-### 6. Ne pas exposer Grafana sans authentification forte
-Ce lab accède à Grafana via port-forward avec `admin/admin123`. En production, Grafana doit être exposé via un Ingress avec TLS et authentification SSO (Google OAuth, Okta) — jamais avec un mot de passe partagé. Les dashboards contenant des métriques business (taux de sinistres, revenus) sont des données sensibles.
+### 6. Never expose Grafana without strong authentication
+This lab accesses Grafana via port-forward with `admin/admin123`. In production, Grafana should be exposed via an Ingress with TLS and SSO authentication (Google OAuth, Okta) — never with a shared password. Dashboards containing business metrics (claims rate, revenue) are sensitive data.

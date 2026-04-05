@@ -114,27 +114,27 @@ kubectl -n argocd exec -it deploy/argocd-server -- argocd app sync coverline-bac
 
 ## Production Considerations
 
-### 1. Adopter le pattern App of Apps
-Dans ce lab, chaque application ArgoCD est déclarée dans un fichier YAML séparé appliqué manuellement. En production avec de nombreux services, le pattern "App of Apps" permet à une ArgoCD Application parente de gérer toutes les autres — un seul point d'entrée pour tout le cluster, versionné dans Git.
+### 1. Adopt the App of Apps pattern
+In this lab, each ArgoCD Application is declared in a separate YAML file applied manually. In production with many services, the "App of Apps" pattern allows a parent ArgoCD Application to manage all others — a single entry point for the entire cluster, versioned in Git.
 
 ```yaml
-# app-of-apps.yaml — gère toutes les apps depuis un seul endroit
+# app-of-apps.yaml — manages all apps from a single place
 spec:
   source:
-    path: apps/          # contient backend.yaml, frontend.yaml, monitoring.yaml...
+    path: apps/          # contains backend.yaml, frontend.yaml, monitoring.yaml...
 ```
 
-### 2. Configurer les notifications ArgoCD
-Ce lab ne notifie personne en cas de sync failure ou de drift. En production, ArgoCD Notifications envoie des alertes vers Slack, PagerDuty ou Teams dès qu'une application est OutOfSync ou Degraded — avant que les utilisateurs ne remarquent le problème.
+### 2. Configure ArgoCD notifications
+This lab notifies nobody on sync failure or drift. In production, ArgoCD Notifications sends alerts to Slack, PagerDuty, or Teams as soon as an application is OutOfSync or Degraded — before users notice the problem.
 
-### 3. Utiliser des webhooks GitHub plutôt que le polling
-ArgoCD poll le repo toutes les 3 minutes par défaut. En production, configurer un webhook GitHub qui notifie ArgoCD immédiatement à chaque push réduit le délai de sync de 3 minutes à quelques secondes — critique pour des déploiements fréquents.
+### 3. Use GitHub webhooks instead of polling
+ArgoCD polls the repo every 3 minutes by default. In production, configuring a GitHub webhook that notifies ArgoCD immediately on every push reduces sync delay from 3 minutes to a few seconds — critical for frequent deployments.
 
-### 4. Gérer plusieurs clusters avec ArgoCD
-Ce lab utilise ArgoCD pour déployer sur un seul cluster. En production, une instance ArgoCD centralisée (hub-and-spoke) peut gérer des dizaines de clusters (dev, staging, prod, multi-région) depuis un seul point de contrôle avec des politiques RBAC par équipe.
+### 4. Manage multiple clusters with ArgoCD
+This lab uses ArgoCD to deploy to a single cluster. In production, a centralised ArgoCD instance (hub-and-spoke) can manage dozens of clusters (dev, staging, prod, multi-region) from a single control point with RBAC policies per team.
 
-### 5. Séparer le repo applicatif du repo de config
-Dans ce lab, le code source et les Helm values sont dans le même repo. En production, les modifications de config (changer une variable d'env, scaler un service) ne devraient pas déclencher un rebuild de l'image. Séparer les deux repos permet de déployer une nouvelle config sans recompiler le code.
+### 5. Separate the application repo from the config repo
+In this lab, source code and Helm values live in the same repo. In production, config changes (updating an env var, scaling a service) should not trigger an image rebuild. Separating the two repos allows deploying a new config without recompiling the code.
 
-### 6. Limiter `selfHeal` en production avec des sync windows
-`selfHeal: true` corrige automatiquement tout drift — ce qui est puissant mais peut être dangereux si un opérateur fait un changement d'urgence en production. Les Sync Windows ArgoCD permettent de désactiver l'auto-sync pendant les heures de faible trafic ou les périodes de maintenance.
+### 6. Scope `selfHeal` in production with sync windows
+`selfHeal: true` automatically corrects any drift — which is powerful but can be dangerous if an operator makes an emergency change directly in production. ArgoCD Sync Windows allow disabling auto-sync during low-traffic hours or maintenance windows.
