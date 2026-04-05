@@ -292,3 +292,40 @@ In this lab, Prometheus can scrape any pod in the cluster. In production, Networ
 
 ### 6. Never expose Grafana without strong authentication
 This lab accesses Grafana via port-forward with `admin/admin123`. In production, Grafana should be exposed via an Ingress with TLS and SSO authentication (Google OAuth, Okta) — never with a shared password. Dashboards containing business metrics (claims rate, revenue) are sensitive data.
+
+---
+
+## What's Next — Phase 12: AI-Powered SRE Agent
+
+Phase 6 gives you the raw observability data. Phase 12 will go further by building an **AI SRE agent** that queries this stack automatically and generates natural-language diagnoses.
+
+### Planned capabilities
+
+| Capability | Implementation |
+|---|---|
+| Automated log analysis | Agent queries Loki HTTP API → feeds output to Claude/Gemini |
+| Anomaly detection | Prometheus metrics → LLM root-cause analysis |
+| Incident summary | Correlates logs + metrics + alerts into a single narrative |
+| Remediation suggestions | Suggests kubectl commands or config changes |
+
+### GCP native equivalent
+
+Google's **Gemini Cloud Assist** offers similar functionality for GCP-native stacks (Cloud Logging, Cloud Monitoring). The Phase 12 agent will be **portable** — it works with any Loki + Prometheus stack regardless of cloud provider, which is more relevant for a multi-cloud production environment.
+
+### Preview — what the agent will do
+
+```
+Incident detected: BackendDown alert firing for 5 minutes
+
+Agent queries:
+  1. Loki: {app="coverline-backend"} | json — last 15 minutes
+  2. Prometheus: container_memory_working_set_bytes{pod=~"coverline-backend.*"}
+  3. Kubernetes events: kubectl get events --field-selector reason=BackendOff
+
+LLM analysis:
+  Root cause: OOMKilled — backend pod exceeded memory limit (256Mi)
+  Evidence: 3 OOMKilled events, memory at 98% for 8 minutes before crash
+  Suggested fix: Increase memory limit to 512Mi in values.yaml
+```
+
+> The LogQL queries in this README are the exact queries the Phase 12 agent will run automatically.
