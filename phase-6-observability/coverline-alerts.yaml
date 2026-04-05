@@ -1,0 +1,42 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: coverline-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: coverline.rules
+      rules:
+        # Alert when a pod is CrashLooping
+        - alert: PodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total{namespace="default"}[5m]) * 60 > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod {{ $labels.pod }} is crash looping"
+            description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is restarting frequently."
+
+        # Alert when memory usage exceeds 80% of limit
+        - alert: HighMemoryUsage
+          expr: |
+            (container_memory_working_set_bytes{namespace="default", container!=""} /
+            container_spec_memory_limit_bytes{namespace="default", container!=""}) > 0.8
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High memory usage on {{ $labels.pod }}"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using more than 80% of its memory limit."
+
+        # Alert when no healthy backend pods are available
+        - alert: BackendDown
+          expr: kube_deployment_status_replicas_available{namespace="default", deployment=~".*backend.*"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "CoverLine backend is down"
+            description: "No backend pods are available in namespace default."

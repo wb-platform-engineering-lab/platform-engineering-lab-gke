@@ -1,0 +1,39 @@
+loki:
+  auth_enabled: false
+  useTestSchema: true
+  storage:
+    type: filesystem
+  commonConfig:
+    replication_factor: 1
+
+deploymentMode: SingleBinary
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+# Disable components not needed for a lab
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+
+minio:
+  enabled: false
+
+grafana:
+  enabled: false  # Already installed via kube-prometheus-stack
+
+# Disable caches — not needed for a lab (saves ~512Mi RAM)
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.0.0] — 2026-04-05
+
+### Phase 6 — Observability Stack
+
+#### Added
+- kube-prometheus-stack installed via Helm — Prometheus, Grafana, Alertmanager, node-exporter, kube-state-metrics
+- Loki deployed in SingleBinary mode for log aggregation
+- Promtail deployed as DaemonSet — collects logs from all pods across all nodes
+- Loki connected to Grafana as Core datasource
+- 3 PrometheusRule alerts for CoverLine: PodCrashLooping, HighMemoryUsage, BackendDown
+- Phase 6 README with prerequisites, install steps, UI access, and troubleshooting
+
+#### Fixed
+- Disabled loki-chunks-cache and loki-results-cache (memcached) to avoid OOMKill on e2-standard-2 nodes
+
+---
+
 ## [5.0.0] — 2026-04-04
 
 ### Phase 5 — GitOps with ArgoCD
