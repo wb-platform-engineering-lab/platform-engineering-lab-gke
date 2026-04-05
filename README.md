@@ -87,7 +87,7 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 3b | Event-Driven Architecture (Kafka + Strimzi) | 2,000 | 3–4 days | ⬜ Not started |
 | 4 | CI/CD Pipelines | 5,000 | 3–4 days | ✅ Complete |
 | 5 | GitOps with ArgoCD | 15,000 | 2–3 days | ✅ Complete |
-| 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ⬜ Not started |
+| 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ✅ Complete |
 | 7 | Secrets Management (Vault) | 100,000 | 4–5 days | ⬜ Not started |
 | 8 | Advanced Kubernetes + **CKAD** + **CKA** | 250,000 | 3–4 days + 4–8 wks cert | ⬜ Not started |
 | 9 | Data Platform (Airflow + dbt + BigQuery) + **GCP DevOps** | 500,000 | 6–8 days | ⬜ Not started |
