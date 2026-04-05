@@ -28,8 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Added
 - GitHub Actions CI workflow (`ci.yml`) — builds and pushes Docker images to Artifact Registry on every feature branch push, tagged with git SHA and `dev`
 - GitHub Actions CD workflow (`cd.yml`) — builds, pushes images tagged with SHA and `latest`, deploys to GKE via Helm on every merge to main
+- GitHub Actions Lint workflow (`lint.yml`) — runs TFLint, Hadolint, and yamllint on every PR and push to main
 - GCP Workload Identity Federation — GitHub Actions authenticates to GCP via OIDC, no JSON keys stored in GitHub secrets
 - Dedicated `github-ci` service account with least-privilege permissions (`artifactregistry.writer` + `container.developer`)
+- `.pre-commit-config.yaml` — local pre-commit hooks for tflint, hadolint, and yamllint
+- `.yamllint.yml` — yamllint config tuned for Kubernetes and Helm YAML
 - Phase 4 README with pipeline overview, full GCP setup commands, and troubleshooting
 
 #### Fixed

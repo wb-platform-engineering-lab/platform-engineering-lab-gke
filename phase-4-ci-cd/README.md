@@ -14,7 +14,29 @@
 |---|---|---|
 | `ci.yml` | Push to any branch except main | Build + push images tagged with SHA and `dev` |
 | `cd.yml` | Push to main (app or workflow changes) | Build + push images tagged with SHA and `latest`, deploy via Helm |
+| `lint.yml` | PR or push to main | TFLint + Hadolint + yamllint |
 | `auto-destroy.yml` | Nightly 8 PM UTC | Destroy all Terraform-managed GCP resources |
+
+## Pre-commit hooks
+
+Linters also run locally before every commit via [pre-commit](https://pre-commit.com):
+
+```bash
+# Install pre-commit (once)
+pip install pre-commit
+pre-commit install
+
+# Run manually on all files
+pre-commit run --all-files
+```
+
+| Hook | Tool | What it checks |
+|---|---|---|
+| `tflint` | TFLint | Terraform best practices and errors |
+| `hadolint` | Hadolint | Dockerfile best practices |
+| `yamllint` | yamllint | YAML syntax and formatting |
+
+Config: `.pre-commit-config.yaml` and `.yamllint.yml` at repo root.
 
 ## Authentication — Workload Identity Federation
 

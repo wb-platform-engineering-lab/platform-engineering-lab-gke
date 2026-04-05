@@ -1,0 +1,62 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    paths:
+      - "phase-1-terraform/**"
+      - "phase-3-helm/**"
+      - ".github/workflows/**"
+      - "phase-5-gitops/**"
+      - ".yamllint.yml"
+      - ".pre-commit-config.yaml"
+
+jobs:
+  tflint:
+    name: TFLint — Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.50.3
+
+      - name: Init TFLint
+        run: tflint --init
+        working-directory: phase-1-terraform
+
+      - name: Run TFLint
+        run: tflint --recursive
+        working-directory: phase-1-terraform
+
+  hadolint:
+    name: Hadolint — Dockerfiles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Hadolint on backend Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: phase-3-helm/app/backend/Dockerfile
+
+      - name: Run Hadolint on frontend Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: phase-3-helm/app/frontend/Dockerfile
+
+  yamllint:
+    name: Yamllint — YAML files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Run yamllint
+        run: yamllint -c .yamllint.yml .github/workflows/ phase-2-kubernetes/ phase-5-gitops/
