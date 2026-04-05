@@ -175,6 +175,22 @@ helm version
 gcloud --version
 ```
 
+### Connect to the GKE Cluster
+
+After the cluster is provisioned via Terraform (Phase 1), configure `kubectl`:
+
+```bash
+gcloud container clusters get-credentials platform-eng-lab-will-gke \
+  --region europe-west1 \
+  --project platform-eng-lab-will
+```
+
+Verify:
+
+```bash
+kubectl get nodes
+```
+
 ### Branch Strategy
 
 Each phase is developed on its own branch and merged via PR:
