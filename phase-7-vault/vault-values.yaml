@@ -1,8 +1,8 @@
 server:
-  # Annotate pods with Workload Identity so they can use the vault GCP SA
-  serviceAccount:
-    annotations:
-      iam.gke.io/gcp-service-account: vault@platform-eng-lab-will.iam.gserviceaccount.com
+  # GCP SA JSON key mounted for KMS auto-unseal
+  # Note: GKE WI metadata proxy does not support ?scopes= parameter used by Vault's gcpckms plugin
+  extraEnvironmentVars:
+    GOOGLE_APPLICATION_CREDENTIALS: /vault/userconfig/vault-kms-credentials/credentials.json
 
   # HA mode with Raft integrated storage — 3 nodes, no external storage dependency
   ha:
@@ -58,6 +58,9 @@ server:
 
   # Audit log volume — mounted at /vault/logs
   extraVolumes:
+    - type: secret
+      name: vault-kms-credentials
+      mountPath: /vault/userconfig/vault-kms-credentials
     - type: emptyDir
       name: audit-logs
       mountPath: /vault/logs

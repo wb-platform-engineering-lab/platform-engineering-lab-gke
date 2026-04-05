@@ -13,17 +13,18 @@ echo "=== Vault Init ==="
 
 # --- 1. Initialize Vault ---
 echo "[1/8] Initializing Vault..."
-INIT_OUTPUT=$(vault operator init -key-shares=1 -key-threshold=1 -format=json)
+# With KMS auto-unseal: use -recovery-shares/-recovery-threshold instead of -key-shares/-key-threshold
+INIT_OUTPUT=$(vault operator init -recovery-shares=1 -recovery-threshold=1 -format=json)
 
-UNSEAL_KEY=$(echo "$INIT_OUTPUT" | jq -r '.unseal_keys_b64[0]')
+RECOVERY_KEY=$(echo "$INIT_OUTPUT" | jq -r '.recovery_keys_b64[0]')
 ROOT_TOKEN=$(echo "$INIT_OUTPUT" | jq -r '.root_token')
 
-# With GCP KMS auto-unseal, the unseal_keys_b64 are recovery keys (not unseal keys)
 echo ""
-echo "Recovery key : $UNSEAL_KEY"
+echo "Recovery key : $RECOVERY_KEY"
 echo "Root token   : $ROOT_TOKEN"
 echo ""
 echo "IMPORTANT: Save the recovery key securely. Store it in GCP Secret Manager."
+echo "With KMS auto-unseal, Vault unseals itself automatically — no manual unseal needed."
 echo ""
 
 # --- 2. Login with root token ---
@@ -88,6 +89,7 @@ EOF
 # Create a periodic admin token (renewable, 8h TTL)
 ADMIN_TOKEN=$(vault token create \
   -policy=vault-admin \
+  -orphan \
   -period=8h \
   -format=json | jq -r '.auth.client_token')
 
