@@ -132,7 +132,7 @@ Ce lab pousse des images non signées sur Artifact Registry. En production, chaq
 Ce lab ne scanne pas les images buildées. En production, un scan de vulnérabilités (Trivy, Grype) doit bloquer le pipeline si des CVEs critiques sont détectées dans l'image avant qu'elle n'atteigne le registry. Prévu en Phase 10.
 
 ### 4. Séparer le CI du CD dans des repos distincts (GitOps strict)
-Ce lab fait tourner CI et CD dans le même repo. En production, l'architecture recommandée est : un repo applicatif (code + Dockerfile) et un repo de config (Helm values, manifests). Le CI met à jour le repo de config, ArgoCD déploie depuis le repo de config — ce qui est exactement ce que Phase 5 commence à implémenter.
+Ce lab utilise un seul repo pour le code et la config. En production, l'architecture recommandée est : un repo applicatif (code + Dockerfile) et un repo de config séparé (Helm values, manifests). Le CI met à jour le repo de config avec le nouveau tag d'image, ArgoCD déploie depuis le repo de config. Le CD ne fait plus de `helm upgrade` directement — il commit le tag dans `values.yaml` et ArgoCD prend le relais. C'est le pattern implémenté dans ce lab depuis Phase 5.
 
 ### 5. Mettre en place des branch protection rules
 Ce lab n'a pas de protection sur la branche `main`. En production, la branche principale doit exiger : au moins 1 reviewer, les checks CI verts, et interdire les force pushes. Cela empêche les déploiements accidentels depuis des branches non testées.
