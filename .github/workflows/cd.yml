@@ -1,4 +1,4 @@
-name: CD — Deploy to GKE
+name: CD — Build, Push & Update Image Tags
 
 on:
   push:
@@ -12,19 +12,20 @@ env:
   PROJECT_ID: platform-eng-lab-will
   REGION: us-central1
   REGISTRY: us-central1-docker.pkg.dev/platform-eng-lab-will/coverline
-  CLUSTER: platform-eng-lab-will-gke
 
 jobs:
   deploy:
-    name: Build, Push & Deploy
+    name: Build, Push & Update values.yaml
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write   # needed to push the values.yaml update
       id-token: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -55,40 +56,26 @@ jobs:
             ${{ env.REGISTRY }}/frontend:${{ github.sha }}
             ${{ env.REGISTRY }}/frontend:latest
 
-      - name: Set up gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Get GKE credentials
-        run: gcloud container clusters get-credentials ${{ env.CLUSTER }} --region ${{ env.REGION }} --project ${{ env.PROJECT_ID }}
-
-      - name: Grant CI SA GKE access
+      - name: Update image tags in values.yaml
         run: |
-          gcloud projects add-iam-policy-binding ${{ env.PROJECT_ID }} \
-            --member="serviceAccount:github-ci@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
-            --role="roles/container.developer" --quiet 2>/dev/null || true
+          sed -i "s/tag: .*/tag: \"${{ github.sha }}\"/" \
+            phase-3-helm/charts/backend/values.yaml
+          sed -i "s/tag: .*/tag: \"${{ github.sha }}\"/" \
+            phase-3-helm/charts/frontend/values.yaml
 
-      - name: Install gke-gcloud-auth-plugin
-        run: gcloud components install gke-gcloud-auth-plugin --quiet
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v3
-
-      - name: Deploy backend
+      - name: Commit and push updated values.yaml
         run: |
-          helm upgrade --install coverline phase-3-helm/charts/backend/ \
-            --set image.tag=${{ github.sha }} \
-            --wait --timeout 5m
-
-      - name: Deploy frontend
-        run: |
-          helm upgrade --install coverline-frontend phase-3-helm/charts/frontend/ \
-            --set image.tag=${{ github.sha }} \
-            --wait --timeout 5m
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add phase-3-helm/charts/backend/values.yaml \
+                  phase-3-helm/charts/frontend/values.yaml
+          git diff --cached --quiet || git commit -m "ci: update image tags to ${{ github.sha }}"
+          git push
 
       - name: Summary
         run: |
-          echo "## CD Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## CD Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backend:** \`${{ env.REGISTRY }}/backend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Frontend:** \`${{ env.REGISTRY }}/frontend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend image:** \`${{ env.REGISTRY }}/backend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend image:** \`${{ env.REGISTRY }}/frontend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **values.yaml updated** — ArgoCD will sync automatically" >> $GITHUB_STEP_SUMMARY
