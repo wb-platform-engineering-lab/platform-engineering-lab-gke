@@ -109,3 +109,32 @@ helm install redis bitnami/redis \
 ```bash
 kubectl -n argocd exec -it deploy/argocd-server -- argocd app sync coverline-backend
 ```
+
+---
+
+## Production Considerations
+
+### 1. Adopter le pattern App of Apps
+Dans ce lab, chaque application ArgoCD est déclarée dans un fichier YAML séparé appliqué manuellement. En production avec de nombreux services, le pattern "App of Apps" permet à une ArgoCD Application parente de gérer toutes les autres — un seul point d'entrée pour tout le cluster, versionné dans Git.
+
+```yaml
+# app-of-apps.yaml — gère toutes les apps depuis un seul endroit
+spec:
+  source:
+    path: apps/          # contient backend.yaml, frontend.yaml, monitoring.yaml...
+```
+
+### 2. Configurer les notifications ArgoCD
+Ce lab ne notifie personne en cas de sync failure ou de drift. En production, ArgoCD Notifications envoie des alertes vers Slack, PagerDuty ou Teams dès qu'une application est OutOfSync ou Degraded — avant que les utilisateurs ne remarquent le problème.
+
+### 3. Utiliser des webhooks GitHub plutôt que le polling
+ArgoCD poll le repo toutes les 3 minutes par défaut. En production, configurer un webhook GitHub qui notifie ArgoCD immédiatement à chaque push réduit le délai de sync de 3 minutes à quelques secondes — critique pour des déploiements fréquents.
+
+### 4. Gérer plusieurs clusters avec ArgoCD
+Ce lab utilise ArgoCD pour déployer sur un seul cluster. En production, une instance ArgoCD centralisée (hub-and-spoke) peut gérer des dizaines de clusters (dev, staging, prod, multi-région) depuis un seul point de contrôle avec des politiques RBAC par équipe.
+
+### 5. Séparer le repo applicatif du repo de config
+Dans ce lab, le code source et les Helm values sont dans le même repo. En production, les modifications de config (changer une variable d'env, scaler un service) ne devraient pas déclencher un rebuild de l'image. Séparer les deux repos permet de déployer une nouvelle config sans recompiler le code.
+
+### 6. Limiter `selfHeal` en production avec des sync windows
+`selfHeal: true` corrige automatiquement tout drift — ce qui est puissant mais peut être dangereux si un opérateur fait un changement d'urgence en production. Les Sync Windows ArgoCD permettent de désactiver l'auto-sync pendant les heures de faible trafic ou les périodes de maintenance.

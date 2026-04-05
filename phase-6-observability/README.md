@@ -260,3 +260,35 @@ resultsCache:
 **Cause:** CoverLine apps are not deployed on the fresh cluster.
 
 **Fix:** Redeploy via ArgoCD (see Prerequisites above).
+
+---
+
+## Production Considerations
+
+### 1. Stocker les métriques Prometheus sur le long terme avec Thanos ou GCS
+Dans ce lab, Prometheus conserve 7 jours de métriques en mémoire/disque local. En production, les données historiques sont essentielles pour analyser des tendances, faire du capacity planning, et répondre aux audits. Thanos ou Grafana Mimir permettent de stocker des années de métriques sur GCS à faible coût.
+
+### 2. Configurer Alertmanager pour router vers PagerDuty ou Slack
+Ce lab crée des règles d'alerte mais Alertmanager n'est pas configuré pour notifier qui que ce soit. En production, les alertes critiques (BackendDown, PodCrashLooping) doivent déclencher une page PagerDuty avec escalade, tandis que les warnings (HighMemoryUsage) peuvent aller dans un channel Slack.
+
+```yaml
+# alertmanager config
+route:
+  receiver: slack-warnings
+  routes:
+    - match:
+        severity: critical
+      receiver: pagerduty-oncall
+```
+
+### 3. Définir des SLOs et des error budgets
+Ce lab mesure des métriques brutes (CPU, mémoire, restarts). En production, l'équipe doit définir des SLOs (ex: 99.9% des requêtes `/claims` répondent en moins de 500ms) et calculer le burn rate de l'error budget. Grafana SLO ou sloth permettent de générer automatiquement les règles PromQL correspondantes.
+
+### 4. Activer la rétention des logs Loki sur GCS
+Ce lab utilise le filesystem local pour Loki — les logs disparaissent si le pod redémarre. En production, Loki doit stocker les chunks sur GCS avec une politique de rétention par namespace (ex: 30 jours pour les logs applicatifs, 90 jours pour les logs d'audit de sécurité).
+
+### 5. Isoler le namespace monitoring avec des NetworkPolicies
+Dans ce lab, Prometheus peut scraper n'importe quel pod du cluster. En production, les NetworkPolicies doivent restreindre les accès : seul Prometheus peut contacter les endpoints `/metrics` des services, et seul Grafana peut interroger Prometheus. Cela évite qu'un pod compromis exfiltre des métriques sensibles.
+
+### 6. Ne pas exposer Grafana sans authentification forte
+Ce lab accède à Grafana via port-forward avec `admin/admin123`. En production, Grafana doit être exposé via un Ingress avec TLS et authentification SSO (Google OAuth, Okta) — jamais avec un mot de passe partagé. Les dashboards contenant des métriques business (taux de sinistres, revenus) sont des données sensibles.

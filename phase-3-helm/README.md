@@ -118,3 +118,47 @@ kubectl delete pod redis-master-0
 ```bash
 kubectl get secrets | grep postgresql
 ```
+
+---
+
+## Production Considerations
+
+### 1. Ne jamais mettre les mots de passe dans values.yaml
+Dans ce lab, les credentials PostgreSQL sont passés en clair via `--set auth.password=coverline123`. En production, les secrets doivent être injectés via Vault (Phase 7) ou des Kubernetes Secrets chiffrés — jamais dans un fichier versionné dans Git.
+
+### 2. Utiliser Helmfile pour gérer plusieurs environnements
+Helm seul ne gère pas bien les différences entre dev, staging et prod. Helmfile permet de définir l'ensemble des releases et leurs values par environnement dans un seul fichier déclaratif, évitant les scripts shell fragiles.
+
+```yaml
+# helmfile.yaml
+releases:
+  - name: coverline
+    chart: ./charts/backend
+    values:
+      - values/{{ .Environment.Name }}.yaml
+environments:
+  dev:
+  prod:
+```
+
+### 3. Versionner les charts et utiliser un Chart Museum privé
+Dans ce lab, les charts sont référencés localement. En production, chaque chart doit être packagé, versionné (semver) et publié dans un registry privé (OCI registry sur Artifact Registry ou Chart Museum). Cela garantit la traçabilité et permet le rollback vers une version précise du chart.
+
+### 4. Configurer des PodAntiAffinity sur les déploiements critiques
+Ce lab déploie 2 réplicas qui peuvent atterrir sur le même node. Si ce node tombe, les deux pods disparaissent en même temps. En production, les règles d'anti-affinité forcent la distribution des réplicas sur des nodes différents.
+
+```yaml
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app: coverline-backend
+        topologyKey: kubernetes.io/hostname
+```
+
+### 5. Activer la persistence sur PostgreSQL avec des backups automatiques
+Ce lab utilise `persistence.size=1Gi` sans backup. En production, les données PostgreSQL doivent être sauvegardées régulièrement. Sur GCP, Cloud SQL est une alternative managée qui gère les backups, le failover et les mises à jour automatiquement.
+
+### 6. Augmenter le TTL Redis ou adopter une stratégie d'invalidation explicite
+Le cache à 30s de TTL est fonctionnel pour un lab mais trop court pour la prod (trop de requêtes PostgreSQL) et trop long pour des données critiques comme les sinistres. En production, l'invalidation doit être event-driven : le cache est purgé dès qu'un sinistre est modifié, pas après un délai fixe.

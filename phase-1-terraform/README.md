@@ -246,3 +246,45 @@ Always set `disk_size_gb` explicitly. The default (100GB) is often more than nee
 ```hcl
 disk_size_gb = 50  # used in this phase
 ```
+
+---
+
+## Production Considerations
+
+### 1. Séparer les environnements avec des workspaces Terraform
+Dans ce lab, tout tourne dans un seul projet GCP. En production, chaque environnement (dev, staging, prod) doit avoir son propre projet GCP et son propre state Terraform isolé. Les workspaces Terraform ou des répertoires séparés par environnement évitent qu'un `terraform apply` en dev impacte la prod.
+
+```hcl
+# Pattern recommandé en prod
+terraform workspace new prod
+terraform workspace new staging
+```
+
+### 2. Activer le state locking
+Ce lab utilise un bucket GCS pour le remote state, mais sans locking explicite. En production avec plusieurs ingénieurs, deux `terraform apply` simultanés peuvent corrompre le state. GCS supporte nativement le locking via les object locks — toujours l'activer.
+
+```hcl
+backend "gcs" {
+  bucket = "my-tfstate"
+  prefix = "prod"
+  # GCS locking is automatic — no extra config needed
+}
+```
+
+### 3. Versionner les modules Terraform
+Dans ce lab, les modules sont appelés localement (`./modules/gke`). En production, les modules doivent être versionnés et publiés dans un registry (Terraform Registry ou Git avec tags) pour garantir la reproductibilité entre environnements.
+
+```hcl
+module "gke" {
+  source  = "git::https://github.com/org/terraform-modules.git//gke?ref=v1.2.0"
+}
+```
+
+### 4. Remplacer les spot nodes par des on-demand en production
+Les spot nodes (preemptible) sont reclamés par GCP avec 30 secondes de préavis. Idéaux pour les labs et les workloads batch, mais inacceptables pour les services critiques en production. Utiliser un mix : spot pour les workers stateless, on-demand pour les composants système et les bases de données.
+
+### 5. Activer Binary Authorization
+En production, seules les images signées et approuvées doivent pouvoir tourner sur le cluster. Binary Authorization sur GKE permet d'imposer cette politique et d'empêcher le déploiement d'images non vérifiées ou venant de registries non approuvés.
+
+### 6. Supprimer le `deletion_protection = false`
+Ce lab désactive la protection pour faciliter les `terraform destroy`. En production, `deletion_protection = true` doit toujours être activé sur le cluster GKE pour éviter une destruction accidentelle de l'infrastructure.

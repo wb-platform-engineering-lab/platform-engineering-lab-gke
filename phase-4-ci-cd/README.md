@@ -110,3 +110,32 @@ gcloud iam service-accounts add-iam-policy-binding \
 ```bash
 helm upgrade --install coverline phase-3-helm/charts/backend/
 ```
+
+---
+
+## Production Considerations
+
+### 1. Ajouter une gate d'approbation avant le déploiement en prod
+Dans ce lab, le CD déploie automatiquement à chaque merge sur main. En production, un déploiement en prod doit passer par une approbation manuelle. GitHub Actions supporte les `environments` avec des reviewers obligatoires — le workflow se met en pause jusqu'à validation.
+
+```yaml
+jobs:
+  deploy-prod:
+    environment:
+      name: production  # requiert une approbation dans GitHub Settings
+```
+
+### 2. Signer les images Docker avec cosign
+Ce lab pousse des images non signées sur Artifact Registry. En production, chaque image doit être signée avec cosign (supply chain security) pour garantir que seules les images buildées par le pipeline CI officiel peuvent être déployées — en combinaison avec Binary Authorization sur GKE.
+
+### 3. Scanner les images pour les CVEs avant le push
+Ce lab ne scanne pas les images buildées. En production, un scan de vulnérabilités (Trivy, Grype) doit bloquer le pipeline si des CVEs critiques sont détectées dans l'image avant qu'elle n'atteigne le registry. Prévu en Phase 10.
+
+### 4. Séparer le CI du CD dans des repos distincts (GitOps strict)
+Ce lab fait tourner CI et CD dans le même repo. En production, l'architecture recommandée est : un repo applicatif (code + Dockerfile) et un repo de config (Helm values, manifests). Le CI met à jour le repo de config, ArgoCD déploie depuis le repo de config — ce qui est exactement ce que Phase 5 commence à implémenter.
+
+### 5. Mettre en place des branch protection rules
+Ce lab n'a pas de protection sur la branche `main`. En production, la branche principale doit exiger : au moins 1 reviewer, les checks CI verts, et interdire les force pushes. Cela empêche les déploiements accidentels depuis des branches non testées.
+
+### 6. Utiliser des runners self-hosted pour les workloads sensibles
+Les runners GitHub hébergés (ubuntu-latest) sont partagés entre tous les clients GitHub. Pour les projets sensibles (données de santé dans le cas de CoverLine), des runners self-hosted dans le VPC GCP garantissent que le code et les artefacts ne transitent jamais hors du périmètre sécurisé.
