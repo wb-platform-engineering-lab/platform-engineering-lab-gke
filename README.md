@@ -139,6 +139,13 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 ├── phase-5-gitops/
 ├── phase-6-observability/
 ├── phase-7-vault/
+│   ├── terraform/            # KMS key ring + Vault service account
+│   ├── vault-values.yaml     # Helm values: HA Raft, GCP KMS auto-unseal
+│   ├── vault-init.sh         # Initialize Vault, enable auth methods, revoke root token
+│   ├── vault-policy.sh       # App policies + Kubernetes/JWT auth roles
+│   ├── vault-dynamic-secrets.sh  # PostgreSQL dynamic credentials
+│   ├── vault-agent-patch.yaml    # Sidecar injector annotations for coverline-backend
+│   └── vault-wi-binding.sh   # Workload Identity IAM binding (run after cluster exists)
 ├── phase-8-advanced-k8s/
 ├── phase-9-data-platform/
 ├── phase-10-security/
@@ -187,7 +194,7 @@ After the cluster is provisioned via Terraform (Phase 1), configure `kubectl`:
 
 ```bash
 gcloud container clusters get-credentials platform-eng-lab-will-gke \
-  --region europe-west1 \
+  --region us-central1 \
   --project platform-eng-lab-will
 ```
 
@@ -212,7 +219,7 @@ git push origin phase-2
 
 ## Architecture Decision Records
 
-21 ADRs documented in [`docs/decisions/`](./docs/decisions/) — one for every major tool choice across all phases, from why GKE over self-managed Kubernetes to why Falco over Sysdig for runtime security.
+11 ADRs documented in [`docs/decisions/`](./docs/decisions/) — one for every major tool choice across phases completed so far, from why GKE over self-managed Kubernetes to why Vault over Kubernetes Secrets for secrets management.
 
 ---
 
