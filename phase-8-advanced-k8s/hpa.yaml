@@ -1,0 +1,71 @@
+# hpa.yaml — Horizontal Pod Autoscalers for CoverLine
+# Scales pods based on CPU utilisation.
+# Requires: resource requests set on deployments, metrics-server running.
+
+---
+# Backend: scale between 2 and 8 pods, target 50% CPU
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: coverline-backend
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: coverline-backend
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30   # react quickly to traffic spikes
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 30            # add up to 2 pods every 30s
+    scaleDown:
+      stabilizationWindowSeconds: 300  # wait 5 min before scaling down (avoid flapping)
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60            # remove 1 pod per minute
+
+---
+# Frontend: scale between 1 and 4 pods, target 60% CPU
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: coverline-frontend
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: coverline-frontend
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
