@@ -10,13 +10,9 @@ service:
   port: 5000
 
 db:
-  host: postgresql
   port: 5432
-  name: coverline
-  user: coverline
 
 redis:
-  host: redis-master
   port: 6379
 
 resources:
@@ -26,3 +22,26 @@ resources:
   limits:
     cpu: "250m"
     memory: "256Mi"
+
+# Vault Agent secret injection
+vault:
+  enabled: true
+  role: "coverline-backend"
+  secrets:
+    # Static config: DB_HOST, DB_NAME, REDIS_HOST → /vault/secrets/backend.env
+    - name: backend.env
+      path: secret/data/coverline/backend
+      template: |
+        {{- with secret "secret/data/coverline/backend" -}}
+        export DB_HOST="{{ .Data.data.db_host }}"
+        export DB_NAME="{{ .Data.data.db_name }}"
+        export REDIS_HOST="{{ .Data.data.redis_host }}"
+        {{- end }}
+    # Dynamic credentials: DB_DYNAMIC_USERNAME, DB_DYNAMIC_PASSWORD → /vault/secrets/db.env
+    - name: db.env
+      path: database/creds/coverline-backend
+      template: |
+        {{- with secret "database/creds/coverline-backend" -}}
+        export DB_DYNAMIC_USERNAME="{{ .Data.username }}"
+        export DB_DYNAMIC_PASSWORD="{{ .Data.password }}"
+        {{- end }}

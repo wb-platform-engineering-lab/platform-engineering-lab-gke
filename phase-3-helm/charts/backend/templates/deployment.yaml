@@ -15,7 +15,18 @@ spec:
       labels:
         app.kubernetes.io/name: {{ .Chart.Name }}
         app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.vault.enabled }}
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: {{ .Values.vault.role | quote }}
+        {{- range .Values.vault.secrets }}
+        vault.hashicorp.com/agent-inject-secret-{{ .name }}: {{ .path | quote }}
+        vault.hashicorp.com/agent-inject-template-{{ .name }}: |
+          {{ .template | nindent 10 }}
+        {{- end }}
+      {{- end }}
     spec:
+      serviceAccountName: {{ include "backend.fullname" . }}
       containers:
         - name: backend
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -23,21 +34,8 @@ spec:
           ports:
             - containerPort: 5000
           env:
-            - name: DB_HOST
-              value: {{ .Values.db.host | quote }}
             - name: DB_PORT
               value: {{ .Values.db.port | quote }}
-            - name: DB_NAME
-              value: {{ .Values.db.name | quote }}
-            - name: DB_USER
-              value: {{ .Values.db.user | quote }}
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgresql
-                  key: password
-            - name: REDIS_HOST
-              value: {{ .Values.redis.host | quote }}
             - name: REDIS_PORT
               value: {{ .Values.redis.port | quote }}
           readinessProbe:
