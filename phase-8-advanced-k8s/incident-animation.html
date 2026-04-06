@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CoverLine — Open Enrollment Incident · Phase 8</title>
+  <style>
+    :root {
+      --bg:     #0d1117;
+      --bg2:    #161b22;
+      --bg3:    #21262d;
+      --border: #30363d;
+      --text:   #e6edf3;
+      --muted:  #8b949e;
+      --green:  #3fb950;
+      --yellow: #d29922;
+      --orange: #db6d28;
+      --red:    #f85149;
+      --red-glow: rgba(248,81,73,0.25);
+      --blue:   #58a6ff;
+      --font:   'JetBrains Mono','Fira Code','Courier New',monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 12px;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── SCANLINES ─────────────────────────────── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* ── HEADER ────────────────────────────────── */
+    #hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 16px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .logo { font-size: 13px; font-weight: bold; color: var(--blue); }
+
+    #badge {
+      background: var(--red); color: #fff;
+      padding: 3px 10px; border-radius: 4px;
+      font-size: 10px; font-weight: bold; letter-spacing: 1px;
+      opacity: 0; transition: opacity .4s;
+      animation: pulse-badge 1s ease-in-out infinite;
+    }
+    @keyframes pulse-badge { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+    #clock { color: var(--muted); font-size: 12px; min-width: 120px; text-align: right; }
+
+    /* ── MAIN GRID ─────────────────────────────── */
+    #main {
+      display: grid;
+      grid-template-columns: 210px 1fr 255px;
+      gap: 7px; padding: 7px;
+      flex: 1; overflow: hidden;
+    }
+
+    .panel {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 9px;
+      overflow: hidden;
+    }
+    .ptitle {
+      font-size: 10px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 1px;
+      margin-bottom: 7px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 4px;
+    }
+
+    /* ── NODES ─────────────────────────────────── */
+    #nodes-col { display: flex; flex-direction: column; gap: 7px; }
+
+    .ncard {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 5px; padding: 8px;
+      flex: 1;
+      transition: border-color .5s, box-shadow .5s;
+    }
+    .ncard.warn  { border-color: var(--yellow); }
+    .ncard.crit  { border-color: var(--red); box-shadow: 0 0 10px var(--red-glow); }
+
+    .nname {
+      font-size: 11px; font-weight: bold;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
+    }
+    .nstatus {
+      font-size: 9px; padding: 2px 5px; border-radius: 3px;
+      background: var(--green); color: #000; font-weight: bold;
+      transition: background .5s, color .5s;
+    }
+    .nstatus.deg { background: var(--yellow); color: #000; }
+    .nstatus.dn  { background: var(--red); color: #fff; }
+
+    .mrow { display: flex; justify-content: space-between; margin-bottom: 3px; }
+    .mlbl { color: var(--muted); font-size: 10px; }
+    .mval { font-size: 11px; font-weight: bold; color: var(--green); transition: color .5s; }
+    .mval.w { color: var(--yellow); }
+    .mval.c { color: var(--red); }
+
+    .bar-bg { background: var(--bg); border-radius: 2px; height: 5px; margin: 1px 0 6px; overflow: hidden; }
+    .bar     { height: 100%; border-radius: 2px; background: var(--green); transition: width 1.2s ease, background .5s; }
+
+    /* ── CENTER ────────────────────────────────── */
+    #center-col { display: flex; flex-direction: column; gap: 7px; }
+
+    /* Pod grid */
+    #pod-grid { display: flex; flex-wrap: wrap; gap: 5px; padding-top: 3px; }
+
+    .pod {
+      width: 30px; height: 30px; border-radius: 4px;
+      background: var(--green);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 7px; font-weight: bold; color: rgba(0,0,0,.7);
+      transition: background .6s;
+      position: relative;
+    }
+    .pod.warn    { background: var(--yellow); }
+    .pod.runaway { background: var(--orange); animation: pod-rogue .35s ease-in-out infinite; }
+    .pod.crit    { background: var(--red);    animation: pod-pulse .5s ease-in-out infinite; }
+    .pod.dead    { background: #2a2a2a; color: var(--red); }
+
+    @keyframes pod-pulse  { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(.93);opacity:.65} }
+    @keyframes pod-rogue  { 0%,100%{transform:scale(1.12);box-shadow:0 0 7px var(--orange)} 50%{transform:scale(1);box-shadow:none} }
+
+    /* Error bars */
+    #err-chart {
+      display: flex; align-items: flex-end; gap: 2px;
+      height: 46px; padding-top: 3px;
+    }
+    .ebar {
+      flex: 1; border-radius: 2px 2px 0 0;
+      background: var(--green); min-height: 2px;
+      transition: height .45s, background .45s;
+    }
+    .ebar.w { background: var(--yellow); }
+    .ebar.c { background: var(--red); }
+
+    /* Logs */
+    #logs { height: 90px; overflow: hidden; line-height: 1.65; }
+    .ll   { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ll.e { color: var(--red); }
+    .ll.w { color: var(--yellow); }
+    .ll.i { color: var(--blue); }
+
+    /* ── RIGHT COL ─────────────────────────────── */
+    #right-col { display: flex; flex-direction: column; gap: 7px; }
+
+    .big-m { text-align: center; margin-bottom: 8px; }
+    .big-v { font-size: 30px; font-weight: bold; color: var(--green); transition: color .5s; display: block; }
+    .big-v.w { color: var(--yellow); }
+    .big-v.c { color: var(--red); }
+    .big-l { color: var(--muted); font-size: 10px; }
+
+    .mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .mm { background: var(--bg3); border-radius: 4px; padding: 6px; text-align: center; }
+    .mv { font-size: 15px; font-weight: bold; color: var(--green); transition: color .5s; }
+    .mv.w { color: var(--yellow); }
+    .mv.c { color: var(--red); }
+    .ml { color: var(--muted); font-size: 9px; }
+
+    /* Timeline */
+    #tl-panel { flex: 1; overflow-y: auto; }
+    .tl-ev {
+      display: flex; gap: 7px; margin-bottom: 9px;
+      opacity: 0; transform: translateX(8px);
+      transition: opacity .5s, transform .5s;
+    }
+    .tl-ev.on { opacity: 1; transform: none; }
+    .tl-time { color: var(--blue); font-size: 10px; min-width: 48px; flex-shrink: 0; }
+    .tl-dot  { width: 7px; height: 7px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+    .tl-txt  { font-size: 10px; line-height: 1.4; color: var(--muted); }
+    .tl-txt.a { color: var(--red); }
+    .tl-txt.x { color: var(--yellow); }
+    .tl-txt.r { color: var(--green); }
+    .tl-txt.i { color: var(--blue); }
+
+    /* ── PHONE NOTIF ───────────────────────────── */
+    #notif {
+      position: fixed; top: 54px; right: -300px; width: 255px;
+      background: var(--bg3); border: 1px solid var(--red);
+      border-radius: 10px; padding: 10px 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.55);
+      transition: right .55s cubic-bezier(.34,1.56,.64,1);
+      z-index: 100;
+    }
+    #notif.on { right: 16px; }
+    .na { font-size: 9px; color: var(--muted); margin-bottom: 2px; }
+    .nt { font-size: 11px; font-weight: bold; color: var(--red); margin-bottom: 3px; }
+    .nb { font-size: 10px; color: var(--muted); line-height: 1.4; }
+    .ns { font-size: 9px; color: var(--muted); text-align: right; margin-top: 4px; }
+
+    /* ── FOOTER ────────────────────────────────── */
+    #ftr {
+      background: var(--bg2); border-top: 1px solid var(--border);
+      padding: 4px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-shrink: 0;
+    }
+    .fi { color: var(--muted); font-size: 10px; }
+    .fi span { color: var(--text); }
+    #itimer { color: var(--red); font-weight: bold; font-size: 10px; opacity: 0; transition: opacity .3s; }
+
+    /* ── RESOLUTION OVERLAY ────────────────────── */
+    #overlay {
+      position: fixed; inset: 0;
+      background: rgba(13,17,23,.96);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .9s;
+      z-index: 200;
+    }
+    #overlay.on { opacity: 1; pointer-events: all; }
+
+    .ov-title { font-size: 22px; color: var(--red); font-weight: bold; margin-bottom: 6px; }
+    .ov-sub   { color: var(--muted); font-size: 12px; margin-bottom: 28px; }
+
+    .stats { display: flex; gap: 48px; margin-bottom: 28px; }
+    .stat  { text-align: center; }
+    .stat-n { font-size: 38px; font-weight: bold; color: var(--red); display: block; }
+    .stat-l { font-size: 11px; color: var(--muted); }
+
+    .divider { width: 380px; height: 1px; background: var(--border); margin-bottom: 24px; }
+
+    .p8-title { font-size: 16px; color: var(--green); font-weight: bold; margin-bottom: 16px; }
+
+    .fixes { display: flex; flex-direction: column; gap: 9px; margin-bottom: 28px; }
+    .fix {
+      display: flex; align-items: center; gap: 9px;
+      opacity: 0; transform: translateY(8px); transition: opacity .5s, transform .5s;
+    }
+    .fix.on { opacity: 1; transform: none; }
+    .fck { color: var(--green); font-size: 13px; }
+    .ftx { font-size: 12px; }
+
+    #replay {
+      background: transparent; border: 1px solid var(--blue); color: var(--blue);
+      padding: 7px 22px; border-radius: 4px;
+      cursor: pointer; font-family: var(--font); font-size: 12px;
+      transition: background .2s;
+    }
+    #replay:hover { background: rgba(88,166,255,.1); }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div class="logo">◈ CoverLine SRE · Dashboard</div>
+  <div id="badge">● INCIDENT P0</div>
+  <div id="clock">09:00:00 AM</div>
+</div>
+
+<!-- PHONE NOTIFICATION -->
+<div id="notif">
+  <div class="na">📱 PagerDuty · now</div>
+  <div class="nt">🚨 P0 — CoverLine Production</div>
+  <div class="nb">Member portal returning 504 errors. Claims API unresponsive. 40,000 members affected.</div>
+  <div class="ns">09:14 AM — Open Enrollment Day 1</div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT: NODES -->
+  <div id="nodes-col">
+    <div class="ptitle">cluster nodes</div>
+
+    <div class="ncard" id="n1">
+      <div class="nname">node-1 <span class="nstatus" id="n1s">READY</span></div>
+      <div class="mrow"><span class="mlbl">CPU</span><span class="mval" id="n1c">22%</span></div>
+      <div class="bar-bg"><div class="bar" id="n1b" style="width:22%"></div></div>
+      <div class="mrow"><span class="mlbl">Memory</span><span class="mval" id="n1m">1.2 GB</span></div>
+      <div class="mrow"><span class="mlbl">Pods</span><span class="mval" id="n1p">5 / 8</span></div>
+    </div>
+
+    <div class="ncard" id="n2">
+      <div class="nname">node-2 <span class="nstatus" id="n2s">READY</span></div>
+      <div class="mrow"><span class="mlbl">CPU</span><span class="mval" id="n2c">18%</span></div>
+      <div class="bar-bg"><div class="bar" id="n2b" style="width:18%"></div></div>
+      <div class="mrow"><span class="mlbl">Memory</span><span class="mval" id="n2m">1.0 GB</span></div>
+      <div class="mrow"><span class="mlbl">Pods</span><span class="mval" id="n2p">4 / 8</span></div>
+    </div>
+
+    <div class="ncard" id="n3">
+      <div class="nname">node-3 <span class="nstatus" id="n3s">READY</span></div>
+      <div class="mrow"><span class="mlbl">CPU</span><span class="mval" id="n3c">25%</span></div>
+      <div class="bar-bg"><div class="bar" id="n3b" style="width:25%"></div></div>
+      <div class="mrow"><span class="mlbl">Memory</span><span class="mval" id="n3m">1.3 GB</span></div>
+      <div class="mrow"><span class="mlbl">Pods</span><span class="mval" id="n3p">3 / 8</span></div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div id="center-col">
+    <div class="panel">
+      <div class="ptitle">pod health · default namespace</div>
+      <div id="pod-grid"></div>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">http 5xx errors / min</div>
+      <div id="err-chart"></div>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">live logs</div>
+      <div id="logs"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div id="right-col">
+    <div class="panel">
+      <div class="ptitle">incident metrics</div>
+      <div class="big-m">
+        <span class="big-v" id="erate">0.1%</span>
+        <span class="big-l">error rate</span>
+      </div>
+      <div class="mgrid">
+        <div class="mm"><div class="mv" id="rps">847</div><div class="ml">req / s</div></div>
+        <div class="mm"><div class="mv" id="p95">124ms</div><div class="ml">p95 latency</div></div>
+        <div class="mm"><div class="mv" id="pods-up">12</div><div class="ml">pods running</div></div>
+        <div class="mm"><div class="mv" id="ncnt">3</div><div class="ml">nodes</div></div>
+      </div>
+    </div>
+
+    <div class="panel" id="tl-panel">
+      <div class="ptitle">incident timeline</div>
+      <div id="tl"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div id="ftr">
+  <div class="fi">env: <span>production</span></div>
+  <div id="itimer">⚠ INCIDENT DURATION: 00:00</div>
+  <div class="fi">cluster: <span>platform-eng-lab-will-gke · us-central1</span></div>
+</div>
+
+<!-- RESOLUTION OVERLAY -->
+<div id="overlay">
+  <div class="ov-title">POST-MORTEM</div>
+  <div class="ov-sub">CoverLine Open Enrollment · November 9, 2023</div>
+  <div class="stats">
+    <div class="stat"><span class="stat-n">45</span><span class="stat-l">minutes down</span></div>
+    <div class="stat"><span class="stat-n">40k</span><span class="stat-l">members impacted</span></div>
+    <div class="stat"><span class="stat-n">3</span><span class="stat-l">enterprise clients called</span></div>
+  </div>
+  <div class="divider"></div>
+  <div class="p8-title">✦ Phase 8 — What we built so this never happens again</div>
+  <div class="fixes">
+    <div class="fix" id="fx1"><span class="fck">✓</span><span class="ftx"><strong>Resource limits</strong> — no pod can starve its neighbours</span></div>
+    <div class="fix" id="fx2"><span class="fck">✓</span><span class="ftx"><strong>Horizontal Pod Autoscaler</strong> — backend scales 2 → 8 pods on CPU spike</span></div>
+    <div class="fix" id="fx3"><span class="fck">✓</span><span class="ftx"><strong>Cluster Autoscaler</strong> — new node provisions in &lt;4 min, hands-free</span></div>
+    <div class="fix" id="fx4"><span class="fck">✓</span><span class="ftx"><strong>Pod Disruption Budget</strong> — upgrades never kill more than 1 pod at once</span></div>
+  </div>
+  <button id="replay" onclick="replay()">↺ Replay incident</button>
+</div>
+
+<script>
+/* ── STATE ──────────────────────────────────────────── */
+let pods = [], bars = [], tids = [], clockSec = 0;
+let clockIv = null, timerIv = null, incidentStart = null;
+
+const $ = id => document.getElementById(id);
+
+/* ── BOOT ───────────────────────────────────────────── */
+function init() {
+  buildPods();
+  buildChart();
+  startClock();
+  schedule();
+}
+
+/* ── POD GRID ───────────────────────────────────────── */
+const podDefs = [
+  { lbl:'api', svc:'backend',  node:1 },
+  { lbl:'api', svc:'backend',  node:1 },
+  { lbl:'api', svc:'backend',  node:1 },
+  { lbl:'api', svc:'backend',  node:2 },
+  { lbl:'api', svc:'backend',  node:2 },
+  { lbl:'api', svc:'backend',  node:2 },
+  { lbl:'api', svc:'backend',  node:3 },
+  { lbl:'api', svc:'backend',  node:3 },
+  { lbl:'fe',  svc:'frontend', node:1 },
+  { lbl:'fe',  svc:'frontend', node:1 },
+  { lbl:'fe',  svc:'frontend', node:3 },
+  { lbl:'db',  svc:'db-proxy', node:2 },
+  { lbl:'db',  svc:'db-proxy', node:2 },
+  { lbl:'rd',  svc:'redis',    node:3 },
+  { lbl:'rd',  svc:'redis',    node:3 },
+  { lbl:'ng',  svc:'nginx',    node:1 },
+  { lbl:'ng',  svc:'nginx',    node:1 },
+  { lbl:'ng',  svc:'nginx',    node:3 },
+];
+
+function buildPods() {
+  const g = $('pod-grid'); g.innerHTML = ''; pods = [];
+  podDefs.forEach((d, i) => {
+    const el = document.createElement('div');
+    el.className = 'pod';
+    el.textContent = d.lbl;
+    el.title = `${d.svc}-${String(i).padStart(5,'0')} · node-${d.node}`;
+    g.appendChild(el);
+    pods.push(el);
+  });
+}
+
+function pod(i, state) {
+  if (!pods[i]) return;
+  pods[i].className = 'pod' + (state && state !== 'ok' ? ' ' + state : '');
+}
+
+/* ── ERROR CHART ────────────────────────────────────── */
+function buildChart() {
+  const c = $('err-chart'); c.innerHTML = ''; bars = [];
+  for (let i = 0; i < 32; i++) {
+    const b = document.createElement('div');
+    b.className = 'ebar'; b.style.height = '2px';
+    c.appendChild(b); bars.push(b);
+  }
+}
+
+let chartData = new Array(32).fill(0);
+function pushChart(val) {
+  chartData.push(val); chartData.shift();
+  const mx = Math.max(...chartData, 10);
+  chartData.forEach((v, i) => {
+    bars[i].style.height = Math.max(2, (v / mx) * 44) + 'px';
+    bars[i].className = 'ebar' + (v > 40 ? ' c' : v > 15 ? ' w' : '');
+  });
+}
+
+/* ── CLOCK ──────────────────────────────────────────── */
+function startClock() {
+  clockSec = 0;
+  clockIv = setInterval(() => {
+    clockSec++;
+    const tot = 9 * 3600 + clockSec;
+    const hh = Math.floor(tot / 3600) % 12 || 12;
+    const mm = String(Math.floor((tot % 3600) / 60)).padStart(2,'0');
+    const ss = String(tot % 60).padStart(2,'0');
+    $('clock').textContent = `${String(hh).padStart(2,'0')}:${mm}:${ss} AM`;
+  }, 100);
+}
+
+/* ── NODE CPU ───────────────────────────────────────── */
+function cpu(n, pct) {
+  $(`n${n}b`).style.width = pct + '%';
+  const vEl = $(`n${n}c`), card = $(`n${n}`), st = $(`n${n}s`);
+  vEl.textContent = pct + '%';
+  if (pct >= 90) {
+    $(`n${n}b`).style.background = 'var(--red)';
+    vEl.className = 'mval c'; card.className = 'ncard crit';
+    st.textContent = 'CRITICAL'; st.className = 'nstatus dn';
+  } else if (pct >= 65) {
+    $(`n${n}b`).style.background = 'var(--yellow)';
+    vEl.className = 'mval w'; card.className = 'ncard warn';
+    st.textContent = 'DEGRADED'; st.className = 'nstatus deg';
+  } else {
+    $(`n${n}b`).style.background = 'var(--green)';
+    vEl.className = 'mval'; card.className = 'ncard';
+    st.textContent = 'READY'; st.className = 'nstatus';
+  }
+}
+
+/* ── TIMELINE ───────────────────────────────────────── */
+const dotClr = { a:'var(--red)', x:'var(--yellow)', r:'var(--green)', i:'var(--blue)' };
+function tl(time, msg, cls) {
+  const c = $('tl'), ev = document.createElement('div');
+  ev.className = 'tl-ev';
+  ev.innerHTML = `<span class="tl-time">${time}</span>
+    <div class="tl-dot" style="background:${dotClr[cls]||'var(--muted)'}"></div>
+    <span class="tl-txt ${cls}">${msg}</span>`;
+  c.appendChild(ev);
+  requestAnimationFrame(() => ev.classList.add('on'));
+}
+
+/* ── LOGS ───────────────────────────────────────────── */
+function log(msg, cls = '') {
+  const s = $('logs'), l = document.createElement('div');
+  l.className = 'll' + (cls ? ' ' + cls : '');
+  l.textContent = msg;
+  s.insertBefore(l, s.firstChild);
+  while (s.children.length > 11) s.removeChild(s.lastChild);
+}
+
+/* ── TIMER ──────────────────────────────────────────── */
+function startTimer() {
+  incidentStart = Date.now();
+  $('itimer').style.opacity = '1';
+  timerIv = setInterval(() => {
+    const e = Math.floor((Date.now() - incidentStart) / 1000);
+    $('itimer').textContent = `⚠ INCIDENT DURATION: ${String(Math.floor(e/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0')}`;
+  }, 1000);
+}
+
+/* ── SCHEDULE ───────────────────────────────────────── */
+function at(ms, fn) { tids.push(setTimeout(fn, ms)); }
+
+function schedule() {
+  /* t=0 — steady state */
+  log('[09:00:00] INFO  All systems operational', 'i');
+  log('[09:00:00] INFO  Open enrollment begins in 14 minutes', '');
+
+  /* t=3s — traffic ramps */
+  at(3000, () => {
+    tl('09:00', 'Open enrollment: 40k members logging in', 'i');
+    log('[09:00:18] INFO  Traffic spike: +340% above baseline', 'w');
+    log('[09:00:18] INFO  Active sessions: 8,200 → 41,400', '');
+    $('rps').textContent = '4,200'; $('rps').className = 'mv w';
+    pushChart(4);
+  });
+
+  /* t=5s — CPU climbing */
+  at(5000, () => {
+    cpu(1, 58); cpu(2, 66); cpu(3, 51);
+    $('p95').textContent = '390ms'; $('p95').className = 'mv w';
+    log('[09:05:41] WARN  CPU pressure building across all nodes', 'w');
+    pushChart(7);
+  });
+
+  at(6500, () => {
+    cpu(1, 75); cpu(2, 88); cpu(3, 69);
+    pushChart(11);
+    log('[09:08:07] WARN  claims-api-7d9f: CPU throttling', 'w');
+    log('[09:08:08] WARN  No resource limits defined on claims-api', 'w');
+  });
+
+  /* t=8s — node-2 saturates, runaway pod */
+  at(8000, () => {
+    cpu(2, 100);
+    pod(3, 'runaway');
+    tl('09:10', 'Node-2 CPU: 100% — runaway pod (no limits!)', 'a');
+    log('[09:10:51] ERROR claims-api-7d9f: consuming 4.3 vCPU — no limit set!', 'e');
+    log('[09:10:51] ERROR Starving all other pods on node-2', 'e');
+    pushChart(16);
+  });
+
+  at(9500, () => {
+    cpu(1, 87); cpu(3, 83);
+    pod(4, 'crit'); pod(5, 'crit');
+    pod(11, 'warn'); pod(12, 'warn');
+    $('p95').textContent = '1,920ms'; $('p95').className = 'mv c';
+    log('[09:11:14] ERROR frontend-5b8c: OOMKilled on node-2', 'e');
+    log('[09:11:14] ERROR db-proxy-3a1d: connection timeout', 'e');
+    pushChart(23);
+  });
+
+  /* t=11s — 9:14 AM, 504 cascade */
+  at(11000, () => {
+    $('badge').style.opacity = '1';
+    $('erate').textContent = '14%'; $('erate').className = 'big-v c';
+    startTimer();
+    tl('09:14', '504 errors on /claims — P0 declared', 'a');
+    log('[09:14:00] ERROR GET  /claims → 504 (1,247/min)', 'e');
+    log('[09:14:00] ERROR POST /claims → 504 Gateway Timeout', 'e');
+    log('[09:14:01] ERROR GET  /members → 503 Service Unavailable', 'e');
+    pushChart(36);
+    $('notif').classList.add('on');
+  });
+
+  at(12200, () => {
+    $('erate').textContent = '31%';
+    pod(8, 'crit'); pod(9, 'crit'); pod(10, 'warn');
+    $('pods-up').textContent = '10'; $('pods-up').className = 'mv w';
+    log('[09:15:22] ERROR backend: 3 replicas → 1 (CrashLoopBackOff)', 'e');
+    pushChart(41);
+  });
+
+  at(14500, () => { $('notif').classList.remove('on'); });
+
+  /* t=15s — routine node upgrade, no PDB */
+  at(15000, () => {
+    tl('09:18', 'Routine node upgrade started 🔥', 'a');
+    log('[09:18:41] INFO  GKE: draining node-3 for upgrade', 'w');
+    log('[09:18:41] WARN  Evicting backend-d4e2 from node-3', 'w');
+    log('[09:18:42] WARN  Evicting backend-9f1a (NO PodDisruptionBudget!)', 'w');
+    pushChart(44);
+  });
+
+  at(16200, () => {
+    pod(6, 'dead'); pod(7, 'dead');
+    $('pods-up').textContent = '8'; $('pods-up').className = 'mv c';
+    $('erate').textContent = '44%';
+    cpu(1, 100); cpu(3, 97);
+    log('[09:18:43] ERROR 2 of 3 backend pods terminated simultaneously', 'e');
+    log('[09:18:43] ERROR 0 backend pods available — full outage', 'e');
+    pushChart(52);
+  });
+
+  at(17500, () => {
+    $('rps').textContent = '680'; $('rps').className = 'mv c';
+    tl('09:19', '3 enterprise clients calling account management', 'a');
+    log('[09:19:08] ERROR All /claims endpoints unresponsive', 'e');
+    log('[09:19:09] INFO  Client A: "your service is completely down"', 'w');
+    pushChart(56);
+  });
+
+  at(19000, () => {
+    pod(13, 'crit'); pod(15, 'crit');
+    log('[09:22:33] ERROR nginx upstream timed out (110)', 'e');
+    log('[09:22:33] ERROR health check: /healthz → 503 (14 consecutive)', 'e');
+    pushChart(59);
+  });
+
+  /* t=22s — 9:47 AM, Karim manually adds a node */
+  at(22000, () => {
+    tl('09:47', 'Karim: manually adding node (4 min to provision)', 'x');
+    log('[09:47:11] INFO  gcloud container node-pools update --num-nodes=4', 'i');
+    log('[09:47:11] INFO  New node provisioning… ETA ~4 minutes', '');
+    pushChart(46);
+  });
+
+  at(23500, () => {
+    pushChart(38);
+    log('[09:49:05] INFO  node-4: provisioning 50% complete', 'i');
+  });
+
+  /* t=25s — node joins, pods recover */
+  at(25000, () => {
+    $('ncnt').textContent = '4'; $('ncnt').className = 'mv';
+    cpu(1, 62); cpu(2, 74); cpu(3, 58);
+    pod(6, 'ok'); pod(7, 'ok'); pod(3, 'warn');
+    $('pods-up').textContent = '12'; $('pods-up').className = 'mv';
+    $('erate').textContent = '9%'; $('erate').className = 'big-v w';
+    tl('09:51', 'Node-4 online · pods rescheduling', 'x');
+    log('[09:51:00] INFO  node-4 joined cluster', 'i');
+    log('[09:51:00] INFO  Rescheduling evicted pods…', 'i');
+    pushChart(20);
+  });
+
+  /* t=27s — incident resolves */
+  at(27000, () => {
+    cpu(1, 40); cpu(2, 48); cpu(3, 37);
+    [3,4,5,8,9,10,11,12,13,15].forEach(i => pod(i, 'ok'));
+    $('erate').textContent = '0.2%'; $('erate').className = 'big-v';
+    $('p95').textContent = '178ms'; $('p95').className = 'mv';
+    $('rps').textContent = '3,910'; $('rps').className = 'mv';
+    pushChart(2);
+    tl('10:00', 'Incident resolved · duration: 45 min', 'r');
+    log('[10:00:00] INFO  All services operational. Error rate < 1%', 'i');
+    clearInterval(timerIv);
+    $('badge').style.opacity = '0';
+  });
+
+  /* t=31s — show overlay */
+  at(31000, () => {
+    $('overlay').classList.add('on');
+    at(600,  () => $('fx1').classList.add('on'));
+    at(1100, () => $('fx2').classList.add('on'));
+    at(1600, () => $('fx3').classList.add('on'));
+    at(2100, () => $('fx4').classList.add('on'));
+  });
+}
+
+/* ── REPLAY ─────────────────────────────────────────── */
+function replay() {
+  tids.forEach(clearTimeout); tids = [];
+  clearInterval(clockIv); clearInterval(timerIv);
+  incidentStart = null;
+
+  $('overlay').classList.remove('on');
+  ['fx1','fx2','fx3','fx4'].forEach(id => $(id).classList.remove('on'));
+  $('badge').style.opacity = '0';
+  $('itimer').style.opacity = '0';
+  $('itimer').textContent = '⚠ INCIDENT DURATION: 00:00';
+  $('notif').classList.remove('on');
+  $('tl').innerHTML = '';
+  $('logs').innerHTML = '';
+
+  // reset metrics
+  $('erate').textContent = '0.1%'; $('erate').className = 'big-v';
+  $('rps').textContent = '847'; $('rps').className = 'mv';
+  $('p95').textContent = '124ms'; $('p95').className = 'mv';
+  $('pods-up').textContent = '12'; $('pods-up').className = 'mv';
+  $('ncnt').textContent = '3'; $('ncnt').className = 'mv';
+
+  // reset nodes
+  [1,2,3].forEach(n => {
+    cpu(n, [22,18,25][n-1]);
+    $(`n${n}m`).textContent = ['1.2 GB','1.0 GB','1.3 GB'][n-1];
+    $(`n${n}p`).textContent = ['5 / 8','4 / 8','3 / 8'][n-1];
+  });
+
+  // reset pods & chart
+  buildPods(); buildChart(); chartData = new Array(32).fill(0);
+
+  startClock();
+  log('[09:00:00] INFO  All systems operational', 'i');
+  log('[09:00:00] INFO  Open enrollment begins in 14 minutes', '');
+  schedule();
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
