@@ -1,5 +1,23 @@
 # Phase 2 — Kubernetes Core
 
+---
+
+> **CoverLine — 200 members. The logistics client is live.**
+>
+> The first corporate client went live on a Monday. By Wednesday, they had 200 employee members submitting claims. By Thursday, the backend was struggling.
+>
+> A developer pushed a config change. The single Docker container running the backend restarted. For 90 seconds, every claim submission returned an error. 23 members tried to submit. 23 members saw a blank screen. Four of them emailed support.
+>
+> The post-mortem was short: one container, one point of failure, zero redundancy.
+>
+> The team tried running two containers behind a load balancer. It worked, until a deploy took both containers down simultaneously. They tried staggering restarts manually. It worked, until someone forgot the procedure at 11 PM.
+>
+> *"We need something that manages containers for us,"* the CTO said. *"Something that knows how to restart them, roll them out safely, and keep a minimum number running at all times."*
+>
+> The decision: Kubernetes. Run the platform on GKE. Let the orchestrator handle restarts, rollouts, and replicas.
+
+---
+
 ## What was built
 
 - Deployed the CoverLine backend and frontend as Kubernetes Deployments with 2 replicas each

@@ -4,6 +4,8 @@ A hands-on, end-to-end platform engineering project built on Google Kubernetes E
 
 Built as a portfolio project and study path toward **7 industry certifications**: Terraform Associate, GCP ACE, Prometheus Certified Associate, CKAD, CKA, GCP Professional Cloud DevOps Engineer, and CKS.
 
+> **New here?** Start with [STORY.md](./STORY.md) — the narrative behind every technical decision, told through CoverLine's growing pains.
+
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ---

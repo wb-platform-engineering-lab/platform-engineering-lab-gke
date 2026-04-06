@@ -1,5 +1,25 @@
 # Phase 1 — Cloud & Terraform (GCP)
 
+---
+
+> **CoverLine — 50 members. Two months later.**
+>
+> The demo went well. The investors signed. CoverLine had 50 early members, a seed round, and a deadline to onboard their first corporate client — 200 employees of a mid-size logistics company — in six weeks.
+>
+> The CTO spun up a server manually on GCP. Clicked through the console. Picked a region. Chose a machine type. Installed Docker. Wrote down the IP address on a sticky note.
+>
+> Three weeks later, he needed to create a staging environment. He couldn't remember exactly what he'd clicked. The two environments drifted immediately. A bug that only reproduced in production took two days to diagnose because staging was missing a firewall rule that had been added manually and never documented.
+>
+> *"If this server dies tonight,"* a colleague asked, *"how long to rebuild it?"*
+>
+> The CTO paused. *"A day. Maybe two."*
+>
+> *"That's not acceptable."*
+>
+> The decision: infrastructure as code. Every resource defined in Terraform. The entire platform reproducible from a single `terraform apply`.
+
+---
+
 ## What was built
 
 - VPC with a private subnet, secondary ranges for pods and services

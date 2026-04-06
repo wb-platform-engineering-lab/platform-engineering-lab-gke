@@ -1,5 +1,23 @@
 # Phase 0 — Foundations
 
+---
+
+> **CoverLine — 0 members. Day one.**
+>
+> Two founders. A rented desk in a co-working space in Paris. One laptop.
+>
+> The idea was simple: build the health insurance platform that actually works for people. No paper forms. No fax machines. No calling a hotline and waiting 45 minutes. Just a clean app, instant claims, and real customer support.
+>
+> The MVP took six weeks. A Python backend, a Node.js frontend, a PostgreSQL database. It ran perfectly — on one machine, in one terminal window, with three `docker run` commands that only the CTO had memorised.
+>
+> Then an investor asked for a demo. The co-founder tried to run it on her laptop. It didn't start.
+>
+> *"It works on mine,"* said the CTO.
+>
+> They rescheduled the demo. That weekend, they containerised everything properly.
+
+---
+
 ## What was built
 
 A two-service application running locally with Docker Compose:
