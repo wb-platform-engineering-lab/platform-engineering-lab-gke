@@ -1,5 +1,23 @@
 # Phase 7 — Secrets Management (Vault)
 
+---
+
+> **CoverLine — 100,000 members. January.**
+>
+> CoverLine was preparing for its Series B. As part of due diligence, the investors hired an external security firm to audit the codebase. The audit took three days. The report took one paragraph to deliver its most critical finding:
+>
+> *"Database credentials for the production PostgreSQL instance were found committed in plaintext in the application's Git history. The credentials appear in 14 commits across 3 branches, including the public-facing repository. These credentials have not been rotated in 11 months."*
+>
+> The CISO read the report at 8 AM. By 9 AM, the credentials were rotated. By 10 AM, three engineers were in a war room. The database password had been in the repo since the first sprint. Every contractor, every open-source contributor, every person who had ever cloned the repo had it.
+>
+> The Series B was delayed by six weeks pending a full security remediation.
+>
+> *"We didn't have a secrets problem,"* the CISO said. *"We had a culture problem. Secrets need to be impossible to commit, not just discouraged."*
+>
+> The decision: HashiCorp Vault. Credentials never touch the filesystem. Pods get short-lived dynamic credentials that rotate automatically. Git contains no secrets — not even accidentally.
+
+---
+
 ## What was built
 
 - HashiCorp Vault in **HA mode** (3 nodes, Raft integrated storage) on GKE

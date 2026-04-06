@@ -1,5 +1,19 @@
 # Phase 6 — Observability Stack
 
+---
+
+> **CoverLine — 50,000 members. November.**
+>
+> At 2:14 AM on a Tuesday, CoverLine's claims processing stopped working. Members trying to submit claims got a blank screen. The backend was returning timeouts.
+>
+> The on-call engineer woke up at 6:30 AM — not to a page, but to a Slack message from a member who had emailed support. By then, the issue had been ongoing for four hours and had self-resolved. No one knew what had caused it. No one knew how many members were affected. The engineering team spent a full day trying to piece together what had happened from application logs scattered across three pods.
+>
+> The post-mortem conclusion was brutal: *"We found out about a 4-hour outage from a customer. We had no metrics, no alerts, and no centralised logs. We were flying blind."*
+>
+> The decision: a full observability stack. Prometheus for metrics, Grafana for dashboards, Loki for logs. If it happens again, the team wakes up before the customer does.
+
+---
+
 ## What was built
 
 - Prometheus + Alertmanager via kube-prometheus-stack

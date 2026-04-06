@@ -1,5 +1,19 @@
 # Phase 4 — CI/CD Pipelines
 
+---
+
+> **CoverLine — 5,000 members. June.**
+>
+> A senior engineer was on holiday. A junior dev needed to ship a claims form fix before the weekend. She followed the deploy runbook — a Google Doc last updated eight months ago. Halfway through, she realised the steps assumed a tool that had since been replaced. She improvised. The deploy took four hours, involved three Slack calls, and broke the member login page for 40 minutes on a Friday afternoon.
+>
+> When the senior engineer returned on Monday, he found six different versions of the deploy process spread across Slack threads, Notion pages, and one Post-it note on a monitor.
+>
+> *"The deploy process can't live in someone's head,"* he said. *"It needs to be code."*
+>
+> The decision: automated CI/CD pipelines. Every merge to main triggers a build, a push, and a deploy. No runbooks. No manual steps. No surprises.
+
+---
+
 ## What was built
 
 - GitHub Actions CI pipeline: builds and pushes Docker images to Artifact Registry on every feature branch push

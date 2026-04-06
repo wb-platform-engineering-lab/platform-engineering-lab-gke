@@ -1,5 +1,19 @@
 # Phase 5 — GitOps with ArgoCD
 
+---
+
+> **CoverLine — 15,000 members. September.**
+>
+> A developer pushed a config change to the Helm chart at 4 PM on a Friday. The CI pipeline passed. The deploy pipeline passed. But at 4:47 PM, a second developer — working on a different branch — merged a conflicting values change. The CD pipeline ran again and silently overwrote the first deploy with a broken config.
+>
+> By 5 PM, the claims API was returning 500s. Neither developer knew the other had deployed. There was no single record of what was running in the cluster. The on-call engineer spent two hours diffing YAML files and running `helm history` before finding the cause.
+>
+> *"The cluster is the source of truth,"* the on-call engineer wrote in the post-mortem. *"But it shouldn't be. Git should be."*
+>
+> The decision: GitOps with ArgoCD. The cluster state is driven entirely from Git. Every change is a pull request. The cluster self-heals if someone touches it directly. Drift is impossible.
+
+---
+
 ## What was built
 
 - ArgoCD installed on GKE via the official manifests
