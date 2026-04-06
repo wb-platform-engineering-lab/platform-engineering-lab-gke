@@ -63,11 +63,30 @@ This creates:
 
 ## Step 2 — Install Vault (HA + Raft)
 
+First, create a JSON key for the Vault GCP service account and store it as a Kubernetes secret. Vault uses this to authenticate with GCP KMS for auto-unseal.
+
+> **Note:** GKE Workload Identity is not used here — the GKE metadata proxy does not support the `?scopes=` parameter required by Vault's `gcpckms` plugin.
+
+```bash
+# Generate a new JSON key for the vault-server GCP service account
+gcloud iam service-accounts keys create vault-server-key.json \
+  --iam-account=vault-server@platform-eng-lab-will.iam.gserviceaccount.com \
+  --project=platform-eng-lab-will
+
+# Create the namespace and mount the key as a Kubernetes secret
+kubectl create namespace vault
+
+kubectl create secret generic vault-kms-credentials \
+  --from-file=credentials.json=vault-server-key.json \
+  --namespace vault
+
+# Remove the local key file — it's now stored in the cluster
+rm vault-server-key.json
+```
+
 ```bash
 helm repo add hashicorp https://helm.releases.hashicorp.com
 helm repo update
-
-kubectl create namespace vault
 
 helm install vault hashicorp/vault \
   --namespace vault \
@@ -210,12 +229,12 @@ Open `http://localhost:8200` — login with the admin token from Step 3.
 
 ### Vault pods not unsealing after restart
 
-**Cause:** GCP KMS key not yet created or Workload Identity not bound.
+**Cause:** GCP KMS key not yet created or `vault-kms-credentials` secret missing/wrong.
 
-**Fix:** Verify KMS and WI setup:
+**Fix:** Verify KMS setup and credentials:
 ```bash
 terraform -chdir=phase-7-vault/terraform output
-kubectl describe sa vault -n vault  # check iam.gke.io annotation
+kubectl get secret vault-kms-credentials -n vault
 kubectl logs -n vault vault-0 | grep -i seal
 ```
 
