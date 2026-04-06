@@ -91,7 +91,7 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 5 | GitOps with ArgoCD | 15,000 | 2–3 days | ✅ Complete |
 | 5b | Progressive Delivery (Argo Rollouts) | 20,000 | 2–3 days | ⬜ Not started |
 | 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ✅ Complete |
-| 7 | Secrets Management (Vault) | 100,000 | 4–5 days | 🔄 In progress |
+| 7 | Secrets Management (Vault) | 100,000 | 4–5 days | ✅ Complete |
 | 8 | Advanced Kubernetes + **CKAD** + **CKA** | 250,000 | 3–4 days + 4–8 wks cert | ⬜ Not started |
 | 8b | Service Mesh (Istio — mTLS, tracing) | 300,000 | 3–4 days | ⬜ Not started |
 | 9 | Data Platform (Airflow + dbt + BigQuery) + **GCP DevOps** | 500,000 | 6–8 days | ⬜ Not started |
