@@ -6,6 +6,8 @@ Built as a portfolio project and study path toward **7 industry certifications**
 
 > **New here?** Start with [STORY.md](./STORY.md) — the narrative behind every technical decision, told through CoverLine's growing pains.
 
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 ---
 
 ## Tech Stack
@@ -51,7 +53,6 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 9 | 500,000 | Actuarial team manually exporting CSVs every Monday |
 | 10 | 1,000,000 | ISO 27001 audit — pods running as root, no network policies |
 | 11 | 2,000,000+ | Full platform — zero manual steps, multi-environment |
-
 
 ---
 
