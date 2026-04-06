@@ -45,7 +45,19 @@ add_helm_repos() {
   helm repo add hashicorp            https://helm.releases.hashicorp.com             2>/dev/null || true
   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
   helm repo add grafana              https://grafana.github.io/helm-charts           2>/dev/null || true
+  helm repo add jetstack             https://charts.jetstack.io                      2>/dev/null || true
   helm repo update
+}
+
+install_cert_manager() {
+  echo ""
+  echo "[cert-manager] Installing cert-manager..."
+  kubectl create namespace cert-manager --dry-run=client -o yaml | kubectl apply -f -
+  helm upgrade --install cert-manager jetstack/cert-manager \
+    --namespace cert-manager \
+    --set installCRDs=true \
+    --wait --timeout 5m
+  echo "cert-manager ready."
 }
 
 install_postgresql_redis() {
@@ -161,6 +173,7 @@ case $PHASE in
     install_postgresql_redis
     install_argocd
     install_observability
+    install_cert_manager
     install_vault
     ;;
   *)

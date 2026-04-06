@@ -72,9 +72,15 @@ echo "GitHub JWT auth enabled at auth/jwt/github"
 
 # --- 7. Enable audit logging ---
 echo "[7/8] Enabling audit logging..."
+
+# File audit log — persisted to /vault/logs/audit.log (PVC-backed in production; emptyDir in lab)
 vault audit enable file file_path=/vault/logs/audit.log
 
-echo "Audit log enabled at /vault/logs/audit.log"
+# Stdout audit log — picked up by Promtail and shipped to Loki automatically
+# Query in Grafana: {namespace="vault"} | json | type="response"
+vault audit enable -path=audit-stdout file file_path=stdout
+
+echo "Audit logs enabled: file (/vault/logs/audit.log) + stdout → Loki"
 
 # --- 8. Create admin token and revoke root token ---
 echo "[8/8] Creating admin token and revoking root token..."

@@ -225,6 +225,118 @@ Open `http://localhost:8200` — login with the admin token from Step 3.
 
 ---
 
+## Production Hardening
+
+### Monitoring
+
+Vault exposes Prometheus metrics at `/v1/sys/metrics`. The `vault-monitoring.yaml` manifest deploys:
+- **PrometheusRules** — alerts for sealed nodes, high error rate, lease count, Raft leader loss
+- **Grafana dashboard** — loaded automatically via ConfigMap label
+
+```bash
+kubectl apply -f phase-7-vault/vault-monitoring.yaml
+```
+
+Key alerts:
+
+| Alert | Condition | Severity |
+|-------|-----------|----------|
+| VaultSealed | Any node sealed > 1min | Critical |
+| VaultDown | No metrics for 2min | Critical |
+| VaultRaftNoLeader | Raft leader contact > 1s | Critical |
+| VaultHighErrorRate | Error rate > 5% | Warning |
+| VaultLeaseCountHigh | Active leases > 10,000 | Warning |
+
+---
+
+### Audit Logs → Loki
+
+`vault-init.sh` enables two audit devices:
+- **File** — `/vault/logs/audit.log` (persistent, for compliance)
+- **Stdout** — picked up by Promtail and shipped to Loki automatically
+
+Query all secret reads in Grafana:
+```
+{namespace="vault"} | json | type="response" | path=~".*secret.*"
+```
+
+Query all failed logins:
+```
+{namespace="vault"} | json | type="response" | error != ""
+```
+
+---
+
+### Raft Snapshots → GCS
+
+Daily snapshots are taken by a CronJob and uploaded to GCS for disaster recovery.
+
+**Provision GCS bucket (once):**
+```bash
+cd phase-7-vault/terraform
+terraform apply -target=google_storage_bucket.vault_snapshots \
+                -target=google_service_account.vault_snapshot \
+                -target=google_storage_bucket_iam_member.vault_snapshot
+```
+
+**Deploy the CronJob:**
+```bash
+kubectl apply -f phase-7-vault/vault-snapshot-cronjob.yaml
+```
+
+**Test a snapshot manually:**
+```bash
+kubectl create job vault-snapshot-test \
+  --from=cronjob/vault-snapshot -n vault
+kubectl logs -n vault -l job-name=vault-snapshot-test -f
+```
+
+**Restore from snapshot:**
+```bash
+# Download latest snapshot from GCS
+gsutil cp $(gsutil ls gs://platform-eng-lab-will-vault-snapshots/ | sort | tail -1) /tmp/vault.snap
+
+# Restore (Vault must be initialised and unsealed)
+vault operator raft snapshot restore /tmp/vault.snap
+```
+
+---
+
+### TLS
+
+By default Vault runs with TLS disabled (`tls_disable = 1`) for lab convenience. To enable TLS with cert-manager:
+
+**1. Install cert-manager** (included in `bootstrap.sh --phase 7`):
+```bash
+helm upgrade --install cert-manager jetstack/cert-manager \
+  --namespace cert-manager --set installCRDs=true
+```
+
+**2. Create the Certificate:**
+```bash
+kubectl apply -f phase-7-vault/vault-tls.yaml
+# Wait for certificate to be issued
+kubectl get certificate -n vault vault-server-tls
+```
+
+**3. Upgrade Vault with TLS values:**
+```bash
+helm upgrade vault hashicorp/vault -n vault \
+  -f phase-7-vault/vault-values.yaml \
+  -f phase-7-vault/vault-tls-values.yaml
+```
+
+**4. Update your local env:**
+```bash
+export VAULT_ADDR=https://localhost:8200
+export VAULT_CACERT=/path/to/ca.crt  # from vault-ca-secret
+kubectl get secret vault-ca-secret -n vault \
+  -o jsonpath='{.data.ca\.crt}' | base64 --decode > /tmp/vault-ca.crt
+export VAULT_CACERT=/tmp/vault-ca.crt
+```
+
+---
+
 ## Adding Vault Secret Injection to a New App
 
 Every new application needs 3 things to get secrets from Vault:

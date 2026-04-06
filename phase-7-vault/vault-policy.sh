@@ -79,11 +79,32 @@ vault write auth/jwt/github/role/github-ci - <<EOF
 }
 EOF
 
+# --- 5. Policy + role: vault-snapshot (for the GCS snapshot CronJob) ---
+echo "[5/5] Creating vault-snapshot policy and Kubernetes role..."
+vault policy write vault-snapshot - <<'EOF'
+# Allow reading Raft snapshots — used by the backup CronJob
+path "sys/storage/raft/snapshot" {
+  capabilities = ["read"]
+}
+EOF
+
+vault write auth/kubernetes/role/vault-snapshot \
+  bound_service_account_names=vault-snapshot \
+  bound_service_account_namespaces=vault \
+  policies=vault-snapshot \
+  ttl=5m
+
+kubectl create serviceaccount vault-snapshot --namespace vault \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+echo "Snapshot policy and role created."
+
 echo ""
 echo "=== Policies and roles configured ==="
 echo ""
 echo "Roles created:"
 echo "  - Kubernetes: coverline-backend (for pods in namespace default)"
-echo "  - JWT:        github-ci (for GitHub Actions on branch main)"
+echo "  - Kubernetes: vault-snapshot    (for the GCS backup CronJob in namespace vault)"
+echo "  - JWT:        github-ci         (for GitHub Actions on branch main)"
 echo ""
 echo "Next step: run vault-dynamic-secrets.sh to configure dynamic PostgreSQL credentials"

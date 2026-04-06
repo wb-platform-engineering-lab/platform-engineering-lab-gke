@@ -44,6 +44,13 @@ server:
 
         service_registration "kubernetes" {}
 
+        # Prometheus metrics — scraped by kube-prometheus-stack
+        telemetry {
+          prometheus_retention_time      = "30s"
+          disable_hostname               = true
+          unauthenticated_metrics_access = true
+        }
+
   resources:
     requests:
       memory: 256Mi
@@ -78,3 +85,12 @@ injector:
 ui:
   enabled: true
   serviceType: ClusterIP
+
+# Prometheus ServiceMonitor — picked up by kube-prometheus-stack
+serverTelemetry:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    selectors:
+      release: kube-prometheus-stack
