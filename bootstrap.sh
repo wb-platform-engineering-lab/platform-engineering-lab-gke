@@ -1,86 +1,120 @@
 #!/bin/bash
-# bootstrap.sh — Reinstall all cluster dependencies on a fresh GKE cluster.
-# Safe to re-run (idempotent). Run from the repo root.
+# bootstrap.sh — Reinstall all cluster dependencies for a given phase.
+# Each phase is cumulative — phase 7 installs everything from phases 3 through 7.
+# Safe to re-run (idempotent).
+#
+# Usage:
+#   bash bootstrap.sh --phase 7
+#   bash bootstrap.sh --phase 6
+#   bash bootstrap.sh --phase 3
 #
 # Prerequisites:
 #   - kubectl configured (gcloud container clusters get-credentials ...)
 #   - helm installed
-#   - vault-server-key.json present in the repo root (GCP SA JSON key)
-#
-# Usage:
-#   bash bootstrap.sh
-#   bash bootstrap.sh --skip-vault     # skip Vault if already installed
-#   bash bootstrap.sh --skip-argocd   # skip ArgoCD if already installed
+#   - For phase 7+: vault-server-key.json in the repo root
 
 set -euo pipefail
 
-SKIP_VAULT=false
-SKIP_ARGOCD=false
+PHASE=""
 
 for arg in "$@"; do
   case $arg in
-    --skip-vault)   SKIP_VAULT=true ;;
-    --skip-argocd)  SKIP_ARGOCD=true ;;
+    --phase) PHASE="$2"; shift ;;
   esac
+  shift || true
 done
 
+if [ -z "$PHASE" ]; then
+  echo "Usage: bash bootstrap.sh --phase <number>"
+  echo "  Supported phases: 3, 4, 5, 6, 7"
+  exit 1
+fi
+
 echo "========================================"
-echo " CoverLine — Cluster Bootstrap"
+echo " CoverLine — Cluster Bootstrap (Phase $PHASE)"
 echo "========================================"
 echo ""
 
-# --- 1. Helm repos ---
-echo "[1/6] Adding Helm repos..."
-helm repo add bitnami   https://charts.bitnami.com/bitnami   2>/dev/null || true
-helm repo add hashicorp https://helm.releases.hashicorp.com  2>/dev/null || true
-helm repo update
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
 
-# --- 2. PostgreSQL ---
-echo ""
-echo "[2/6] Installing PostgreSQL..."
-helm upgrade --install postgresql bitnami/postgresql \
-  --set auth.username=coverline \
-  --set auth.password=coverline123 \
-  --set auth.database=coverline \
-  --set primary.persistence.size=1Gi \
-  --wait --timeout 5m
+add_helm_repos() {
+  echo "[repos] Adding Helm repos..."
+  helm repo add bitnami              https://charts.bitnami.com/bitnami              2>/dev/null || true
+  helm repo add hashicorp            https://helm.releases.hashicorp.com             2>/dev/null || true
+  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
+  helm repo add grafana              https://grafana.github.io/helm-charts           2>/dev/null || true
+  helm repo update
+}
 
-echo "PostgreSQL ready."
-
-# --- 3. Redis ---
-echo ""
-echo "[3/6] Installing Redis..."
-helm upgrade --install redis bitnami/redis \
-  --set auth.enabled=false \
-  --set master.persistence.size=1Gi \
-  --wait --timeout 5m
-
-echo "Redis ready."
-
-# --- 4. ArgoCD ---
-if [ "$SKIP_ARGOCD" = false ]; then
+install_postgresql_redis() {
   echo ""
-  echo "[4/6] Installing ArgoCD..."
+  echo "[phase 3] Installing PostgreSQL..."
+  helm upgrade --install postgresql bitnami/postgresql \
+    --set auth.username=coverline \
+    --set auth.password=coverline123 \
+    --set auth.database=coverline \
+    --set primary.persistence.size=1Gi \
+    --wait --timeout 5m
+
+  echo "[phase 3] Installing Redis..."
+  helm upgrade --install redis bitnami/redis \
+    --set auth.enabled=false \
+    --set master.persistence.size=1Gi \
+    --wait --timeout 5m
+
+  echo "[phase 3] Installing CoverLine apps..."
+  helm upgrade --install coverline          phase-3-helm/charts/backend/  --wait --timeout 3m
+  helm upgrade --install coverline-frontend phase-3-helm/charts/frontend/ --wait --timeout 3m
+
+  echo "Phase 3 — done."
+}
+
+install_argocd() {
+  echo ""
+  echo "[phase 5] Installing ArgoCD..."
   kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
   kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
   kubectl rollout status deployment/argocd-server -n argocd --timeout=5m
-  echo "ArgoCD ready."
-else
-  echo ""
-  echo "[4/6] Skipping ArgoCD."
-fi
+  echo "Phase 5 — done."
+}
 
-# --- 5. Vault ---
-if [ "$SKIP_VAULT" = false ]; then
+install_observability() {
   echo ""
-  echo "[5/6] Installing Vault..."
+  echo "[phase 6] Installing observability stack (Prometheus, Grafana, Loki)..."
+  kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+  helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+    --namespace monitoring \
+    -f phase-6-observability/kube-prometheus-stack-values.yaml \
+    --wait --timeout 10m
+
+  helm upgrade --install loki grafana/loki \
+    --namespace monitoring \
+    -f phase-6-observability/loki-values.yaml \
+    --wait --timeout 5m
+
+  helm upgrade --install promtail grafana/promtail \
+    --namespace monitoring \
+    -f phase-6-observability/promtail-values.yaml \
+    --wait --timeout 5m
+
+  echo "Phase 6 — done."
+}
+
+install_vault() {
+  echo ""
+  echo "[phase 7] Installing Vault..."
 
   if [ ! -f vault-server-key.json ]; then
-    echo "ERROR: vault-server-key.json not found in repo root."
-    echo "Generate it with:"
+    echo ""
+    echo "ERROR: vault-server-key.json not found. Generate it with:"
+    echo ""
     echo "  gcloud iam service-accounts keys create vault-server-key.json \\"
     echo "    --iam-account=vault-server@platform-eng-lab-will.iam.gserviceaccount.com \\"
     echo "    --project=platform-eng-lab-will"
+    echo ""
     exit 1
   fi
 
@@ -96,26 +130,50 @@ if [ "$SKIP_VAULT" = false ]; then
     -f phase-7-vault/vault-values.yaml \
     --wait --timeout 5m
 
-  echo "Vault ready."
+  echo "Phase 7 — done."
   echo ""
-  echo "Next: initialize Vault with:"
+  echo "Next: initialize Vault (run once on a fresh install):"
   echo "  kubectl port-forward -n vault svc/vault 8200:8200 &"
   echo "  export VAULT_ADDR=http://localhost:8200"
   echo "  bash phase-7-vault/vault-init.sh"
-else
-  echo ""
-  echo "[5/6] Skipping Vault."
-fi
+}
 
-# --- 6. CoverLine apps ---
-echo ""
-echo "[6/6] Installing CoverLine apps..."
-helm upgrade --install coverline          phase-3-helm/charts/backend/  --wait --timeout 3m
-helm upgrade --install coverline-frontend phase-3-helm/charts/frontend/ --wait --timeout 3m
+# ---------------------------------------------------------------------------
+# Phase execution — each phase is cumulative
+# ---------------------------------------------------------------------------
+
+add_helm_repos
+
+case $PHASE in
+  3|4)
+    install_postgresql_redis
+    ;;
+  5)
+    install_postgresql_redis
+    install_argocd
+    ;;
+  6)
+    install_postgresql_redis
+    install_argocd
+    install_observability
+    ;;
+  7)
+    install_postgresql_redis
+    install_argocd
+    install_observability
+    install_vault
+    ;;
+  *)
+    echo "Unknown phase: $PHASE. Supported: 3, 4, 5, 6, 7"
+    exit 1
+    ;;
+esac
 
 echo ""
 echo "========================================"
-echo " Bootstrap complete!"
+echo " Bootstrap complete! (Phase $PHASE)"
 echo "========================================"
 echo ""
-kubectl get pods
+kubectl get pods --all-namespaces | grep -v "Running\|Completed" || true
+echo ""
+kubectl get pods --all-namespaces | grep "Running" | wc -l | xargs -I{} echo "{} pods running"
