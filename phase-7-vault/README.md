@@ -295,6 +295,83 @@ source /vault/secrets/db.env
 
 ---
 
+## Adding Vault Secrets to a GitHub Actions Workflow
+
+The CD pipeline authenticates to Vault using GitHub's OIDC token — no static secrets stored in GitHub.
+
+### 1. Create a Vault policy for CI
+
+```bash
+vault policy write my-app-ci - <<'EOF'
+path "secret/data/my-app/*" {
+  capabilities = ["read"]
+}
+EOF
+```
+
+### 2. Create a JWT role bound to the repository
+
+```bash
+echo '{
+  "role_type": "jwt",
+  "bound_audiences": ["https://github.com/YOUR_ORG/YOUR_REPO"],
+  "user_claim": "actor",
+  "bound_claims_type": "glob",
+  "bound_claims": {
+    "repository": "YOUR_ORG/YOUR_REPO",
+    "ref": "refs/heads/main"
+  },
+  "policies": ["my-app-ci"],
+  "ttl": "15m"
+}' > /tmp/my-app-ci-role.json
+
+vault write auth/jwt/github/role/my-app-ci @/tmp/my-app-ci-role.json
+```
+
+### 3. Add the vault-action step to the workflow
+
+```yaml
+jobs:
+  deploy:
+    permissions:
+      id-token: write   # required for OIDC JWT
+
+    steps:
+      - name: Retrieve secrets from Vault
+        uses: hashicorp/vault-action@v3
+        with:
+          url: http://vault.vault.svc.cluster.local:8200
+          method: jwt
+          path: jwt/github
+          role: my-app-ci
+          secrets: |
+            secret/data/my-app/config api_key | API_KEY ;
+            secret/data/my-app/config db_host | DB_HOST
+```
+
+Secrets are exposed as masked environment variables for the rest of the job — they never appear in logs and are never stored in GitHub.
+
+### How it works
+
+```
+GitHub Actions runner
+    └── OIDC JWT token (bound to repo + branch)
+            └── Vault JWT auth (auth/jwt/github)
+                    └── 15min scoped token
+                            └── reads secrets → masked env vars
+                                    └── token auto-expires, nothing to revoke
+```
+
+### Summary
+
+| Step | Who does it | When |
+|------|------------|------|
+| Create policy + JWT role | Platform/ops team | Once per app |
+| Add `vault-action` step to workflow | App team | In the workflow file |
+| `permissions: id-token: write` | App team | Required on the job |
+
+---
+
 ## Troubleshooting
 
 ### Vault pods not unsealing after restart
