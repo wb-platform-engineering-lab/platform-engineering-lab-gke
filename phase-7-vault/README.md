@@ -225,6 +225,76 @@ Open `http://localhost:8200` — login with the admin token from Step 3.
 
 ---
 
+## Adding Vault Secret Injection to a New App
+
+Every new application needs 3 things to get secrets from Vault:
+
+### 1. Vault policy — what secrets the app can read
+
+```bash
+vault policy write my-app - <<'EOF'
+path "secret/data/my-app/*" {
+  capabilities = ["read"]
+}
+path "database/creds/my-app" {
+  capabilities = ["read"]
+}
+EOF
+```
+
+### 2. Kubernetes auth role — which ServiceAccount can use the policy
+
+```bash
+vault write auth/kubernetes/role/my-app \
+  bound_service_account_names=my-app \
+  bound_service_account_namespaces=default \
+  policies=my-app \
+  ttl=1h
+```
+
+### 3. Helm values — Vault annotations baked into the chart
+
+Add a `vault` block to the app's `values.yaml`:
+
+```yaml
+vault:
+  enabled: true
+  role: "my-app"
+  secrets:
+    - name: config.env
+      path: secret/data/my-app/config
+      template: |
+        {{- with secret "secret/data/my-app/config" -}}
+        export API_KEY="{{ .Data.data.api_key }}"
+        {{- end }}
+    - name: db.env
+      path: database/creds/my-app
+      template: |
+        {{- with secret "database/creds/my-app" -}}
+        export DB_USERNAME="{{ .Data.username }}"
+        export DB_PASSWORD="{{ .Data.password }}"
+        {{- end }}
+```
+
+The chart's `deployment.yaml` reads this block and renders the Vault Agent annotations automatically. The app's `ServiceAccount` is created by the chart — its name must match the Kubernetes auth role above.
+
+Secrets are available at `/vault/secrets/<name>` inside the pod. Source them at startup:
+
+```bash
+source /vault/secrets/config.env
+source /vault/secrets/db.env
+```
+
+### Summary
+
+| Step | Who does it | When |
+|------|------------|------|
+| Create policy + K8s role | Platform/ops team | Once per app |
+| Add `vault:` block to values.yaml | App team | In the Helm chart |
+| `helm install` | App team / ArgoCD | On every deploy |
+
+---
+
 ## Troubleshooting
 
 ### Vault pods not unsealing after restart
