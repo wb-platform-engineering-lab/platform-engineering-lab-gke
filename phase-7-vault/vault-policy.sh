@@ -64,14 +64,20 @@ EOF
 
 # --- 4. JWT auth role: github-ci ---
 echo "[4/4] Creating GitHub Actions JWT auth role..."
-vault write auth/jwt/github/role/github-ci \
-  role_type="jwt" \
-  bound_audiences="https://github.com/${GITHUB_REPO}" \
-  user_claim="actor" \
-  bound_claims_type="glob" \
-  bound_claims="{\"repository\":\"${GITHUB_REPO}\",\"ref\":\"refs/heads/main\"}" \
-  policies="github-ci" \
-  ttl="15m"
+vault write auth/jwt/github/role/github-ci - <<EOF
+{
+  "role_type": "jwt",
+  "bound_audiences": ["https://github.com/${GITHUB_REPO}"],
+  "user_claim": "actor",
+  "bound_claims_type": "glob",
+  "bound_claims": {
+    "repository": "${GITHUB_REPO}",
+    "ref": "refs/heads/main"
+  },
+  "policies": ["github-ci"],
+  "ttl": "15m"
+}
+EOF
 
 echo ""
 echo "=== Policies and roles configured ==="
