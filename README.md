@@ -9,6 +9,9 @@ Built as a portfolio project and study path toward **7 industry certifications**
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ---
+![Banner_Coverline](./img/coverline_banner.png)
+
+---
 
 ## Tech Stack
 
