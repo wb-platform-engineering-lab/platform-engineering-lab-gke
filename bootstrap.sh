@@ -26,7 +26,7 @@ done
 
 if [ -z "$PHASE" ]; then
   echo "Usage: bash bootstrap.sh --phase <number>"
-  echo "  Supported phases: 3, 4, 5, 6, 7"
+  echo "  Supported phases: 3, 4, 5, 6, 7, 8"
   exit 1
 fi
 
@@ -176,8 +176,28 @@ case $PHASE in
     install_cert_manager
     install_vault
     ;;
+  8)
+    install_postgresql_redis
+    install_argocd
+    install_observability
+    install_cert_manager
+    install_vault
+    echo ""
+    echo "[phase 8] HPA, PDB and Cluster Autoscaler require no additional installs."
+    echo "  Apply manifests manually:"
+    echo "    kubectl apply -f phase-8-advanced-k8s/hpa.yaml"
+    echo "    kubectl apply -f phase-8-advanced-k8s/pdb.yaml"
+    echo "  Verify metrics-server (required for HPA):"
+    echo "    kubectl get deployment metrics-server -n kube-system"
+    echo "  Run load test:"
+    echo "    brew install k6  # if not already installed"
+    echo "    kubectl port-forward svc/coverline 5000:5000 &"
+    echo "    k6 run phase-8-advanced-k8s/load-test.js"
+    echo ""
+    echo "Phase 8 — done."
+    ;;
   *)
-    echo "Unknown phase: $PHASE. Supported: 3, 4, 5, 6, 7"
+    echo "Unknown phase: $PHASE. Supported: 3, 4, 5, 6, 7, 8"
     exit 1
     ;;
 esac
