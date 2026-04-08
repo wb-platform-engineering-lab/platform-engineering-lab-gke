@@ -9,8 +9,8 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f1117;
-      color: #e2e8f0;
+      background: #f8fafc;
+      color: #0f172a;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -24,7 +24,7 @@
       position: fixed;
       top: 0; left: 0; right: 0;
       height: 4px;
-      background: #1e2330;
+      background: #e2e8f0;
       z-index: 100;
     }
     .progress-bar {
@@ -38,18 +38,19 @@
       position: fixed;
       top: 12px; right: 20px;
       font-size: 13px;
-      color: #64748b;
+      color: #94a3b8;
       z-index: 100;
     }
 
     /* Card */
     .card {
-      background: #161b27;
-      border: 1px solid #1e2a3a;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       border-radius: 16px;
       padding: 48px;
       max-width: 680px;
       width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
       animation: fadeUp 0.35s ease;
     }
 
@@ -71,13 +72,13 @@
       font-size: 20px;
       font-weight: 600;
       line-height: 1.5;
-      color: #f1f5f9;
+      color: #0f172a;
       margin-bottom: 32px;
     }
 
     .question code {
-      background: #1e2a3a;
-      color: #93c5fd;
+      background: #f1f5f9;
+      color: #4f46e5;
       padding: 2px 7px;
       border-radius: 5px;
       font-size: 15px;
@@ -92,7 +93,8 @@
       align-items: flex-start;
       gap: 14px;
       padding: 16px 18px;
-      border: 1.5px solid #1e2a3a;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
       border-radius: 10px;
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s, transform 0.1s;
@@ -101,7 +103,7 @@
 
     .option:hover:not(.disabled) {
       border-color: #6366f1;
-      background: #1a2035;
+      background: #eef2ff;
       transform: translateX(3px);
     }
 
@@ -109,27 +111,27 @@
       width: 28px;
       height: 28px;
       min-width: 28px;
-      border: 1.5px solid #334155;
+      border: 1.5px solid #cbd5e1;
       border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 12px;
       font-weight: 700;
-      color: #94a3b8;
+      color: #64748b;
       transition: all 0.15s;
     }
 
     .option-text {
       font-size: 15px;
       line-height: 1.5;
-      color: #cbd5e1;
+      color: #334155;
       padding-top: 3px;
     }
 
     .option-text code {
-      background: #1e2a3a;
-      color: #93c5fd;
+      background: #f1f5f9;
+      color: #4f46e5;
       padding: 1px 6px;
       border-radius: 4px;
       font-size: 13px;
@@ -139,23 +141,25 @@
     /* States */
     .option.correct {
       border-color: #22c55e;
-      background: #052e16;
+      background: #f0fdf4;
     }
     .option.correct .option-key {
       background: #22c55e;
       border-color: #22c55e;
       color: #fff;
     }
+    .option.correct .option-text { color: #166534; }
 
     .option.wrong {
       border-color: #ef4444;
-      background: #2d0a0a;
+      background: #fef2f2;
     }
     .option.wrong .option-key {
       background: #ef4444;
       border-color: #ef4444;
       color: #fff;
     }
+    .option.wrong .option-text { color: #991b1b; }
 
     .option.dimmed {
       opacity: 0.35;
@@ -167,18 +171,18 @@
     .explanation {
       margin-top: 20px;
       padding: 16px 18px;
-      background: #0d1520;
+      background: #f8fafc;
       border-left: 3px solid #6366f1;
       border-radius: 0 8px 8px 0;
       font-size: 14px;
       line-height: 1.65;
-      color: #94a3b8;
+      color: #475569;
       animation: fadeUp 0.25s ease;
     }
 
     .explanation code {
-      background: #1e2a3a;
-      color: #93c5fd;
+      background: #f1f5f9;
+      color: #4f46e5;
       padding: 1px 6px;
       border-radius: 4px;
       font-size: 13px;
@@ -233,7 +237,7 @@
     .score-title {
       font-size: 24px;
       font-weight: 700;
-      color: #f1f5f9;
+      color: #0f172a;
       margin-bottom: 10px;
     }
 
@@ -259,8 +263,8 @@
       font-weight: 600;
     }
 
-    .score-tag.correct { background: #052e16; color: #22c55e; }
-    .score-tag.wrong   { background: #2d0a0a; color: #ef4444; }
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 
     .btn-restart {
       padding: 14px 40px;
@@ -274,7 +278,7 @@
       transition: background 0.15s;
       margin-right: 12px;
     }
-    .btn-restart:hover { background: #1a1f35; }
+    .btn-restart:hover { background: #eef2ff; }
 
     .btn-back {
       padding: 14px 40px;
