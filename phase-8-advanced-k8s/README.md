@@ -18,8 +18,8 @@
 >
 > *"We need the cluster to handle this automatically,"* Léa said. *"I don't want to hear about open enrollment from a client again."*
 
-> **▶ [Watch the incident unfold →](./incident-animation.html)**
-> *(open in browser — animated dashboard, no install required)*
+> **▶ [Watch the incident unfold →](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-8-advanced-k8s/incident-animation.html)**
+> *(animated dashboard — no install required)*
 
 ---
 
