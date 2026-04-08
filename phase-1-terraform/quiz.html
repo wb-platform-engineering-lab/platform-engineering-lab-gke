@@ -309,7 +309,7 @@ const questions = [
       "You need to manually configure a DynamoDB lock table",
       "GCS supports state locking natively via object locks — automatic, no extra config needed",
       "Terraform queues operations using a local mutex file on disk",
-      "The second apply fails immediately with a "state version mismatch" error",
+      "The second apply fails immediately with a &quot;state version mismatch&quot; error",
     ],
     correct: 1,
     explanation: "GCS provides native state locking via object locks. When <code>terraform apply</code> runs, it acquires a lock on the state file. Any concurrent operation waits or fails with a lock error. No extra configuration is needed — unlike AWS S3, which requires a separate DynamoDB table."
