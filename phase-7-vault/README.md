@@ -357,15 +357,40 @@ export VAULT_CACERT=/tmp/vault-ca.crt
 
 ## Production Best Practices
 
-Lessons learned running Vault on GKE in production. Apply these before going live.
+What companies like Stripe, Cloudflare, and GitHub actually do — and how it differs from this lab.
 
-### 1. Isolate Vault on a Dedicated Node Pool
+---
 
-Vault is a hard dependency — if it can't schedule, no pod that needs secrets can start. It must never compete with application workloads for CPU or memory.
+### 1. Run Vault Outside Kubernetes (Most Important)
 
-Add a dedicated node pool in Terraform with a taint:
+This is the most critical gap between this lab and production. **Stripe, Cloudflare, GitHub, and HashiCorp itself run Vault on dedicated VMs completely outside Kubernetes.**
+
+The reason is a circular dependency: if Kubernetes is in crisis, you can't start Vault (which runs as a pod) to get secrets to recover Kubernetes pods. Vault must be reachable even when the cluster is down.
+
+```
+This lab:                       Production reality:
+──────────────────────          ──────────────────────────────────────
+GKE cluster                     GKE cluster       Vault cluster (VMs)
+  ├── vault-0 pod                  ├── app pods ←── 5–7 nodes, 3 zones
+  ├── vault-1 pod                  ├── infra pods   dedicated VMs
+  └── app pods                     └── ...          always reachable
+        ↑ circular dependency             ↑ independent lifecycle
+```
+
+**Options in order of preference for production:**
+
+| Option | Used by | Operational cost |
+|--------|---------|-----------------|
+| Dedicated VMs outside K8s (5–7 nodes, 3 zones) | Stripe, GitHub | High |
+| **HCP Vault** (HashiCorp managed) | Mid-size companies | Zero |
+| Dedicated node pool in K8s with fixed size | Startups | Medium |
+
+For this lab, a dedicated node pool is the pragmatic choice. For a real production system at CoverLine's scale, dedicated VMs or HCP Vault is the standard.
+
+**Dedicated node pool (minimum viable isolation):**
 
 ```hcl
+# Terraform — fixed-size node pool, never autoscaled
 node_pool {
   name = "vault-pool"
   node_config {
@@ -376,16 +401,13 @@ node_pool {
       effect = "NO_SCHEDULE"
     }
   }
-  autoscaling {
-    min_node_count = 3  # one per Vault replica, never scale below 3
-    max_node_count = 3
-  }
+  initial_node_count = 3
+  autoscaling { min_node_count = 3; max_node_count = 3 }
 }
 ```
 
-Add matching tolerations to `vault-values.yaml`:
-
 ```yaml
+# vault-values.yaml — schedule only on the vault pool
 server:
   tolerations:
     - key: "workload"
@@ -402,47 +424,62 @@ server:
                 values: ["vault"]
 ```
 
-For very high-security environments, run Vault on dedicated Compute Engine VMs outside GKE entirely — or use **HCP Vault** (HashiCorp managed) to eliminate all operational burden.
+---
+
+### 2. Recovery Key: Shamir's Secret Sharing + Physical Backup
+
+GCP Secret Manager alone is not sufficient. What major companies actually do:
+
+- **Shamir's Secret Sharing** — split the key across 5 keyholders, require 3 to reconstruct. Built into Vault's `operator init`:
+  ```bash
+  vault operator init -recovery-shares=5 -recovery-threshold=3
+  ```
+- **Multiple storage locations** — GCP Secret Manager + encrypted USB in a physical safe + a printed copy held by the CISO
+- **No single person can unseal Vault alone** — this is a security requirement, not just a best practice
+- **Quarterly recovery drills** — actually test key reconstruction with the keyholders
+
+The GCP Secret Manager approach in this lab is a starting point, not the end state.
 
 ---
 
-### 2. Save the Recovery Key Immediately After Init
+### 3. Use HSM for Auto-Unseal, Not KMS (High Security)
 
-The recovery key is the only way to generate a new root token if the admin token expires or is lost. Without it, you must wipe Vault and lose all secrets.
+This lab uses GCP KMS for auto-unseal. Large companies in regulated industries (finance, healthcare) use **Hardware Security Modules (HSMs)**:
 
-Automate the save as part of your init procedure:
+- HSMs are tamper-resistant physical devices — the key material never leaves the hardware
+- GCP KMS is software-based — the key material is protected by Google's infrastructure, not a physical device
+- For ISO 27001, SOC 2 Type II, and PCI-DSS compliance, HSMs are often required
+
+For most companies, GCP KMS is sufficient. For banks, insurers (like CoverLine at scale), and healthcare platforms, an HSM-backed unseal is expected.
+
+---
+
+### 4. Never Use Long-Lived Tokens for Automation
+
+The 8h admin token in this lab is a lab convenience. In production:
+
+- **Never use the root token** after initial setup — not in scripts, not in CI/CD, not stored anywhere
+- **AppRole** for machine-to-machine auth (CI/CD pipelines, scripts): short-lived tokens with tight policies
+- **Kubernetes auth** for pods: already used in this lab — the right approach
+- **GitHub OIDC** for CI/CD: already used in this lab — the right approach
+- Admin access should require a human to authenticate interactively, not via a stored token
 
 ```bash
-# Save recovery key to GCP Secret Manager right after vault-init.sh
-echo -n "<RECOVERY_KEY>" | gcloud secrets create vault-recovery-key \
-  --data-file=- --project=<PROJECT_ID>
-```
+# What NOT to do — long-lived token stored in Secret Manager
+vault token create -policy=vault-admin -period=720h  # ❌
 
-Store it in at least two places: GCP Secret Manager + an offline backup (printed, encrypted USB, or a password manager accessible to more than one person).
+# What to do — require human MFA for admin operations
+vault login -method=userpass username=admin  # ✅ or LDAP/OIDC
+```
 
 ---
 
-### 3. Use a Long-Lived Periodic Token for Automation
+### 5. Source Vault Secret Files in the App Startup Command
 
-The admin token created by `vault-init.sh` has an 8h TTL — enough for a session, not for CI/CD or long-running automation. Use a **periodic token** that renews itself:
-
-```bash
-# Create a periodic token (renews itself forever if renewed before TTL expires)
-vault token create -policy=vault-admin -orphan -period=24h -format=json \
-  | jq -r '.auth.client_token' \
-  | gcloud secrets create vault-admin-token --data-file=- --project=<PROJECT_ID>
-```
-
-Alternatively, never use long-lived tokens for automation — use AppRole or Kubernetes auth instead.
-
----
-
-### 4. Source Vault Secret Files in the App Startup Command
-
-Vault Agent injects secrets as files (`/vault/secrets/*.env`). The app must source them before starting — this must be baked into the container command in your Helm chart, not applied as a manual patch:
+Vault Agent injects secrets as files (`/vault/secrets/*.env`). The app must source them before starting. This must be baked into the Helm chart — not applied as a manual patch:
 
 ```yaml
-# In your Helm chart's deployment.yaml
+# deployment.yaml in your Helm chart
 containers:
   - name: backend
     command:
@@ -451,26 +488,26 @@ containers:
       - source /vault/secrets/backend.env && source /vault/secrets/db.env && python app.py
 ```
 
-If the `source` command is missing, the app starts before secrets are available and fails with `KeyError` on any env var that should come from Vault.
+If missing, the app starts before secrets are available and fails with `KeyError`.
 
 ---
 
-### 5. Pin the Vault Node Pool to a Single Zone
+### 6. Separate Vault Clusters Per Environment
 
-GKE Raft storage PVCs are zone-specific. If Cluster Autoscaler provisions a replacement node in a different zone, the Vault pod can't mount its PV and gets stuck `Pending`.
+Large companies run completely separate Vault clusters for dev, staging, and production — not namespaces or paths within one cluster:
 
-```hcl
-# Terraform — pin Vault node pool to one zone
-node_locations = ["us-central1-b"]
+```
+vault-dev.internal     → dev/staging secrets, loose policies
+vault-prod.internal    → production only, strict policies, HSM-backed, audited
 ```
 
-This ensures replacement nodes always land in the same zone as the existing PVs.
+This prevents a misconfigured dev policy from ever touching production secrets, and limits blast radius if a dev token is compromised.
 
 ---
 
-### 6. Never Expose Vault Directly — Always Use the Agent Injector
+### 7. Never Call the Vault API Directly From App Code
 
-Do not have application code call the Vault HTTP API directly. Use the Vault Agent sidecar exclusively:
+Do not have app code call the Vault HTTP API. Use the Vault Agent sidecar exclusively:
 
 - The Agent handles token renewal, secret rotation, and retry logic
 - The app reads a file — it never holds a Vault token

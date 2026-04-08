@@ -252,64 +252,123 @@ Take screenshots for the README:
 
 ## Production Best Practices
 
-Lessons learned running HPA, Cluster Autoscaler, and stateful workloads on GKE. Apply these before going live.
+What companies like Shopify, Airbnb, and Delivery Hero actually do — and how it differs from this lab.
 
-### 1. Pin Stateful Workloads to a Single Zone
+---
 
-GKE PersistentVolumes are zone-specific. When Cluster Autoscaler replaces a node in a different zone, StatefulSet pods (PostgreSQL, Redis, Vault) get stuck `Pending` because their PV doesn't exist in the new zone.
+### 1. Design for Multi-Zone Failure, Not Single-Zone Safety
 
-```hcl
-# Terraform — use a single-zone node pool for stateful workloads
-node_locations = ["us-central1-b"]
-```
+This lab pinned the node pool to a single zone to avoid PVC affinity issues. **Major companies do the opposite** — they design for full zone failure:
 
-Or use a dedicated node pool for stateful workloads with a fixed zone, separate from the autoscaling pool used by application pods.
+- **Regional clusters** with nodes spread across 3 zones
+- **Regional Persistent Disks** that survive a complete zone outage:
 
-For zone-redundant storage at higher cost, use regional persistent disks:
 ```yaml
-# StorageClass with regional PD
+# StorageClass with regional PD — survives one zone going down
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: regional-pd
+provisioner: pd.csi.storage.gke.io
 parameters:
+  type: pd-balanced
   replication-type: regional-pd
   zones: us-central1-b, us-central1-c
 ```
+
+- **Topology spread constraints** to force pods across zones:
+
+```yaml
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app: coverline-backend
+```
+
+Single-zone pinning avoids the scheduling issue but creates a zone-level single point of failure. Shopify and Airbnb accept the higher regional PD cost because a zone outage taking down the platform is unacceptable.
 
 ---
 
 ### 2. Use Dedicated Node Pools for Critical Infrastructure
 
-Vault, PostgreSQL, and monitoring components are hard dependencies. If they can't schedule, the entire platform breaks. They must never compete with application workloads.
+Vault, PostgreSQL, and monitoring are hard dependencies. If they can't schedule, the entire platform breaks.
 
 | Node Pool | Workloads | Autoscaling |
 |-----------|-----------|-------------|
-| `app-pool` | backend, frontend | min 2, max 10 |
-| `infra-pool` | Vault, PostgreSQL, Redis | fixed size, no autoscaling |
+| `app-pool` | backend, frontend | min 2, max 10 — autoscaled |
+| `infra-pool` | Vault, PostgreSQL, Redis | fixed size — **never autoscaled** |
 | `monitoring-pool` | Prometheus, Grafana, Loki | fixed size |
 
-Use taints on infra/monitoring pools and tolerations on their workloads to enforce this separation.
+Use taints on infra/monitoring pools and tolerations on their workloads to enforce this. See phase-7 README for the Vault-specific configuration.
 
 ---
 
-### 3. Run Load Tests Inside the Cluster
+### 3. Replace CPU-Based HPA With Business Metrics (KEDA)
 
-`kubectl port-forward` is a debug tool — it drops connections under high concurrency and is not suitable for load testing. Run k6 as a Kubernetes Job that hits services directly:
+CPU-based HPA is a lagging indicator — by the time CPU is at 50%, you're already degraded. **Companies like Adobe, Microsoft, and Delivery Hero** scale on business signals instead, using **KEDA** (Kubernetes Event-Driven Autoscaling):
+
+```yaml
+# Scale on Kafka queue depth — before CPU shows any pressure
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: coverline-backend
+spec:
+  scaleTargetRef:
+    name: coverline-backend
+  triggers:
+    - type: kafka
+      metadata:
+        topic: claims-submitted
+        lagThreshold: "100"   # scale when 100+ unprocessed claims
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        query: rate(http_requests_total{service="backend"}[1m])
+        threshold: "500"      # scale when >500 req/s
+```
+
+This scales the service before users notice slowness, not after.
+
+---
+
+### 4. Replace Cluster Autoscaler With Karpenter
+
+Most companies at scale (>50 nodes) replace Cluster Autoscaler with **Karpenter** (open source, works on GKE):
+
+| Feature | Cluster Autoscaler | Karpenter |
+|---------|-------------------|-----------|
+| Node provisioning speed | ~3–5 min | ~30–60s |
+| Node sizing | Fixed node pool types | Right-sizes to the pending pod |
+| Spot/Preemptible support | Manual configuration | Automatic fallback |
+| Used by | Small/mid setups | Anthropic, Figma, Delivery Hero |
+
+Karpenter provisions the exact node size needed for the pending pod instead of adding another clone of an existing node. This avoids over-provisioning and reduces cost by 20–40%.
+
+---
+
+### 5. Run Load Tests Inside the Cluster
+
+`kubectl port-forward` is a debug tool — it drops connections under high concurrency. Run k6 as a Kubernetes Job that hits services directly:
 
 ```bash
+# Update the base URL in load-test.js first:
+# const BASE_URL = 'http://coverline-backend.default.svc.cluster.local:5000';
+
 kubectl run k6 --image=grafana/k6 --rm -it --restart=Never -- \
   run --vus 200 --duration 6m - < phase-8-advanced-k8s/load-test.js
 ```
 
-Update the load test base URL to the internal service:
-```javascript
-const BASE_URL = 'http://coverline-backend.default.svc.cluster.local:5000';
-```
-
-This gives accurate latency numbers and doesn't depend on your laptop's network stack.
+For production load testing, companies use dedicated tools outside the cluster being tested: **k6 Cloud**, **Gatling Enterprise**, or a separate k6 cluster — so the load generator doesn't consume resources from the system under test.
 
 ---
 
-### 4. Set PodDisruptionBudgets on All Stateful Workloads
+### 6. Set PodDisruptionBudgets on All Stateful Workloads
 
-PDBs aren't just for application pods. Add them to PostgreSQL, Redis, and Vault too — otherwise Cluster Autoscaler scale-down or node upgrades can take down your entire database layer simultaneously:
+PDBs aren't just for application pods. Add them to PostgreSQL, Redis, and Vault too — otherwise a node drain or Cluster Autoscaler scale-down can take down the entire database layer simultaneously:
 
 ```yaml
 apiVersion: policy/v1
@@ -326,22 +385,20 @@ spec:
 
 ---
 
-### 5. Set a Cluster Autoscaler Scale-Down Delay for Stateful Pods
+### 7. Protect Stateful Pods From Cluster Autoscaler Eviction
 
-By default, Cluster Autoscaler aggressively removes underutilised nodes. This can evict stateful pods that haven't finished flushing to disk. Add this annotation to StatefulSet pods:
+Add this annotation to all StatefulSet pods to prevent Cluster Autoscaler from evicting them during scale-down:
 
 ```yaml
 annotations:
   cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
 ```
 
-This prevents Cluster Autoscaler from evicting these pods during scale-down.
-
 ---
 
-### 6. Use `minReplicas: 2` on All Production HPAs
+### 8. Use `minReplicas: 2` on All Production HPAs
 
-An HPA with `minReplicas: 1` means the single pod is a single point of failure during scaling events — the old pod terminates before the new one is ready. Always keep at least 2 replicas in production, combined with a PDB of `minAvailable: 1`.
+An HPA with `minReplicas: 1` is a single point of failure — the old pod terminates before the new one is ready during scaling events. Always keep at least 2 replicas in production, combined with a PDB of `minAvailable: 1`.
 
 ---
 
