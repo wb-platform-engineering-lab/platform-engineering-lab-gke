@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CoverLine — Phase 1 · Infrastructure By Hand</title>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;--purple:#bc8cff;--font:'JetBrains Mono','Fira Code','Courier New',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12px;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:999}
+#hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.logo{font-size:13px;font-weight:bold;color:var(--blue)}
+.phase-badge{background:var(--bg3);border:1px solid var(--border);padding:3px 10px;border-radius:4px;font-size:10px;color:var(--muted)}
+#main{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;padding:8px;flex:1;overflow:hidden}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px;overflow:hidden}
+.ptitle{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;border-bottom:1px solid var(--border);padding-bottom:4px}
+/* GCP Console mock */
+#console{display:flex;flex-direction:column;gap:6px}
+.console-row{display:flex;align-items:center;gap:8px}
+.console-label{color:var(--muted);font-size:10px;min-width:80px}
+.console-val{font-size:11px;color:var(--text);background:var(--bg3);padding:3px 7px;border-radius:3px;border:1px solid var(--border)}
+.console-val.click{border-color:var(--blue);color:var(--blue)}
+.click-cursor{color:var(--blue);font-size:10px;margin-left:4px;opacity:0;transition:opacity .2s}
+.click-cursor.on{opacity:1}
+/* Sticky note */
+#sticky{background:#d4a017;color:#000;padding:10px;border-radius:3px;font-size:11px;line-height:1.8;transform:rotate(-2deg);max-width:180px;box-shadow:2px 2px 6px rgba(0,0,0,.4);opacity:0;transition:opacity .5s}
+#sticky.on{opacity:1}
+/* Env comparison */
+#env-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.env-col{background:var(--bg3);border-radius:4px;padding:7px}
+.env-title{font-size:10px;font-weight:bold;margin-bottom:5px}
+.env-row{display:flex;justify-content:space-between;margin-bottom:3px;font-size:10px}
+.env-key{color:var(--muted)}
+.env-val{font-weight:bold}
+.env-val.match{color:var(--green)}
+.env-val.mismatch{color:var(--red);animation:blink .8s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+/* Terraform terminal */
+.terminal{background:#0a0e13;border:1px solid var(--border);border-radius:4px;padding:8px;overflow:hidden;height:100%;font-size:11px;line-height:1.65}
+.term-bar{display:flex;gap:5px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.dot{width:9px;height:9px;border-radius:50%}
+.tline{color:var(--muted);opacity:0;transition:opacity .15s;white-space:pre}
+.tline.on{opacity:1}
+.tline.ok{color:var(--green)}
+.tline.err{color:var(--red)}
+.tline.cmd{color:var(--text)}
+.tline.info{color:var(--blue)}
+.tline.res{color:var(--purple)}
+#overlay{position:fixed;inset:0;background:rgba(13,17,23,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .9s;z-index:200}
+#overlay.on{opacity:1;pointer-events:all}
+.ov-title{font-size:20px;color:var(--red);font-weight:bold;margin-bottom:6px}
+.ov-sub{color:var(--muted);font-size:12px;margin-bottom:8px}
+.ov-quote{font-style:italic;color:var(--muted);font-size:11px;margin-bottom:24px;max-width:440px;text-align:center;line-height:1.6;opacity:0;transition:opacity .6s}
+.ov-quote.on{opacity:1}
+.fix{font-size:12px;margin-bottom:7px;opacity:0;transform:translateY(6px);transition:opacity .5s,transform .5s}
+.fix.on{opacity:1;transform:none}
+.fix .ck{color:var(--green);margin-right:6px}
+button{background:transparent;border:1px solid var(--blue);color:var(--blue);padding:7px 22px;border-radius:4px;cursor:pointer;font-family:var(--font);font-size:12px;margin-top:20px}
+button:hover{background:rgba(88,166,255,.1)}
+#ftr{background:var(--bg2);border-top:1px solid var(--border);padding:4px 16px;display:flex;justify-content:space-between;flex-shrink:0}
+.fi{color:var(--muted);font-size:10px}.fi span{color:var(--text)}
+</style>
+</head>
+<body>
+<div id="hdr">
+  <div class="logo">◈ CoverLine · Phase 1 — Cloud & Terraform</div>
+  <div class="phase-badge">50 members · Seed round</div>
+  <div id="clock">2021 — Week 3</div>
+</div>
+<div id="main">
+  <!-- GCP Console manual clicks -->
+  <div class="panel">
+    <div class="ptitle">gcp console — manual provisioning</div>
+    <div id="console">
+      <div class="console-row"><span class="console-label">Region</span><span class="console-val" id="cv-region">europe-west1</span><span class="click-cursor" id="cc1">← clicked</span></div>
+      <div class="console-row"><span class="console-label">Machine type</span><span class="console-val" id="cv-machine">e2-medium</span><span class="click-cursor" id="cc2">← clicked</span></div>
+      <div class="console-row"><span class="console-label">Disk size</span><span class="console-val" id="cv-disk">50 GB</span><span class="click-cursor" id="cc3">← clicked</span></div>
+      <div class="console-row"><span class="console-label">Firewall</span><span class="console-val" id="cv-fw">Allow HTTP</span><span class="click-cursor" id="cc4">← clicked</span></div>
+      <div class="console-row"><span class="console-label">IP address</span><span class="console-val" id="cv-ip">—</span></div>
+    </div>
+  </div>
+  <!-- Sticky note -->
+  <div class="panel" style="display:flex;align-items:center;justify-content:center">
+    <div id="sticky">
+      📝 PROD SERVER<br>
+      IP: 34.77.142.88<br>
+      Region: eu-west1<br>
+      DB port: 5432<br>
+      Firewall: ??? <br>
+      <span style="font-size:9px;opacity:.7">(don't lose this)</span>
+    </div>
+  </div>
+  <!-- Environment drift -->
+  <div class="panel">
+    <div class="ptitle">staging vs production drift</div>
+    <div id="env-grid">
+      <div class="env-col">
+        <div class="env-title" style="color:var(--blue)">staging</div>
+        <div class="env-row"><span class="env-key">firewall</span><span class="env-val" id="e-stg-fw">default</span></div>
+        <div class="env-row"><span class="env-key">db version</span><span class="env-val" id="e-stg-db">postgres:13</span></div>
+        <div class="env-row"><span class="env-key">memory</span><span class="env-val" id="e-stg-mem">2 GB</span></div>
+        <div class="env-row"><span class="env-key">ssl</span><span class="env-val" id="e-stg-ssl">disabled</span></div>
+      </div>
+      <div class="env-col">
+        <div class="env-title" style="color:var(--green)">production</div>
+        <div class="env-row"><span class="env-key">firewall</span><span class="env-val" id="e-prd-fw">default</span></div>
+        <div class="env-row"><span class="env-key">db version</span><span class="env-val" id="e-prd-db">postgres:13</span></div>
+        <div class="env-row"><span class="env-key">memory</span><span class="env-val" id="e-prd-mem">2 GB</span></div>
+        <div class="env-row"><span class="env-key">ssl</span><span class="env-val" id="e-prd-ssl">disabled</span></div>
+      </div>
+    </div>
+  </div>
+  <!-- Terraform terminal -->
+  <div class="panel">
+    <div class="ptitle">terraform apply — infrastructure as code</div>
+    <div class="terminal" id="term">
+      <div class="term-bar"><div class="dot" style="background:#f85149"></div><div class="dot" style="background:#d29922"></div><div class="dot" style="background:#3fb950"></div></div>
+    </div>
+  </div>
+</div>
+<div id="overlay">
+  <div class="ov-title">THE STAGING BUG TOOK 2 DAYS</div>
+  <div class="ov-sub">Missing firewall rule added manually to prod. Never documented. Never reproduced in staging.</div>
+  <div class="ov-quote" id="q">"If this server dies tonight, how long to rebuild it?" — "A day. Maybe two." — "That's not acceptable."</div>
+  <div class="fix" id="f1"><span class="ck">✓</span>Every resource defined in Terraform — reproducible from <code>terraform apply</code></div>
+  <div class="fix" id="f2"><span class="ck">✓</span>Staging and production are identical by definition</div>
+  <div class="fix" id="f3"><span class="ck">✓</span>Full rebuild in &lt;10 minutes from scratch</div>
+  <button onclick="replay()">↺ Replay</button>
+</div>
+<div id="ftr">
+  <div class="fi">env: <span>production</span></div>
+  <div class="fi">phase: <span>1 — terraform</span></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let tids=[];
+function at(ms,fn){tids.push(setTimeout(fn,ms))}
+function addLine(text,cls=''){
+  const t=$('term'),l=document.createElement('div');
+  l.className='tline '+cls; l.textContent=text;
+  t.appendChild(l);
+  requestAnimationFrame(()=>l.classList.add('on'));
+  t.scrollTop=t.scrollHeight;
+}
+
+function init(){
+  // Console clicks
+  at(800, ()=>{$('cc1').classList.add('on');$('cv-region').classList.add('click')});
+  at(1400,()=>{$('cc2').classList.add('on');$('cv-machine').classList.add('click')});
+  at(2000,()=>{$('cc3').classList.add('on');$('cv-disk').classList.add('click')});
+  at(2600,()=>{$('cc4').classList.add('on');$('cv-fw').classList.add('click')});
+  at(3200,()=>{$('cv-ip').textContent='34.77.142.88'});
+  at(3600,()=>$('sticky').classList.add('on'));
+
+  // Drift appears 3 weeks later
+  at(5500,()=>addLine('# 3 weeks later — need a staging env',''));
+  at(6200,()=>addLine('# staging provisioned from memory...',''));
+  at(7000,()=>{
+    $('e-prd-fw').textContent='allow-8080'; $('e-prd-fw').className='env-val mismatch';
+    $('e-prd-db').textContent='postgres:14'; $('e-prd-db').className='env-val mismatch';
+    $('e-prd-ssl').textContent='enabled'; $('e-prd-ssl').className='env-val mismatch';
+    $('e-prd-mem').className='env-val match';
+  });
+  at(7800,()=>addLine('# bug only reproduces in prod — 2 days to find it',''));
+  at(8500,()=>addLine('# cause: firewall rule added manually to prod, never documented',''));
+
+  // Terraform
+  at(9500,()=>addLine('$ terraform init','cmd'));
+  at(10200,()=>addLine('Initializing provider plugins... OK','ok'));
+  at(10900,()=>addLine('$ terraform plan -out=tfplan','cmd'));
+  at(11600,()=>addLine('  + google_compute_instance.app','info'));
+  at(12000,()=>addLine('  + google_compute_firewall.allow_8080','info'));
+  at(12400,()=>addLine('  + google_sql_database_instance.main','info'));
+  at(12800,()=>addLine('Plan: 8 to add, 0 to change, 0 to destroy.','res'));
+  at(13400,()=>addLine('$ terraform apply tfplan','cmd'));
+  at(14200,()=>addLine('google_compute_instance.app: Creating...',''));
+  at(15000,()=>addLine('google_compute_instance.app: Creation complete.','ok'));
+  at(15600,()=>addLine('google_sql_database_instance.main: Creating...',''));
+  at(16400,()=>addLine('google_sql_database_instance.main: Creation complete.','ok'));
+  at(17000,()=>addLine('Apply complete! 8 added, 0 changed, 0 destroyed.','ok'));
+
+  at(18000,()=>{
+    $('overlay').classList.add('on');
+    at(600, ()=>$('q').classList.add('on'));
+    at(1200,()=>$('f1').classList.add('on'));
+    at(1700,()=>$('f2').classList.add('on'));
+    at(2200,()=>$('f3').classList.add('on'));
+  });
+}
+
+function replay(){
+  tids.forEach(clearTimeout); tids=[];
+  $('overlay').classList.remove('on');
+  ['q','f1','f2','f3'].forEach(id=>$(id).classList.remove('on'));
+  ['cc1','cc2','cc3','cc4'].forEach(id=>$(id).classList.remove('on'));
+  ['cv-region','cv-machine','cv-disk','cv-fw'].forEach(id=>$(id).classList.remove('click'));
+  $('cv-ip').textContent='—';
+  $('sticky').classList.remove('on');
+  ['e-prd-fw','e-prd-db','e-prd-ssl','e-prd-mem'].forEach(id=>{$(id).className='env-val';});
+  $('e-prd-fw').textContent='default';$('e-prd-db').textContent='postgres:13';
+  $('e-prd-ssl').textContent='disabled';$('e-prd-mem').textContent='2 GB';
+  const t=$('term'),bar=t.querySelector('.term-bar');
+  t.innerHTML=''; t.appendChild(bar);
+  init();
+}
+window.addEventListener('load',init);
+</script>
+</body>
+</html>

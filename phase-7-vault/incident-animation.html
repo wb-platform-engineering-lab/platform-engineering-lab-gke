@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CoverLine — Phase 7 · Credentials in Git</title>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;--purple:#bc8cff;--orange:#db6d28;--font:'JetBrains Mono','Fira Code','Courier New',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12px;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:999}
+#hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.logo{font-size:13px;font-weight:bold;color:var(--blue)}
+.phase-badge{background:var(--bg3);border:1px solid var(--border);padding:3px 10px;border-radius:4px;font-size:10px;color:var(--muted)}
+#main{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;flex:1;overflow:hidden}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px;display:flex;flex-direction:column;overflow:hidden}
+.ptitle{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+/* Git log with highlighted secrets */
+.commit{display:flex;gap:8px;margin-bottom:5px;opacity:0;transform:translateY(3px);transition:opacity .35s,transform .35s}
+.commit.on{opacity:1;transform:none}
+.chash{color:var(--orange);font-size:10px;min-width:52px}
+.cauthor{color:var(--blue);font-size:10px;min-width:55px}
+.cmsg{font-size:10px;color:var(--muted)}
+.cmsg .secret{color:var(--red);background:rgba(248,81,73,.12);padding:0 3px;border-radius:2px;animation:sec-pulse 1.5s ease-in-out infinite}
+@keyframes sec-pulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* Audit report */
+.audit{background:rgba(248,81,73,.06);border:1px solid var(--red);border-radius:5px;padding:10px;margin-top:8px;opacity:0;transition:opacity .6s}
+.audit.on{opacity:1}
+.audit-title{color:var(--red);font-size:11px;font-weight:bold;margin-bottom:6px}
+.audit-line{font-size:10px;color:var(--muted);margin-bottom:3px;line-height:1.5}
+.audit-line strong{color:var(--text)}
+/* Vault terminal */
+.terminal{background:#0a0e13;border:1px solid var(--border);border-radius:4px;padding:8px;overflow:hidden;flex:1;font-size:11px;line-height:1.65}
+.term-bar{display:flex;gap:5px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.dot{width:9px;height:9px;border-radius:50%}
+.tline{color:var(--muted);opacity:0;transition:opacity .15s;white-space:pre}
+.tline.on{opacity:1}
+.tline.ok{color:var(--green)}.tline.err{color:var(--red)}.tline.cmd{color:var(--text)}.tline.info{color:var(--blue)}.tline.sec{color:var(--yellow)}.tline.vault{color:var(--purple)}
+/* Series B delay banner */
+.delay-banner{background:rgba(248,81,73,.1);border:1px solid var(--red);border-radius:4px;padding:7px 10px;font-size:10px;color:var(--red);opacity:0;transition:opacity .5s;margin-top:8px}
+.delay-banner.on{opacity:1}
+#overlay{position:fixed;inset:0;background:rgba(13,17,23,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .9s;z-index:200}
+#overlay.on{opacity:1;pointer-events:all}
+.ov-title{font-size:20px;color:var(--red);font-weight:bold;margin-bottom:6px}
+.ov-sub{color:var(--muted);font-size:12px;margin-bottom:24px;max-width:440px;text-align:center;line-height:1.5}
+.fix{font-size:12px;margin-bottom:7px;opacity:0;transform:translateY(6px);transition:opacity .5s,transform .5s}
+.fix.on{opacity:1;transform:none}
+.fix .ck{color:var(--green);margin-right:6px}
+button{background:transparent;border:1px solid var(--blue);color:var(--blue);padding:7px 22px;border-radius:4px;cursor:pointer;font-family:var(--font);font-size:12px;margin-top:20px}
+button:hover{background:rgba(88,166,255,.1)}
+#ftr{background:var(--bg2);border-top:1px solid var(--border);padding:4px 16px;display:flex;justify-content:space-between;flex-shrink:0}
+.fi{color:var(--muted);font-size:10px}.fi span{color:var(--text)}
+</style>
+</head>
+<body>
+<div id="hdr">
+  <div class="logo">◈ CoverLine · Phase 7 — Vault</div>
+  <div class="phase-badge">100,000 members · Series B due diligence</div>
+  <div id="clock">08:00 AM · Audit Day 3</div>
+</div>
+<div id="main">
+  <!-- Git history with secrets -->
+  <div class="panel">
+    <div class="ptitle">git log — 14 commits with exposed credentials</div>
+    <div id="git-log">
+      <div class="commit" id="c1"><span class="chash">a1b2c3d</span><span class="cauthor">thomas</span><span class="cmsg">init: first commit — MVP backend</span></div>
+      <div class="commit" id="c2"><span class="chash">e4f5g6h</span><span class="cauthor">thomas</span><span class="cmsg">fix: <span class="secret">DB_PASSWORD=Coverl1ne#2021</span> hardcoded</span></div>
+      <div class="commit" id="c3"><span class="chash">i7j8k9l</span><span class="cauthor">sarah</span><span class="cmsg">feat: add redis — <span class="secret">REDIS_AUTH=r3d1s_s3cr3t</span></span></div>
+      <div class="commit" id="c4"><span class="chash">m0n1o2p</span><span class="cauthor">contractor</span><span class="cmsg">config: <span class="secret">PGPASSWORD=Coverl1ne#2021</span> in .env</span></div>
+      <div class="commit" id="c5"><span class="chash">q3r4s5t</span><span class="cauthor">thomas</span><span class="cmsg">oops: forgot to remove <span class="secret">API_SECRET_KEY</span></span></div>
+      <div class="commit" id="c6"><span class="chash">u6v7w8x</span><span class="cauthor">sarah</span><span class="cmsg">revert: still has <span class="secret">DB creds in history</span></span></div>
+    </div>
+    <div class="audit" id="audit">
+      <div class="audit-title">🔴 Security Audit Finding — Critical</div>
+      <div class="audit-line">Database credentials found in <strong>14 commits</strong> across <strong>3 branches</strong></div>
+      <div class="audit-line">Credentials <strong>not rotated in 11 months</strong></div>
+      <div class="audit-line">Public repo — every cloner had production DB access</div>
+    </div>
+    <div class="delay-banner" id="delay">⏸ Series B delayed 6 weeks pending full security remediation</div>
+  </div>
+  <!-- Vault solution -->
+  <div class="panel">
+    <div class="ptitle">hashicorp vault — secrets never touch git</div>
+    <div class="terminal" id="term">
+      <div class="term-bar"><div class="dot" style="background:#f85149"></div><div class="dot" style="background:#d29922"></div><div class="dot" style="background:#3fb950"></div></div>
+    </div>
+  </div>
+</div>
+<div id="overlay">
+  <div class="ov-title">CREDENTIALS IN 14 COMMITS</div>
+  <div class="ov-sub">Every contractor, contributor, and cloner had production database access. The Series B was delayed 6 weeks. Inès said: "We didn't have a secrets problem. We had a culture problem."</div>
+  <div class="fix" id="f1"><span class="ck">✓</span>Vault stores all secrets — nothing in Git, ever</div>
+  <div class="fix" id="f2"><span class="ck">✓</span>Dynamic credentials: each pod gets unique, short-lived DB creds</div>
+  <div class="fix" id="f3"><span class="ck">✓</span>Audit log: every secret access is recorded</div>
+  <button onclick="replay()">↺ Replay</button>
+</div>
+<div id="ftr">
+  <div class="fi">env: <span>production</span></div>
+  <div class="fi">phase: <span>7 — secrets management (vault)</span></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let tids=[];
+function at(ms,fn){tids.push(setTimeout(fn,ms))}
+function addLine(text,cls=''){
+  const t=$('term'),l=document.createElement('div');
+  l.className='tline '+cls; l.textContent=text;
+  t.appendChild(l); requestAnimationFrame(()=>l.classList.add('on'));
+  t.scrollTop=t.scrollHeight;
+}
+
+function init(){
+  [1,2,3,4,5,6].forEach((i,idx)=>at(400+idx*600,()=>$('c'+i).classList.add('on')));
+  at(4200,()=>$('audit').classList.add('on'));
+  at(5500,()=>$('delay').classList.add('on'));
+
+  // Vault terminal
+  at(7000,()=>addLine('# rotate exposed credentials immediately',''));
+  at(7600,()=>addLine('$ vault secrets enable database','cmd'));
+  at(8200,()=>addLine('Success! Enabled the database secrets engine.','ok'));
+  at(8900,()=>addLine('$ vault write database/config/postgresql \\','cmd'));
+  at(9200,()=>addLine('    connection_url="postgresql://{{username}}:{{password}}@db:5432/coverline"','vault'));
+  at(9800,()=>addLine('$ vault write database/roles/coverline-app \\','cmd'));
+  at(10100,()=>addLine('    default_ttl="1h" max_ttl="24h"','vault'));
+  at(10600,()=>addLine('Success! Role created.','ok'));
+  at(11200,()=>addLine('',''));
+  at(11300,()=>addLine('# pod requests credentials at runtime',''));
+  at(11800,()=>addLine('$ vault read database/creds/coverline-app','cmd'));
+  at(12500,()=>addLine('lease_duration  1h0m0s','info'));
+  at(12800,()=>addLine('username        v-k8s-coverl-xT9mK2wQ     ← dynamic','sec'));
+  at(13100,()=>addLine('password        A1B2-C3D4-E5F6-G7H8       ← rotates every hour','sec'));
+  at(13800,()=>addLine('',''));
+  at(13900,()=>addLine('✓ Git contains zero secrets. Credentials rotate automatically.','ok'));
+
+  at(15500,()=>{
+    $('overlay').classList.add('on');
+    at(600, ()=>$('f1').classList.add('on'));
+    at(1100,()=>$('f2').classList.add('on'));
+    at(1600,()=>$('f3').classList.add('on'));
+  });
+}
+
+function replay(){
+  tids.forEach(clearTimeout); tids=[];
+  $('overlay').classList.remove('on');
+  ['f1','f2','f3'].forEach(id=>$(id).classList.remove('on'));
+  [1,2,3,4,5,6].forEach(i=>$('c'+i).classList.remove('on'));
+  $('audit').classList.remove('on'); $('delay').classList.remove('on');
+  const t=$('term'),bar=t.querySelector('.term-bar');
+  t.innerHTML=''; t.appendChild(bar);
+  init();
+}
+window.addEventListener('load',init);
+</script>
+</body>
+</html>

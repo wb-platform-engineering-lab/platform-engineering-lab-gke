@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CoverLine — Phase 2 · One Container, One Point of Failure</title>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;--orange:#db6d28;--font:'JetBrains Mono','Fira Code','Courier New',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12px;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:999}
+#hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.logo{font-size:13px;font-weight:bold;color:var(--blue)}
+.phase-badge{background:var(--bg3);border:1px solid var(--border);padding:3px 10px;border-radius:4px;font-size:10px;color:var(--muted)}
+#main{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;flex:1;overflow:hidden}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px;display:flex;flex-direction:column;overflow:hidden}
+.ptitle{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+/* Container/Pod visual */
+.arch{display:flex;flex-direction:column;align-items:center;gap:12px;flex:1;padding:8px 0;justify-content:center}
+.arch-label{font-size:10px;color:var(--muted);text-align:center;margin-top:4px}
+.container-box{width:120px;height:55px;border-radius:6px;border:2px solid var(--green);background:rgba(63,185,80,.1);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:border-color .5s,background .5s;font-size:10px;font-weight:bold}
+.container-box.dead{border-color:var(--red);background:rgba(248,81,73,.1);animation:shake .3s ease-in-out 3}
+.container-box.restarting{border-color:var(--yellow);background:rgba(210,153,34,.1)}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.pod-row{display:flex;gap:8px;justify-content:center}
+.pod{width:50px;height:50px;border-radius:5px;background:var(--green);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:8px;font-weight:bold;color:rgba(0,0,0,.7);transition:background .5s}
+.pod.dead{background:var(--red);animation:pod-die .3s ease-in-out 2}
+.pod.warn{background:var(--yellow)}
+.pod.new{background:var(--blue);animation:pod-appear .5s ease-out}
+@keyframes pod-die{0%,100%{transform:scale(1)}50%{transform:scale(.85)}}
+@keyframes pod-appear{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.arrow{color:var(--muted);font-size:18px}
+.user-icon{font-size:22px}
+/* Error counter */
+.err-counter{font-size:28px;font-weight:bold;color:var(--red);text-align:center;transition:color .3s}
+.err-lbl{font-size:10px;color:var(--muted);text-align:center}
+/* Uptime bar */
+.uptime-row{display:flex;gap:3px;flex-wrap:wrap;padding-top:4px}
+.ut{width:16px;height:16px;border-radius:2px;background:var(--green);transition:background .3s}
+.ut.down{background:var(--red)}
+/* Timeline */
+.tl-item{display:flex;gap:8px;margin-bottom:7px;opacity:0;transform:translateX(6px);transition:opacity .4s,transform .4s}
+.tl-item.on{opacity:1;transform:none}
+.tl-t{color:var(--blue);font-size:10px;min-width:45px}
+.tl-d{font-size:10px;color:var(--muted)}
+.tl-d.a{color:var(--red)}.tl-d.r{color:var(--green)}.tl-d.w{color:var(--yellow)}
+#overlay{position:fixed;inset:0;background:rgba(13,17,23,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .9s;z-index:200}
+#overlay.on{opacity:1;pointer-events:all}
+.ov-title{font-size:20px;color:var(--red);font-weight:bold;margin-bottom:6px}
+.ov-sub{color:var(--muted);font-size:12px;margin-bottom:24px;text-align:center;max-width:420px;line-height:1.5}
+.fix{font-size:12px;margin-bottom:7px;opacity:0;transform:translateY(6px);transition:opacity .5s,transform .5s}
+.fix.on{opacity:1;transform:none}
+.fix .ck{color:var(--green);margin-right:6px}
+button{background:transparent;border:1px solid var(--blue);color:var(--blue);padding:7px 22px;border-radius:4px;cursor:pointer;font-family:var(--font);font-size:12px;margin-top:20px}
+button:hover{background:rgba(88,166,255,.1)}
+#ftr{background:var(--bg2);border-top:1px solid var(--border);padding:4px 16px;display:flex;justify-content:space-between;flex-shrink:0}
+.fi{color:var(--muted);font-size:10px}.fi span{color:var(--text)}
+#phase-label{color:var(--muted);font-size:11px;font-weight:bold;text-align:center;margin-bottom:4px}
+</style>
+</head>
+<body>
+<div id="hdr">
+  <div class="logo">◈ CoverLine · Phase 2 — Kubernetes</div>
+  <div class="phase-badge">200 members · First corporate client</div>
+  <div id="clock">Tuesday 14:32</div>
+</div>
+<div id="main">
+  <!-- Before: single container -->
+  <div class="panel">
+    <div class="ptitle">before — single container (no k8s)</div>
+    <div class="arch">
+      <div style="text-align:center">
+        <div class="user-icon">👥</div>
+        <div class="arch-label">200 members</div>
+      </div>
+      <div class="arrow">↓</div>
+      <div>
+        <div class="container-box" id="container1">
+          <span>backend:v1.2</span>
+          <span style="font-size:9px;color:var(--green)" id="c1-status">● running</span>
+        </div>
+        <div class="arch-label">1 container · 1 point of failure</div>
+      </div>
+      <div style="text-align:center;margin-top:8px">
+        <div class="err-counter" id="err-count">0</div>
+        <div class="err-lbl">errors during deploy</div>
+      </div>
+      <div style="margin-top:8px">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">uptime (last 60 min)</div>
+        <div class="uptime-row" id="uptime-row"></div>
+      </div>
+    </div>
+  </div>
+  <!-- After: Kubernetes -->
+  <div class="panel">
+    <div class="ptitle">after — kubernetes rolling update</div>
+    <div style="flex:1;display:flex;flex-direction:column">
+      <div class="arch" style="flex:1">
+        <div style="text-align:center">
+          <div class="user-icon">👥</div>
+          <div class="arch-label">200 members</div>
+        </div>
+        <div class="arrow">↓</div>
+        <div style="text-align:center;font-size:10px;color:var(--muted);margin-bottom:4px">LoadBalancer</div>
+        <div class="pod-row" id="pod-row">
+          <div><div class="pod" id="pod1">api<br>v1.2</div></div>
+          <div><div class="pod" id="pod2">api<br>v1.2</div></div>
+          <div><div class="pod" id="pod3">api<br>v1.2</div></div>
+        </div>
+        <div class="arch-label" id="pod-status">3 replicas · zero downtime</div>
+      </div>
+      <div id="tl-panel" style="margin-top:8px">
+        <div class="ptitle" style="margin-top:0">rolling update timeline</div>
+        <div id="tl"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="overlay">
+  <div class="ov-title">90 SECONDS OF ERRORS</div>
+  <div class="ov-sub">A config change. The container restarted. 23 members saw a blank screen. Four emailed support. The corporate client noticed.</div>
+  <div class="fix" id="f1"><span class="ck">✓</span>3 replicas — one pod restarting doesn't affect users</div>
+  <div class="fix" id="f2"><span class="ck">✓</span>Rolling update: new pod starts before old one stops</div>
+  <div class="fix" id="f3"><span class="ck">✓</span>Liveness probes: Kubernetes restarts unhealthy pods automatically</div>
+  <button onclick="replay()">↺ Replay</button>
+</div>
+<div id="ftr">
+  <div class="fi">env: <span>production</span></div>
+  <div class="fi">phase: <span>2 — kubernetes core</span></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let tids=[],errCount=0,timerIv=null;
+function at(ms,fn){tids.push(setTimeout(fn,ms))}
+
+function addTl(t,msg,cls=''){
+  const c=$('tl'),ev=document.createElement('div');
+  ev.className='tl-item';
+  ev.innerHTML=`<span class="tl-t">${t}</span><span class="tl-d ${cls}">${msg}</span>`;
+  c.appendChild(ev);
+  requestAnimationFrame(()=>ev.classList.add('on'));
+}
+
+function buildUptime(){
+  const row=$('uptime-row'); row.innerHTML='';
+  for(let i=0;i<30;i++){
+    const d=document.createElement('div');
+    d.className='ut'; d.id='ut'+i;
+    row.appendChild(d);
+  }
+}
+
+function startErrCount(){
+  timerIv=setInterval(()=>{
+    errCount+=Math.floor(Math.random()*8)+3;
+    $('err-count').textContent=errCount;
+  },150);
+}
+
+function init(){
+  buildUptime();
+  // Mark all uptime as green initially
+  for(let i=0;i<30;i++) $('ut'+i).style.background='var(--green)';
+
+  // Phase 1: deploy happens at t=3s
+  at(3000,()=>{
+    $('container1').classList.add('restarting');
+    $('c1-status').textContent='↻ restarting...';
+    $('c1-status').style.color='var(--yellow)';
+    // Mark recent uptime as down
+    for(let i=22;i<30;i++) $('ut'+i).classList.add('down');
+    startErrCount();
+  });
+
+  at(5000,()=>{
+    $('container1').classList.remove('restarting');
+    $('container1').classList.add('dead');
+    $('c1-status').textContent='✕ container restart';
+    $('c1-status').style.color='var(--red)';
+  });
+
+  at(7500,()=>{
+    clearInterval(timerIv);
+    $('container1').classList.remove('dead');
+    $('c1-status').textContent='● running';
+    $('c1-status').style.color='var(--green)';
+    addTl('14:32','Deploy triggered — container restart','a');
+    addTl('14:33','23 members: blank screen (90s)','a');
+    addTl('14:34','Container back up','w');
+    addTl('14:35','4 support emails received','a');
+  });
+
+  // Phase 2: Kubernetes rolling update
+  at(10000,()=>{
+    addTl('15:00','New deploy — kubectl rollout','');
+  });
+  at(11000,()=>{
+    $('pod1').classList.add('new');
+    $('pod1').innerHTML='api<br>v1.3';
+    $('pod1').style.background='var(--blue)';
+    addTl('15:00','pod1: v1.2 → v1.3 (healthy)','r');
+  });
+  at(12500,()=>{
+    $('pod2').classList.add('new');
+    $('pod2').innerHTML='api<br>v1.3';
+    $('pod2').style.background='var(--blue)';
+    addTl('15:01','pod2: v1.2 → v1.3 (healthy)','r');
+  });
+  at(14000,()=>{
+    $('pod3').classList.add('new');
+    $('pod3').innerHTML='api<br>v1.3';
+    $('pod3').style.background='var(--blue)';
+    addTl('15:01','pod3: v1.2 → v1.3 (healthy)','r');
+  });
+  at(15200,()=>{
+    $('pod-status').textContent='✓ rollout complete — 0 errors';
+    $('pod-status').style.color='var(--green)';
+    addTl('15:01','Rollout complete — zero downtime ✓','r');
+  });
+
+  at(17000,()=>{
+    $('overlay').classList.add('on');
+    at(600, ()=>$('f1').classList.add('on'));
+    at(1100,()=>$('f2').classList.add('on'));
+    at(1600,()=>$('f3').classList.add('on'));
+  });
+}
+
+function replay(){
+  tids.forEach(clearTimeout); tids=[];
+  clearInterval(timerIv); errCount=0;
+  $('overlay').classList.remove('on');
+  ['f1','f2','f3'].forEach(id=>$(id).classList.remove('on'));
+  $('container1').className='container-box';
+  $('c1-status').textContent='● running'; $('c1-status').style.color='var(--green)';
+  $('err-count').textContent='0';
+  $('tl').innerHTML='';
+  $('pod-status').textContent='3 replicas · zero downtime'; $('pod-status').style.color='';
+  ['pod1','pod2','pod3'].forEach((id,i)=>{
+    $(id).className='pod'; $(id).innerHTML='api<br>v1.2'; $(id).style.background='var(--green)';
+  });
+  init();
+}
+window.addEventListener('load',init);
+</script>
+</body>
+</html>

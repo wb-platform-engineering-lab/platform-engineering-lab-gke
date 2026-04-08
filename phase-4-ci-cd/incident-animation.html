@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CoverLine — Phase 4 · The Deploy Took Four Hours</title>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;--purple:#bc8cff;--font:'JetBrains Mono','Fira Code','Courier New',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12px;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:999}
+#hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.logo{font-size:13px;font-weight:bold;color:var(--blue)}
+.phase-badge{background:var(--bg3);border:1px solid var(--border);padding:3px 10px;border-radius:4px;font-size:10px;color:var(--muted)}
+#main{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;flex:1;overflow:hidden}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px;display:flex;flex-direction:column;overflow:hidden}
+.ptitle{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+/* Manual deploy timeline */
+.step{display:flex;gap:8px;margin-bottom:8px;opacity:0;transform:translateX(-6px);transition:opacity .4s,transform .4s}
+.step.on{opacity:1;transform:none}
+.step-time{min-width:50px;font-size:10px;color:var(--blue)}
+.step-dot{width:8px;height:8px;border-radius:50%;margin-top:3px;flex-shrink:0}
+.step-body{font-size:10px;line-height:1.5}
+.step-body.ok{color:var(--green)}.step-body.err{color:var(--red)}.step-body.warn{color:var(--yellow)}.step-body.muted{color:var(--muted)}
+.total-time{text-align:center;margin-top:12px;font-size:22px;font-weight:bold;color:var(--red);opacity:0;transition:opacity .5s}
+.total-time.on{opacity:1}
+/* GitHub Actions pipeline */
+.pipeline{display:flex;flex-direction:column;gap:6px;flex:1}
+.stage{display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:4px;padding:7px 10px;border:1px solid var(--border);transition:border-color .4s}
+.stage.running{border-color:var(--yellow)}
+.stage.done{border-color:var(--green)}
+.stage.fail{border-color:var(--red)}
+.stage-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0}
+.stage-name{flex:1;font-size:11px}
+.stage-time{font-size:10px;color:var(--muted);min-width:40px;text-align:right}
+.stage-bar{height:3px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden}
+.stage-bar-fill{height:100%;width:0%;background:var(--green);transition:width linear,background .3s;border-radius:2px}
+/* Push trigger */
+.push-event{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:8px;margin-bottom:8px;font-size:10px;opacity:0;transition:opacity .4s}
+.push-event.on{opacity:1}
+#overlay{position:fixed;inset:0;background:rgba(13,17,23,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .9s;z-index:200}
+#overlay.on{opacity:1;pointer-events:all}
+.ov-title{font-size:20px;color:var(--red);font-weight:bold;margin-bottom:6px}
+.ov-sub{color:var(--muted);font-size:12px;margin-bottom:24px;max-width:420px;text-align:center;line-height:1.5}
+.fix{font-size:12px;margin-bottom:7px;opacity:0;transform:translateY(6px);transition:opacity .5s,transform .5s}
+.fix.on{opacity:1;transform:none}
+.fix .ck{color:var(--green);margin-right:6px}
+button{background:transparent;border:1px solid var(--blue);color:var(--blue);padding:7px 22px;border-radius:4px;cursor:pointer;font-family:var(--font);font-size:12px;margin-top:20px}
+button:hover{background:rgba(88,166,255,.1)}
+#ftr{background:var(--bg2);border-top:1px solid var(--border);padding:4px 16px;display:flex;justify-content:space-between;flex-shrink:0}
+.fi{color:var(--muted);font-size:10px}.fi span{color:var(--text)}
+</style>
+</head>
+<body>
+<div id="hdr">
+  <div class="logo">◈ CoverLine · Phase 4 — CI/CD</div>
+  <div class="phase-badge">5,000 members · Friday afternoon</div>
+  <div id="clock">Friday 14:00</div>
+</div>
+<div id="main">
+  <!-- Manual deploy chaos -->
+  <div class="panel">
+    <div class="ptitle">manual deploy — the 4-hour friday nightmare</div>
+    <div id="steps">
+      <div class="step" id="st1"><span class="step-time">14:00</span><div class="step-dot" style="background:var(--blue)"></div><div class="step-body muted">Junior dev starts deploy — follows Google Doc runbook (last updated 8 months ago)</div></div>
+      <div class="step" id="st2"><span class="step-time">14:15</span><div class="step-dot" style="background:var(--yellow)"></div><div class="step-body warn">Step 4: "run deploy.sh" — script was replaced last month. File not found.</div></div>
+      <div class="step" id="st3"><span class="step-time">14:32</span><div class="step-dot" style="background:var(--yellow)"></div><div class="step-body warn">Asks senior dev on Slack. Senior dev on a different timezone. 17-minute wait.</div></div>
+      <div class="step" id="st4"><span class="step-time">15:10</span><div class="step-dot" style="background:var(--red)"></div><div class="step-body err">Improvised — pushed image manually. Wrong tag. Pod CrashLoopBackOff in prod.</div></div>
+      <div class="step" id="st5"><span class="step-time">15:40</span><div class="step-dot" style="background:var(--red)"></div><div class="step-body err">Member login page broken. 40 minutes of 503 errors. Friday afternoon.</div></div>
+      <div class="step" id="st6"><span class="step-time">17:48</span><div class="step-dot" style="background:var(--green)"></div><div class="step-body ok">Karim joins. Rolls back. Deploy finally complete — 4 hours later.</div></div>
+    </div>
+    <div class="total-time" id="total">⏱ 4 hours · 40 min outage · 3 Slack calls</div>
+  </div>
+  <!-- GitHub Actions pipeline -->
+  <div class="panel">
+    <div class="ptitle">github actions — every merge = automatic deploy</div>
+    <div class="push-event" id="push-ev">
+      <span style="color:var(--green)">●</span> <strong>push</strong> to main by <span style="color:var(--blue)">junior-dev</span><br>
+      <span style="color:var(--muted)">claims: fix form validation · 1 file changed</span>
+    </div>
+    <div class="pipeline" id="pipeline">
+      <div class="stage" id="pg1">
+        <span class="stage-icon">🔍</span>
+        <div style="flex:1"><div class="stage-name">lint & type check</div><div class="stage-bar"><div class="stage-bar-fill" id="pb1"></div></div></div>
+        <span class="stage-time" id="pt1">—</span>
+      </div>
+      <div class="stage" id="pg2">
+        <span class="stage-icon">🧪</span>
+        <div style="flex:1"><div class="stage-name">unit tests (47 tests)</div><div class="stage-bar"><div class="stage-bar-fill" id="pb2"></div></div></div>
+        <span class="stage-time" id="pt2">—</span>
+      </div>
+      <div class="stage" id="pg3">
+        <span class="stage-icon">🐳</span>
+        <div style="flex:1"><div class="stage-name">docker build & push</div><div class="stage-bar"><div class="stage-bar-fill" id="pb3"></div></div></div>
+        <span class="stage-time" id="pt3">—</span>
+      </div>
+      <div class="stage" id="pg4">
+        <span class="stage-icon">🚀</span>
+        <div style="flex:1"><div class="stage-name">helm upgrade (staging)</div><div class="stage-bar"><div class="stage-bar-fill" id="pb4"></div></div></div>
+        <span class="stage-time" id="pt4">—</span>
+      </div>
+      <div class="stage" id="pg5">
+        <span class="stage-icon">✅</span>
+        <div style="flex:1"><div class="stage-name">smoke tests</div><div class="stage-bar"><div class="stage-bar-fill" id="pb5"></div></div></div>
+        <span class="stage-time" id="pt5">—</span>
+      </div>
+      <div class="stage" id="pg6">
+        <span class="stage-icon">🚀</span>
+        <div style="flex:1"><div class="stage-name">helm upgrade (production)</div><div class="stage-bar"><div class="stage-bar-fill" id="pb6"></div></div></div>
+        <span class="stage-time" id="pt6">—</span>
+      </div>
+    </div>
+    <div id="pipeline-result" style="text-align:center;margin-top:8px;font-size:11px;font-weight:bold;color:var(--green);opacity:0;transition:opacity .5s">
+      ✓ Deploy complete in 4m 23s — zero manual steps
+    </div>
+  </div>
+</div>
+<div id="overlay">
+  <div class="ov-title">DEPLOY PROCESS LIVED IN SOMEONE'S HEAD</div>
+  <div class="ov-sub">6 versions of the runbook across Slack, Notion, and a Post-it. A 4-hour deploy. A 40-minute Friday outage.</div>
+  <div class="fix" id="f1"><span class="ck">✓</span>Every merge to main triggers build → test → deploy automatically</div>
+  <div class="fix" id="f2"><span class="ck">✓</span>No runbooks. No manual steps. No Slack calls.</div>
+  <div class="fix" id="f3"><span class="ck">✓</span>Junior dev ships to prod safely — pipeline handles everything</div>
+  <button onclick="replay()">↺ Replay</button>
+</div>
+<div id="ftr">
+  <div class="fi">env: <span>production</span></div>
+  <div class="fi">phase: <span>4 — ci/cd pipelines</span></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let tids=[];
+function at(ms,fn){tids.push(setTimeout(fn,ms))}
+
+function runStage(id,barId,timeId,dur,status,timeLabel){
+  $(id).classList.add('running');
+  const bar=$(barId);
+  bar.style.transition=`width ${dur}ms linear`;
+  bar.style.width='100%';
+  setTimeout(()=>{
+    $(id).classList.remove('running');
+    $(id).classList.add(status);
+    $(timeId).textContent=timeLabel;
+    if(status==='done') bar.style.background='var(--green)';
+    else bar.style.background='var(--red)';
+  }, dur);
+}
+
+function init(){
+  // Manual steps
+  [1,2,3,4,5,6].forEach((i,idx)=>at(800+idx*1800,()=>$('st'+i).classList.add('on')));
+  at(800+5*1800+600,()=>$('total').classList.add('on'));
+
+  // Pipeline
+  at(2000,()=>$('push-ev').classList.add('on'));
+  at(2500, ()=>runStage('pg1','pb1','pt1',1400,'done','23s'));
+  at(4000, ()=>runStage('pg2','pb2','pt2',1800,'done','1m 02s'));
+  at(5900, ()=>runStage('pg3','pb3','pt3',2200,'done','1m 41s'));
+  at(8200, ()=>runStage('pg4','pb4','pt4',1200,'done','48s'));
+  at(9500, ()=>runStage('pg5','pb5','pt5',900,'done','29s'));
+  at(10500,()=>runStage('pg6','pb6','pt6',1100,'done','43s'));
+  at(11700,()=>{$('pipeline-result').style.opacity='1'});
+
+  at(13500,()=>{
+    $('overlay').classList.add('on');
+    at(600, ()=>$('f1').classList.add('on'));
+    at(1100,()=>$('f2').classList.add('on'));
+    at(1600,()=>$('f3').classList.add('on'));
+  });
+}
+
+function replay(){
+  tids.forEach(clearTimeout); tids=[];
+  $('overlay').classList.remove('on');
+  ['f1','f2','f3'].forEach(id=>$(id).classList.remove('on'));
+  [1,2,3,4,5,6].forEach(i=>$('st'+i).classList.remove('on'));
+  $('total').classList.remove('on');
+  $('push-ev').classList.remove('on');
+  $('pipeline-result').style.opacity='0';
+  [1,2,3,4,5,6].forEach(i=>{
+    const s=$('pg'+i);
+    s.className='stage';
+    $('pb'+i).style.width='0%'; $('pb'+i).style.transition='none';
+    $('pt'+i).textContent='—';
+  });
+  init();
+}
+window.addEventListener('load',init);
+</script>
+</body>
+</html>
