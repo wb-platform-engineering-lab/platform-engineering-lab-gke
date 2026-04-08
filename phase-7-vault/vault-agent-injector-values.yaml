@@ -1,0 +1,58 @@
+# vault-agent-injector-values.yaml
+# Deploys ONLY the Vault Agent Injector webhook in Kubernetes.
+# The Vault server runs on a dedicated VM outside GKE (see terraform/vm.tf).
+#
+# The injector intercepts pod creation and adds a vault-agent sidecar
+# that fetches secrets from the external Vault VM.
+#
+# Usage:
+#   export VAULT_IP=$(terraform -chdir=phase-7-vault/terraform output -raw vault_internal_ip)
+#   helm upgrade --install vault hashicorp/vault \
+#     --namespace vault \
+#     -f phase-7-vault/vault-agent-injector-values.yaml \
+#     --set injector.externalVaultAddr=http://${VAULT_IP}:8200
+
+# ── Vault Server — disabled (runs on VM, not in K8s) ────────────────────────
+server:
+  enabled: false
+
+# ── Vault Agent Injector ─────────────────────────────────────────────────────
+injector:
+  enabled: true
+
+  # Points the injector at the external Vault VM.
+  # Set via --set at install time: --set injector.externalVaultAddr=http://<VM_IP>:8200
+  externalVaultAddr: ""   # populated at helm install time
+
+  replicas: 2             # two injector replicas for HA
+  leaderElector:
+    enabled: true
+
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "250m"
+      memory: "128Mi"
+
+  # Tolerate all nodes — the injector must be available on every node
+  # where pods with vault annotations can be scheduled.
+  tolerations: []
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: vault-agent-injector
+
+# ── UI and other components — disabled ──────────────────────────────────────
+ui:
+  enabled: false
+
+csi:
+  enabled: false

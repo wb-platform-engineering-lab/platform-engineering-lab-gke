@@ -1,0 +1,32 @@
+# vault.hcl — Vault server configuration.
+# Managed by Ansible — do not edit manually on the VM.
+
+ui = true
+
+# Listener — no TLS in the lab (enable TLS for production)
+listener "tcp" {
+  address     = "0.0.0.0:8200"
+  tls_disable = true
+}
+
+# Integrated Raft storage — data persisted on local disk
+storage "raft" {
+  path    = "{{ vault_data_dir }}"
+  node_id = "vault-node-1"
+}
+
+# GCP KMS auto-unseal — Vault unseals itself on restart
+seal "gcpckms" {
+  project    = "{{ gcp_project }}"
+  region     = "{{ kms_region }}"
+  key_ring   = "{{ kms_key_ring }}"
+  crypto_key = "{{ kms_key_name }}"
+}
+
+# API address — used by Vault clients and raft peer communication
+api_addr     = "http://{{ ansible_host }}:8200"
+cluster_addr = "http://{{ ansible_host }}:8201"
+
+# Audit log
+log_level = "info"
+log_file  = "{{ vault_log_dir }}/vault.log"

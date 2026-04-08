@@ -1,0 +1,33 @@
+# vault.service — systemd unit for HashiCorp Vault.
+# Managed by Ansible — do not edit manually on the VM.
+
+[Unit]
+Description=HashiCorp Vault — a tool for managing secrets
+Documentation=https://developer.hashicorp.com/vault/docs
+Requires=network-online.target
+After=network-online.target
+ConditionFileNotEmpty={{ vault_config_dir }}/vault.hcl
+
+[Service]
+Type=notify
+User=vault
+Group=vault
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+SecureBits=keep-caps
+AmbientCapabilities=CAP_IPC_LOCK
+NoNewPrivileges=yes
+ExecStart={{ vault_install_dir }}/vault server -config={{ vault_config_dir }}/vault.hcl
+ExecReload=/bin/kill --signal HUP $MAINPID
+KillMode=process
+KillSignal=SIGINT
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+LimitNOFILE=65536
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target
