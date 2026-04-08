@@ -67,19 +67,19 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 
 ## Progress
 
-| Phase | Topic | Members | Est. Time | Status |
-|---|---|---|---|---|
-| 0 | Foundations (Docker, Linux, Git) | 0 | 2–3 days | ✅ Complete |
-| 1 | Cloud & Terraform (GCP, VPC, GKE) | 50 | 4–6 days | ✅ Complete |
-| 2 | Kubernetes Core (raw YAML) | 200 | 2–3 days | ✅ Complete |
-| 3 | Helm & Microservices + PostgreSQL + Redis | 1,000 | 5–7 days | ✅ Complete |
-| 3b | Event-Driven Architecture (Kafka + Strimzi) | 2,000 | 3–4 days | ⬜ Not started |
-| 4 | CI/CD Pipelines | 5,000 | 3–4 days | ✅ Complete |
-| 5 | GitOps with ArgoCD | 15,000 | 2–3 days | ✅ Complete |
-| 5b | Progressive Delivery (Argo Rollouts) | 20,000 | 2–3 days | ⬜ Not started |
-| 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ✅ Complete |
-| 7 | Secrets Management (Vault) | 100,000 | 4–5 days | ✅ Complete |
-| 8 | Advanced Kubernetes + **CKAD** + **CKA** | 250,000 | 3–4 days + 4–8 wks cert | ⬜ Not started |
+| Phase | Topic | Members | Est. Time | Status | Demo |
+|---|---|---|---|---|---|
+| 0 | Foundations (Docker, Linux, Git) | 0 | 2–3 days | ✅ Complete | |
+| 1 | Cloud & Terraform (GCP, VPC, GKE) | 50 | 4–6 days | ✅ Complete | |
+| 2 | Kubernetes Core (raw YAML) | 200 | 2–3 days | ✅ Complete | |
+| 3 | Helm & Microservices + PostgreSQL + Redis | 1,000 | 5–7 days | ✅ Complete | |
+| 3b | Event-Driven Architecture (Kafka + Strimzi) | 2,000 | 3–4 days | ⬜ Not started | |
+| 4 | CI/CD Pipelines | 5,000 | 3–4 days | ✅ Complete | |
+| 5 | GitOps with ArgoCD | 15,000 | 2–3 days | ✅ Complete | |
+| 5b | Progressive Delivery (Argo Rollouts) | 20,000 | 2–3 days | ⬜ Not started | |
+| 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ✅ Complete | |
+| 7 | Secrets Management (Vault) | 100,000 | 4–5 days | ✅ Complete | |
+| 8 | Advanced Kubernetes + **CKAD** + **CKA** | 250,000 | 3–4 days + 4–8 wks cert | 🔄 In progress | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-8-advanced-k8s/incident-animation.html) |
 | 8b | Service Mesh (Istio — mTLS, tracing) | 300,000 | 3–4 days | ⬜ Not started |
 | 9 | Data Platform (Airflow + dbt + BigQuery) + **GCP DevOps** | 500,000 | 6–8 days | ⬜ Not started |
 | 10 | Security & Production Hardening | 1,000,000 | 3–4 days | ⬜ Not started |

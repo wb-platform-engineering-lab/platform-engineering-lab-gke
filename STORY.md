@@ -191,7 +191,7 @@ CoverLine keeps growing. The problems keep changing.
 
 These chapters are in progress. Follow along:
 
-→ **[Phase 8 — Advanced Kubernetes + CKAD/CKA](./phase-8-advanced-k8s/)**
+→ **[Phase 8 — Advanced Kubernetes + CKAD/CKA](./phase-8-advanced-k8s/)** · [▶ watch the incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-8-advanced-k8s/incident-animation.html)
 → **[Phase 9 — Data Platform](./phase-9-data-platform/)**
 → **[Phase 10 — Security Hardening](./phase-10-security/)**
 → **[Phase 11 — Capstone + Backstage IDP](./phase-11-capstone/)**
