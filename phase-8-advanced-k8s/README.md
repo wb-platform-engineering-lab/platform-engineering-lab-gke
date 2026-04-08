@@ -18,6 +18,9 @@
 >
 > *"We need the cluster to handle this automatically,"* Léa said. *"I don't want to hear about open enrollment from a client again."*
 
+> **▶ [Watch the incident unfold →](./incident-animation.html)**
+> *(open in browser — animated dashboard, no install required)*
+
 ---
 
 ## What we'll build
