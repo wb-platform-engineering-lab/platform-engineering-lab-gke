@@ -1,5 +1,7 @@
 # Phase 3 — Helm & Microservices
 
+[▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-3-helm/incident-animation.html)
+
 ---
 
 > **CoverLine — 1,000 members. March.**

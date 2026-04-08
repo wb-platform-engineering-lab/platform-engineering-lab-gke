@@ -1,5 +1,7 @@
 # Phase 2 — Kubernetes Core
 
+[▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-2-kubernetes/incident-animation.html)
+
 ---
 
 > **CoverLine — 200 members. The logistics client is live.**

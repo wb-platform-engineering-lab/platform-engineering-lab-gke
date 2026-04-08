@@ -1,5 +1,7 @@
 # Phase 0 — Foundations
 
+[▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-0-foundations/incident-animation.html)
+
 ---
 
 > **CoverLine — 0 members. Day one.**

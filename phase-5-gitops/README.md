@@ -1,5 +1,7 @@
 # Phase 5 — GitOps with ArgoCD
 
+[▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-5-gitops/incident-animation.html)
+
 ---
 
 > **CoverLine — 15,000 members. September.**

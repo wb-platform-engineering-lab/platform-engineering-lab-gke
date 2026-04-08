@@ -1,5 +1,7 @@
 # Phase 4 — CI/CD Pipelines
 
+[▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-4-ci-cd/incident-animation.html)
+
 ---
 
 > **CoverLine — 5,000 members. June.**

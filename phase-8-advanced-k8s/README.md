@@ -1,5 +1,7 @@
 # Phase 8 — Advanced Kubernetes
 
+[▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-8-advanced-k8s/incident-animation.html)
+
 ---
 
 > **CoverLine — 250,000 members. November. Open enrollment.**

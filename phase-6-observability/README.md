@@ -1,5 +1,7 @@
 # Phase 6 — Observability Stack
 
+[▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-6-observability/incident-animation.html)
+
 ---
 
 > **CoverLine — 50,000 members. November.**

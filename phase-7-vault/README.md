@@ -1,5 +1,7 @@
 # Phase 7 — Secrets Management (Vault)
 
+[▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-7-vault/incident-animation.html)
+
 ---
 
 > **CoverLine — 100,000 members. January.**
