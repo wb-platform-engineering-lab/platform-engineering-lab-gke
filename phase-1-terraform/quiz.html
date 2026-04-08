@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 1 Quiz — Cloud & Terraform</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* Progress bar */
+    .progress-bar-wrap {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: #1e2330;
+      z-index: 100;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #818cf8);
+      transition: width 0.4s ease;
+    }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 12px; right: 20px;
+      font-size: 13px;
+      color: #64748b;
+      z-index: 100;
+    }
+
+    /* Card */
+    .card {
+      background: #161b27;
+      border: 1px solid #1e2a3a;
+      border-radius: 16px;
+      padding: 48px;
+      max-width: 680px;
+      width: 100%;
+      animation: fadeUp 0.35s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .phase-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6366f1;
+      margin-bottom: 12px;
+    }
+
+    .question {
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.5;
+      color: #f1f5f9;
+      margin-bottom: 32px;
+    }
+
+    .question code {
+      background: #1e2a3a;
+      color: #93c5fd;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 15px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    /* Options */
+    .options { display: flex; flex-direction: column; gap: 12px; }
+
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 16px 18px;
+      border: 1.5px solid #1e2a3a;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      user-select: none;
+    }
+
+    .option:hover:not(.disabled) {
+      border-color: #6366f1;
+      background: #1a2035;
+      transform: translateX(3px);
+    }
+
+    .option-key {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      border: 1.5px solid #334155;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #94a3b8;
+      transition: all 0.15s;
+    }
+
+    .option-text {
+      font-size: 15px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      padding-top: 3px;
+    }
+
+    .option-text code {
+      background: #1e2a3a;
+      color: #93c5fd;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    /* States */
+    .option.correct {
+      border-color: #22c55e;
+      background: #052e16;
+    }
+    .option.correct .option-key {
+      background: #22c55e;
+      border-color: #22c55e;
+      color: #fff;
+    }
+
+    .option.wrong {
+      border-color: #ef4444;
+      background: #2d0a0a;
+    }
+    .option.wrong .option-key {
+      background: #ef4444;
+      border-color: #ef4444;
+      color: #fff;
+    }
+
+    .option.dimmed {
+      opacity: 0.35;
+    }
+
+    .option.disabled { cursor: default; }
+
+    /* Explanation */
+    .explanation {
+      margin-top: 20px;
+      padding: 16px 18px;
+      background: #0d1520;
+      border-left: 3px solid #6366f1;
+      border-radius: 0 8px 8px 0;
+      font-size: 14px;
+      line-height: 1.65;
+      color: #94a3b8;
+      animation: fadeUp 0.25s ease;
+    }
+
+    .explanation code {
+      background: #1e2a3a;
+      color: #93c5fd;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    /* Next button */
+    .btn-next {
+      margin-top: 28px;
+      padding: 14px 32px;
+      background: #6366f1;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      width: 100%;
+    }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .btn-next:active { transform: translateY(0); }
+
+    /* Score screen */
+    .score-screen { text-align: center; }
+
+    .score-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 28px;
+    }
+
+    .score-number {
+      font-size: 36px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .score-total {
+      font-size: 14px;
+      color: rgba(255,255,255,0.7);
+      margin-top: 2px;
+    }
+
+    .score-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 10px;
+    }
+
+    .score-subtitle {
+      font-size: 15px;
+      color: #64748b;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .score-breakdown {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .score-tag {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .score-tag.correct { background: #052e16; color: #22c55e; }
+    .score-tag.wrong   { background: #2d0a0a; color: #ef4444; }
+
+    .btn-restart {
+      padding: 14px 40px;
+      background: transparent;
+      color: #6366f1;
+      font-size: 15px;
+      font-weight: 600;
+      border: 1.5px solid #6366f1;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-right: 12px;
+    }
+    .btn-restart:hover { background: #1a1f35; }
+
+    .btn-back {
+      padding: 14px 40px;
+      background: #6366f1;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar-wrap">
+  <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+</div>
+<div class="header" id="questionCounter"></div>
+
+<div class="card" id="quizCard"></div>
+
+<script>
+const questions = [
+  {
+    q: "Your colleague runs <code>terraform apply</code> at the same time as you against the same environment. What prevents the state file from getting corrupted when using a GCS backend?",
+    options: [
+      "You need to manually configure a DynamoDB lock table",
+      "GCS supports state locking natively via object locks — automatic, no extra config needed",
+      "Terraform queues operations using a local mutex file on disk",
+      "The second apply fails immediately with a "state version mismatch" error",
+    ],
+    correct: 1,
+    explanation: "GCS provides native state locking via object locks. When <code>terraform apply</code> runs, it acquires a lock on the state file. Any concurrent operation waits or fails with a lock error. No extra configuration is needed — unlike AWS S3, which requires a separate DynamoDB table."
+  },
+  {
+    q: "A firewall rule was added manually in the GCP console and never documented. The environments have drifted. Which command reveals the drift?",
+    options: [
+      "<code>terraform validate</code>",
+      "<code>terraform refresh</code>",
+      "<code>terraform plan</code>",
+      "<code>terraform show</code>",
+    ],
+    correct: 2,
+    explanation: "<code>terraform plan</code> compares the current real state of resources against what is declared in your <code>.tf</code> files and shows exactly what it would change. <code>terraform refresh</code> updates the state file to match reality but doesn't show you the diff against your config. <code>terraform validate</code> only checks syntax."
+  },
+  {
+    q: "CoverLine needs a staging environment isolated from production — separate state, same Terraform code. Which approach gives the strongest isolation?",
+    options: [
+      "Use <code>terraform.workspace</code> conditions with a shared backend bucket",
+      "Duplicate the <code>.tf</code> files and rename the resources",
+      "Separate GCP projects, each with their own GCS state bucket",
+      "Use different <code>.tfvars</code> files pointing at the same backend",
+    ],
+    correct: 2,
+    explanation: "Separate GCP projects give the strongest isolation: billing, IAM, quotas, and network boundaries are all independent. A bug in staging can't affect production resources. Workspaces share the same backend bucket and the same GCP project — a misconfigured <code>terraform destroy</code> could target the wrong workspace."
+  },
+  {
+    q: "Why does this lab use <code>remove_default_node_pool = true</code> and create a separate managed node pool?",
+    options: [
+      "The default node pool doesn't support autoscaling",
+      "GKE charges an additional management fee for the default node pool",
+      "To have full control over machine type, disk type, spot settings, and lifecycle",
+      "The default pool always runs on spot instances regardless of configuration",
+    ],
+    correct: 2,
+    explanation: "GKE always creates a default node pool, but its initial settings are partially implicit and harder to control. Removing it and defining a managed node pool explicitly makes every setting — machine type, disk type, spot vs on-demand, autoscaling bounds, labels — version-controlled and fully reproducible via Terraform."
+  },
+  {
+    q: "GKE nodes have no public IP address. How do they pull container images from the internet (e.g., Docker Hub)?",
+    options: [
+      "Through the GKE control plane, which acts as an outbound proxy for nodes",
+      "They can't — all images must be mirrored to Artifact Registry first",
+      "Via Cloud NAT, which gives nodes outbound internet access without a public IP",
+      "Via a Kubernetes NetworkPolicy that opens egress to the internet",
+    ],
+    correct: 2,
+    explanation: "Cloud NAT (Network Address Translation) allows private nodes to initiate outbound connections to the internet — such as pulling images — without having a public IP. Inbound connections from the internet are still blocked. This is set up via a Cloud Router + Cloud NAT gateway in the VPC."
+  },
+  {
+    q: "You set <code>spot = true</code> on the node pool. GCP reclaims a spot node while a claims request is being processed. What happens to the pod running on that node?",
+    options: [
+      "The pod is paused and resumed on another node with its in-memory state intact",
+      "Kubernetes terminates the pod and reschedules it on another available node",
+      "The pod finishes processing the current request, then is gracefully evicted",
+      "The cluster autoscaler provisions a replacement node before the eviction completes",
+    ],
+    correct: 1,
+    explanation: "GCP sends a 30-second preemption notice, then terminates the node. Any pod on that node is killed and Kubernetes reschedules it on another available node. In-memory state is lost — which is why spot nodes should only be used for stateless workloads. For zero downtime: run multiple replicas and configure a PodDisruptionBudget."
+  },
+  {
+    q: "<code>terraform apply</code> fails with <code>google: could not find default credentials</code>. What is the correct fix?",
+    options: [
+      "Run <code>gcloud auth login</code> to re-authenticate your account",
+      "Set <code>GOOGLE_CREDENTIALS</code> to the path of your <code>~/.config/gcloud</code> directory",
+      "Run <code>gcloud auth application-default login</code>",
+      "Add <code>credentials = \"~/.config/gcloud/application_default_credentials.json\"</code> to the provider block",
+    ],
+    correct: 2,
+    explanation: "Terraform uses <strong>Application Default Credentials (ADC)</strong> — separate from the credentials set by <code>gcloud auth login</code> (which is for the gcloud CLI only). Running <code>gcloud auth application-default login</code> creates a credentials file that Terraform and all GCP SDKs pick up automatically via the ADC mechanism."
+  },
+  {
+    q: "The nightly auto-destroy GitHub Actions workflow reports \"Found 0 resources\" but the GKE cluster and VPC are clearly running. What is the most likely cause?",
+    options: [
+      "The workflow service account doesn't have permission to read Terraform state",
+      "Terraform state is stored locally on the runner and not accessible to the workflow",
+      "The <code>jq</code> query only checks <code>root_module.resources</code>, but all resources live in child modules",
+      "<code>terraform show -json</code> requires the <code>-no-color</code> flag to produce valid JSON in CI",
+    ],
+    correct: 2,
+    explanation: "In a modular Terraform setup, resources live under child modules (<code>module.gke</code>, <code>module.networking</code>, etc.), not directly under the root module. A <code>jq</code> query targeting <code>.values.root_module.resources</code> always returns 0. The fix is to recurse through all child modules: <code>jq '[.values.root_module | .. | objects | .resources? // empty | .[]] | length'</code>"
+  },
+  {
+    q: "[Terraform Associate] Why should <code>terraform.tfstate</code> never be committed to Git?",
+    options: [
+      "Git can't correctly parse the JSON format of the state file",
+      "It contains resource IDs that conflict across environments",
+      "It can contain sensitive values in plaintext and causes state corruption in teams",
+      "Terraform overwrites it on every plan, generating too many noisy Git diffs",
+    ],
+    correct: 2,
+    explanation: "The state file can contain sensitive data — passwords, private keys, connection strings — stored in plaintext. It also creates merge conflicts when multiple engineers work simultaneously, which can corrupt the state. The solution is a remote backend (GCS in this lab) with locking, so the state is never stored locally."
+  },
+  {
+    q: "Your entire GCP project is deleted overnight. <code>terraform apply</code> restores the cluster in 20 minutes. What critical data is still missing?",
+    options: [
+      "The VPC and firewall rules — Terraform only manages the GKE cluster",
+      "Kubernetes manifests — Terraform doesn't manage application workloads",
+      "Application data (PostgreSQL), Vault secrets, and images if stored in the same project",
+      "IAM roles — Terraform can't recreate service accounts after a project deletion",
+    ],
+    correct: 2,
+    explanation: "Terraform restores <em>infrastructure</em>, not <em>data</em>. What's still missing: PostgreSQL data (needs backups — Phase 10c), Vault secrets and unseal keys (Phase 7), and container images if Artifact Registry was in the deleted project. Also: if the GCS state bucket was in the same project, the state itself is gone. The state bucket should always live in a separate, protected project."
+  },
+];
+
+let current = 0;
+let score = 0;
+let answered = false;
+const results = [];
+
+function render() {
+  const card = document.getElementById('quizCard');
+  const bar  = document.getElementById('progressBar');
+  const counter = document.getElementById('questionCounter');
+
+  if (current >= questions.length) {
+    renderScore();
+    return;
+  }
+
+  const q = questions[current];
+  answered = false;
+
+  bar.style.width = `${(current / questions.length) * 100}%`;
+  counter.textContent = `${current + 1} / ${questions.length}`;
+
+  card.innerHTML = `
+    <div class="phase-label">Phase 1 · Cloud & Terraform</div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="options">
+      ${q.options.map((opt, i) => `
+        <div class="option" data-index="${i}" onclick="select(${i})">
+          <div class="option-key">${String.fromCharCode(65 + i)}</div>
+          <div class="option-text">${opt}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function select(chosen) {
+  if (answered) return;
+  answered = true;
+
+  const q = questions[current];
+  const options = document.querySelectorAll('.option');
+
+  options.forEach((el, i) => {
+    el.classList.add('disabled');
+    if (i === q.correct) el.classList.add('correct');
+    else if (i === chosen) el.classList.add('wrong');
+    else el.classList.add('dimmed');
+  });
+
+  const isCorrect = chosen === q.correct;
+  if (isCorrect) score++;
+  results.push(isCorrect);
+
+  // Explanation
+  const exp = document.createElement('div');
+  exp.className = 'explanation';
+  exp.innerHTML = (isCorrect ? '✓ Correct. ' : '✗ Not quite. ') + q.explanation;
+  document.getElementById('options').after(exp);
+
+  // Next button
+  const btn = document.createElement('button');
+  btn.className = 'btn-next';
+  btn.textContent = current < questions.length - 1 ? 'Next question →' : 'See my results';
+  btn.onclick = () => { current++; render(); };
+  exp.after(btn);
+}
+
+function renderScore() {
+  const card = document.getElementById('quizCard');
+  const bar  = document.getElementById('progressBar');
+  const counter = document.getElementById('questionCounter');
+
+  bar.style.width = '100%';
+  counter.textContent = '';
+
+  const pct = Math.round((score / questions.length) * 100);
+  let msg, sub;
+  if (pct === 100) {
+    msg = 'Perfect score!';
+    sub = 'You have a solid understanding of Terraform and GCP fundamentals. Ready for Phase 2.';
+  } else if (pct >= 70) {
+    msg = 'Good work.';
+    sub = 'You know the core concepts. Review the questions you missed before moving on.';
+  } else if (pct >= 50) {
+    msg = 'Getting there.';
+    sub = 'Some gaps to fill. Re-read the Phase 1 README and try again.';
+  } else {
+    msg = 'Keep studying.';
+    sub = 'Go back through the Phase 1 guide and revisit the concepts. You\'ve got this.';
+  }
+
+  const wrongCount = questions.length - score;
+
+  card.innerHTML = `
+    <div class="score-screen">
+      <div class="score-circle">
+        <div class="score-number">${score}</div>
+        <div class="score-total">/ ${questions.length}</div>
+      </div>
+      <div class="score-title">${msg}</div>
+      <div class="score-subtitle">${sub}</div>
+      <div class="score-breakdown">
+        <span class="score-tag correct">✓ ${score} correct</span>
+        <span class="score-tag wrong">✗ ${wrongCount} wrong</span>
+      </div>
+      <button class="btn-restart" onclick="restart()">Try again</button>
+      <a class="btn-back" href="../README.md">Back to phase</a>
+    </div>
+  `;
+}
+
+function restart() {
+  current = 0;
+  score = 0;
+  answered = false;
+  results.length = 0;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
