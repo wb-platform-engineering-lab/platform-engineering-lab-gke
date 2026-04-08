@@ -69,19 +69,19 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 
 | Phase | Topic | Members | Est. Time | Status | Demo |
 |---|---|---|---|---|---|
-| 0 | Foundations (Docker, Linux, Git) | 0 | 2–3 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-0-foundations/incident-animation.html) |
-| 1 | Cloud & Terraform (GCP, VPC, GKE) | 50 | 4–6 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-1-terraform/incident-animation.html) |
-| 2 | Kubernetes Core (raw YAML) | 200 | 2–3 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-2-kubernetes/incident-animation.html) |
-| 3 | Helm & Microservices + PostgreSQL + Redis | 1,000 | 5–7 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-3-helm/incident-animation.html) |
+| 0 | [Foundations (Docker, Linux, Git)](./phase-0-foundations/README.md) | 0 | 2–3 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-0-foundations/incident-animation.html) |
+| 1 | [Cloud & Terraform (GCP, VPC, GKE)](./phase-1-terraform/README.md) | 50 | 4–6 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-1-terraform/incident-animation.html) |
+| 2 | [Kubernetes Core (raw YAML)](./phase-2-kubernetes/README.md) | 200 | 2–3 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-2-kubernetes/incident-animation.html) |
+| 3 | [Helm & Microservices + PostgreSQL + Redis](./phase-3-helm/README.md) | 1,000 | 5–7 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-3-helm/incident-animation.html) |
 | 3b | Event-Driven Architecture (Kafka + Strimzi) | 2,000 | 3–4 days | ⬜ Not started | |
-| 4 | CI/CD Pipelines | 5,000 | 3–4 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-4-ci-cd/incident-animation.html) |
-| 5 | GitOps with ArgoCD | 15,000 | 2–3 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-5-gitops/incident-animation.html) |
-| 5b | Progressive Delivery (Argo Rollouts) | 20,000 | 2–3 days | ⬜ Not started | |
-| 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-6-observability/incident-animation.html) |
-| 7 | Secrets Management (Vault) | 100,000 | 4–5 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-7-vault/incident-animation.html) |
-| 8 | Advanced Kubernetes + **CKAD** + **CKA** | 250,000 | 3–4 days + 4–8 wks cert | 🔄 In progress | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-8-advanced-k8s/incident-animation.html) |
+| 4 | [CI/CD Pipelines](./phase-4-ci-cd/README.md) | 5,000 | 3–4 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-4-ci-cd/incident-animation.html) |
+| 5 | [GitOps with ArgoCD](./phase-5-gitops/README.md) | 15,000 | 2–3 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-5-gitops/incident-animation.html) |
+| 5b | [Progressive Delivery (Argo Rollouts)](./phase-5b-progressive-delivery/README.md) | 20,000 | 2–3 days | ⬜ Not started | |
+| 6 | [Observability (Prometheus, Grafana, Loki)](./phase-6-observability/README.md) + **PCA** | 50,000 | 5–7 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-6-observability/incident-animation.html) |
+| 7 | [Secrets Management (Vault)](./phase-7-vault/README.md) | 100,000 | 4–5 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-7-vault/incident-animation.html) |
+| 8 | [Advanced Kubernetes](./phase-8-advanced-k8s/README.md) + **CKAD** + **CKA** | 250,000 | 3–4 days + 4–8 wks cert | 🔄 In progress | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-8-advanced-k8s/incident-animation.html) |
 | 8b | Service Mesh (Istio — mTLS, tracing) | 300,000 | 3–4 days | ⬜ Not started |
-| 9 | Data Platform (Airflow + dbt + BigQuery) + **GCP DevOps** | 500,000 | 6–8 days | ⬜ Not started |
+| 9 | [Data Platform (Airflow + dbt + BigQuery)](./phase-9-data-platform/README.md) + **GCP DevOps** | 500,000 | 6–8 days | ⬜ Not started |
 | 10 | Security & Production Hardening | 1,000,000 | 3–4 days | ⬜ Not started |
 | 10b | CKS Exam Preparation + **CKS** | 1,000,000 | 5–7 days + 4–6 wks cert | ⬜ Not started |
 | 10c | Backup & Disaster Recovery (Velero, pg_dump, DR runbook) | 1,000,000 | 3–4 days | ⬜ Not started |
@@ -126,13 +126,13 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 ├── phase-5-gitops/
 ├── phase-6-observability/
 ├── phase-7-vault/
-│   ├── terraform/            # KMS key ring + Vault service account
-│   ├── vault-values.yaml     # Helm values: HA Raft, GCP KMS auto-unseal
-│   ├── vault-init.sh         # Initialize Vault, enable auth methods, revoke root token
-│   ├── vault-policy.sh       # App policies + Kubernetes/JWT auth roles
-│   ├── vault-dynamic-secrets.sh  # PostgreSQL dynamic credentials
-│   ├── vault-agent-patch.yaml    # Sidecar injector annotations for coverline-backend
-│   └── vault-wi-binding.sh   # Workload Identity IAM binding (run after cluster exists)
+│   ├── terraform/                     # KMS key ring + Compute Engine VM for Vault
+│   ├── ansible/                       # Vault VM provisioning (playbook + templates)
+│   ├── vault-agent-injector-values.yaml  # Helm values: injector-only (server on VM)
+│   ├── vault-init.sh                  # Initialize Vault, enable auth methods, revoke root token
+│   ├── vault-policy.sh                # App policies + Kubernetes/JWT auth roles
+│   ├── vault-dynamic-secrets.sh       # PostgreSQL dynamic credentials
+│   └── vault-wi-binding.sh            # Workload Identity IAM binding (run after cluster exists)
 ├── phase-8-advanced-k8s/
 ├── phase-9-data-platform/
 ├── phase-10-security/
