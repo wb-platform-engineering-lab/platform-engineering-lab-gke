@@ -1,140 +1,95 @@
 # Phase 1 Quiz — Cloud & Terraform (GCP)
 
-10 questions. Answer before expanding the solution.
+10 questions · one correct answer per question
+
+> Interactive version: [▶ Take the quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-1-terraform/quiz.html)
 
 ---
 
-**Q1.** Your colleague runs `terraform apply` at the same time as you on the same environment. What prevents the state file from getting corrupted, and is it configured by default with a GCS backend?
+**Q1.** Your colleague runs `terraform apply` at the same time as you against the same environment. What prevents the state file from getting corrupted when using a GCS backend?
 
-<details>
-<summary>Answer</summary>
-
-GCS supports **state locking** natively via object locks — when one `terraform apply` runs, it acquires a lock on the state file and any concurrent `apply` waits or fails. With the GCS backend, locking is automatic with no extra configuration needed.
-
-</details>
+- A) You need to manually configure a DynamoDB lock table
+- B) GCS supports state locking natively via object locks — automatic, no extra config needed ✅
+- C) Terraform queues operations using a local mutex file
+- D) The second apply fails immediately with a "state version mismatch" error
 
 ---
 
-**Q2.** CoverLine's staging environment drifted from production because a firewall rule was added manually in the GCP console and never documented. How does Terraform prevent this, and what command would reveal the drift if it happened anyway?
+**Q2.** A firewall rule was added manually in the GCP console and never documented. The environments have drifted. Which command reveals the drift?
 
-<details>
-<summary>Answer</summary>
-
-Terraform prevents drift by being the single source of truth — any resource not defined in `.tf` files shouldn't exist. If someone makes a manual change, `terraform plan` will detect the drift and show what it would change to bring the real state back in line with the declared state.
-
-</details>
+- A) `terraform validate`
+- B) `terraform refresh`
+- C) `terraform plan` ✅
+- D) `terraform show`
 
 ---
 
-**Q3.** You need to create a dev environment that is isolated from production — separate state, separate resources, same Terraform code. What are two ways to achieve this?
+**Q3.** CoverLine needs a staging environment isolated from production — separate state, same Terraform code. Which approach gives the strongest isolation?
 
-<details>
-<summary>Answer</summary>
-
-1. **Terraform workspaces** — `terraform workspace new dev` creates an isolated state file while reusing the same configuration. Environment-specific values are passed via `terraform.workspace` conditions or separate `.tfvars` files.
-2. **Separate directories / separate GCP projects** — each environment lives in its own directory with its own `backend.tf` pointing to a different GCS bucket prefix (or different project entirely). This is the stricter approach used in most production setups because workspaces still share the same backend bucket.
-
-</details>
+- A) Use `terraform.workspace` conditions with a shared backend bucket
+- B) Duplicate the `.tf` files and rename the resources
+- C) Separate GCP projects, each with their own GCS state bucket ✅
+- D) Use different `.tfvars` files pointing at the same backend
 
 ---
 
-**Q4.** Why does this lab use `remove_default_node_pool = true` and create a separate managed node pool, rather than using the default pool GKE creates?
+**Q4.** Why does this lab use `remove_default_node_pool = true` and create a separate managed node pool?
 
-<details>
-<summary>Answer</summary>
-
-GKE creates a default node pool automatically with settings you can't fully control at creation time. Removing it and defining a managed node pool explicitly gives full control over machine type, disk type, spot vs on-demand, autoscaling bounds, and labels. It also makes the infrastructure fully reproducible — the default pool's config would otherwise be partially implicit.
-
-</details>
+- A) The default node pool doesn't support autoscaling
+- B) GKE charges extra for the default node pool
+- C) To have full control over machine type, disk type, spot settings, and lifecycle ✅
+- D) The default pool always runs on spot instances
 
 ---
 
-**Q5.** Your GKE nodes have no public IP addresses. How do they pull container images from the internet (e.g., Docker Hub) if they can't be reached from outside?
+**Q5.** GKE nodes have no public IP address. How do they pull container images from the internet (e.g., Docker Hub)?
 
-<details>
-<summary>Answer</summary>
-
-**Cloud NAT** (Network Address Translation). Outbound traffic from private nodes is routed through a Cloud Router + Cloud NAT gateway, which gives nodes internet access for outbound connections (pulling images, calling APIs) without assigning them a public IP. Inbound connections from the internet are still blocked.
-
-</details>
+- A) Through the GKE control plane, which acts as an outbound proxy
+- B) They can't — all images must be mirrored to Artifact Registry first
+- C) Via Cloud NAT, which gives nodes outbound internet access without a public IP ✅
+- D) Via a Kubernetes NetworkPolicy that opens egress to the internet
 
 ---
 
-**Q6.** You set `spot = true` on the node pool. A claim submission is being processed when GCP reclaims a spot node. What happens to the pod running on that node, and what should be configured to minimise impact?
+**Q6.** You set `spot = true` on the node pool. GCP reclaims a spot node while a claims request is being processed. What happens to the pod running on that node?
 
-<details>
-<summary>Answer</summary>
-
-The pod is terminated with 30 seconds notice. Kubernetes reschedules it on another available node. To minimise impact:
-- Set a **PodDisruptionBudget** so at least one replica stays available during evictions
-- Run **multiple replicas** so one eviction doesn't take down the service
-- Use spot nodes only for **stateless** workloads — stateful workloads (databases) should run on on-demand nodes
-
-</details>
+- A) The pod is paused and resumed on another node with its state intact
+- B) Kubernetes terminates the pod and reschedules it on another available node ✅
+- C) The pod finishes the current request, then is gracefully evicted
+- D) The cluster autoscaler provisions a replacement node before the eviction completes
 
 ---
 
-**Q7.** You run `terraform apply` and get: `Error: storage.NewClient() failed: google: could not find default credentials`. What is the cause and fix?
+**Q7.** `terraform apply` fails with `google: could not find default credentials`. What is the correct fix?
 
-<details>
-<summary>Answer</summary>
-
-Terraform uses **Application Default Credentials (ADC)** to authenticate with GCP — separate from the credentials set by `gcloud auth login`. The fix:
-
-```bash
-gcloud auth application-default login
-```
-
-This creates a credentials file that Terraform (and other GCP SDKs) pick up automatically.
-
-</details>
+- A) Run `gcloud auth login` to re-authenticate your account
+- B) Set `GOOGLE_CREDENTIALS` to the path of your `~/.config/gcloud` directory
+- C) Run `gcloud auth application-default login` ✅
+- D) Add `credentials = "~/.config/gcloud/application_default_credentials.json"` to the provider block
 
 ---
 
-**Q8.** The nightly auto-destroy GitHub Actions workflow reports "Found 0 resources" but your GKE cluster and VPC are clearly running. What is the likely cause?
+**Q8.** The nightly auto-destroy GitHub Actions workflow reports "Found 0 resources" but the GKE cluster and VPC are clearly running. What is the most likely cause?
 
-<details>
-<summary>Answer</summary>
-
-The `jq` query is only checking `.values.root_module.resources` — but all resources in a modular Terraform setup live in **child modules** (`module.gke`, `module.networking`, etc.), not the root module. The root module has no direct resources, so the count is always 0. The fix is to traverse all child modules recursively:
-
-```bash
-terraform show -json | jq '[.values.root_module | .. | objects | .resources? // empty | .[]] | length'
-```
-
-</details>
+- A) The workflow is authenticating against the wrong GCP project
+- B) Terraform state is stored locally on the runner and not accessible
+- C) The `jq` query only checks `root_module.resources`, but all resources live in child modules ✅
+- D) `terraform show -json` requires the `-no-color` flag to produce valid JSON in CI
 
 ---
 
-**Q9.** `[Terraform Associate]` What is the difference between `terraform.tfstate` and `terraform.tfstate.backup`, and why should neither be committed to Git?
+**Q9.** `[Terraform Associate]` Why should `terraform.tfstate` never be committed to Git?
 
-<details>
-<summary>Answer</summary>
-
-- `terraform.tfstate` — the current state of all managed resources. Terraform reads this before every plan/apply to know what exists.
-- `terraform.tfstate.backup` — the previous state, kept automatically as a rollback reference.
-
-Neither should be in Git because:
-1. They can contain **sensitive values** (passwords, private keys) in plaintext
-2. In a team, concurrent commits would cause **merge conflicts and state corruption**
-
-Use a **remote backend** (GCS in this lab) so state is shared, locked, and never stored locally.
-
-</details>
+- A) Git can't correctly parse the JSON format of the state file
+- B) It contains resource IDs that conflict across environments
+- C) It can contain sensitive values in plaintext and causes state corruption in teams ✅
+- D) Terraform overwrites it on every plan, generating too many noisy Git diffs
 
 ---
 
-**Q10.** CoverLine's enterprise client asks: *"If your entire GCP project was deleted tonight, how long would it take to restore the platform?"* What does your Terraform setup enable, and what would still be missing for a full recovery?
+**Q10.** Your entire GCP project is deleted overnight. `terraform apply` restores the cluster in 20 minutes. What critical data is still missing?
 
-<details>
-<summary>Answer</summary>
-
-With Terraform, the **infrastructure** (VPC, GKE cluster, NAT, IAM) can be restored with a single `terraform apply` — from minutes to under an hour depending on GKE provisioning time.
-
-What would still be missing without additional planning:
-- **Application data** — PostgreSQL data, Redis cache (requires backups, covered in Phase 10c)
-- **Vault secrets and unseal keys** — need separate backup and recovery procedure (Phase 7)
-- **Container images** — need to be in a registry that survives the project deletion (Artifact Registry in a separate project, or external registry)
-- **Terraform state** — if the GCS bucket was in the same project and is deleted, the state is gone. The state bucket should be in a separate, protected project.
-
-</details>
+- A) The VPC and firewall rules — Terraform only manages the GKE cluster
+- B) Kubernetes manifests — Terraform doesn't manage application workloads
+- C) Application data (PostgreSQL), Vault secrets, and images if stored in the same project ✅
+- D) IAM roles — Terraform can't recreate service accounts after a project deletion

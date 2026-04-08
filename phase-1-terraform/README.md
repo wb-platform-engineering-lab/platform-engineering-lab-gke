@@ -1,6 +1,6 @@
 # Phase 1 — Cloud & Terraform (GCP)
 
-[▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-1-terraform/incident-animation.html)
+[▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-1-terraform/incident-animation.html) · [📝 Take the quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-1-terraform/quiz.html)
 
 ---
 
