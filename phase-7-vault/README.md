@@ -525,6 +525,53 @@ vault read auth/kubernetes/role/coverline-backend
 kubectl get serviceaccount coverline-backend -n default
 ```
 
+### Backend pod gets `KeyError: 'REDIS_HOST'` even though vault-agent is running
+
+**Cause:** Vault Agent writes secrets to files (`/vault/secrets/backend.env`) but the app reads `os.environ`. The files must be sourced at container startup.
+
+**Fix:** Patch the deployment command to source the files before starting the app:
+
+```bash
+kubectl patch deployment coverline-backend --patch \
+  '{"spec":{"template":{"spec":{"containers":[{"name":"backend","command":["/bin/sh","-c","source /vault/secrets/backend.env && source /vault/secrets/db.env && python app.py"]}]}}}}'
+```
+
+Verify the file contains expected values first:
+```bash
+kubectl exec deployment/coverline-backend -c backend -- cat /vault/secrets/backend.env
+```
+
+If `REDIS_HOST` shows `<no value>`, the secret key name in Vault doesn't match the template. Check with:
+```bash
+vault kv get secret/coverline/backend
+```
+
+### Vault pods not unsealing after restart
+
+**Cause:** GCP KMS key not yet created or `vault-kms-credentials` secret missing/wrong.
+
+**Fix:** Verify KMS setup and credentials:
+```bash
+terraform -chdir=phase-7-vault/terraform output
+kubectl get secret vault-kms-credentials -n vault
+kubectl logs -n vault vault-0 | grep -i seal
+```
+
+### Lost admin token / recovery key
+
+**Cause:** Admin token expired (8h TTL) and recovery key was not saved.
+
+**Recovery options:**
+1. If recovery key was saved to GCP Secret Manager: `gcloud secrets versions access latest --secret=vault-recovery-key --project=<PROJECT>`
+2. Then generate a new root token: `vault operator generate-root` using the recovery key
+3. If recovery key is lost — wipe Vault (delete Helm release + all PVCs) and re-run `vault-init.sh`
+
+**Prevention:** Always save the recovery key immediately after `vault-init.sh`:
+```bash
+echo -n "<RECOVERY_KEY>" | gcloud secrets create vault-recovery-key \
+  --data-file=- --project=platform-eng-lab-will
+```
+
 ### Vault Agent init container stuck in `Init:0/1`
 
 **Cause:** Vault Agent can't reach the Vault service.

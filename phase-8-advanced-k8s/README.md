@@ -201,7 +201,7 @@ brew install k6
 ### Run the load test
 
 ```bash
-kubectl port-forward svc/coverline 5000:5000 &
+kubectl port-forward svc/coverline-backend 5000:5000 &
 k6 run phase-8-advanced-k8s/load-test.js
 ```
 
@@ -277,3 +277,35 @@ kubectl describe configmap cluster-autoscaler-status -n kube-system
 ```bash
 kubectl get events --sort-by='.lastTimestamp' | grep -i "scale\|trigger\|unschedulable"
 ```
+
+### StatefulSet pods (Redis, PostgreSQL) stuck in Pending after node replacement
+
+**Cause:** PersistentVolumes are provisioned in a specific GCP zone. When the node that hosted the PV is replaced by Cluster Autoscaler in a different zone, the pod can't schedule because no node in the PV's zone is available.
+
+**Symptoms:** `kubectl describe pod <name>` shows:
+```
+0/N nodes are available: N node(s) didn't match PersistentVolume's node affinity
+```
+
+**Fix:** Delete the PVC so a new one is provisioned in the current zone. **Data will be lost** — acceptable for Redis (cache) but back up PostgreSQL first.
+
+```bash
+# Check which zone the PV is pinned to
+kubectl get pvc <pvc-name> -o jsonpath='{.spec.volumeName}' | \
+  xargs kubectl get pv -o jsonpath='{.spec.nodeAffinity}'
+
+# Check which zones current nodes are in
+kubectl get nodes -o custom-columns='NAME:.metadata.name,ZONE:.metadata.labels.topology\.kubernetes\.io/zone'
+
+# If zones don't match — delete the PVC (StatefulSet will recreate it)
+kubectl delete pvc <pvc-name>
+```
+
+**Prevention:** Pin your GKE node pool to a single zone in Terraform to ensure Cluster Autoscaler always replaces nodes in the same zone as your PVs:
+
+```hcl
+# In your node pool Terraform config
+node_locations = ["us-central1-b"]  # single zone — PVs and nodes always co-located
+```
+
+Alternatively, use regional PDs (`pd-balanced` with `replication-type=regional-pd`) for zone-redundant storage — higher cost but survives zone failure.
