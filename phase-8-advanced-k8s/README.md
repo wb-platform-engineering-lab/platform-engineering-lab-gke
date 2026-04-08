@@ -250,6 +250,101 @@ Take screenshots for the README:
 
 ---
 
+## Production Best Practices
+
+Lessons learned running HPA, Cluster Autoscaler, and stateful workloads on GKE. Apply these before going live.
+
+### 1. Pin Stateful Workloads to a Single Zone
+
+GKE PersistentVolumes are zone-specific. When Cluster Autoscaler replaces a node in a different zone, StatefulSet pods (PostgreSQL, Redis, Vault) get stuck `Pending` because their PV doesn't exist in the new zone.
+
+```hcl
+# Terraform — use a single-zone node pool for stateful workloads
+node_locations = ["us-central1-b"]
+```
+
+Or use a dedicated node pool for stateful workloads with a fixed zone, separate from the autoscaling pool used by application pods.
+
+For zone-redundant storage at higher cost, use regional persistent disks:
+```yaml
+# StorageClass with regional PD
+parameters:
+  replication-type: regional-pd
+  zones: us-central1-b, us-central1-c
+```
+
+---
+
+### 2. Use Dedicated Node Pools for Critical Infrastructure
+
+Vault, PostgreSQL, and monitoring components are hard dependencies. If they can't schedule, the entire platform breaks. They must never compete with application workloads.
+
+| Node Pool | Workloads | Autoscaling |
+|-----------|-----------|-------------|
+| `app-pool` | backend, frontend | min 2, max 10 |
+| `infra-pool` | Vault, PostgreSQL, Redis | fixed size, no autoscaling |
+| `monitoring-pool` | Prometheus, Grafana, Loki | fixed size |
+
+Use taints on infra/monitoring pools and tolerations on their workloads to enforce this separation.
+
+---
+
+### 3. Run Load Tests Inside the Cluster
+
+`kubectl port-forward` is a debug tool — it drops connections under high concurrency and is not suitable for load testing. Run k6 as a Kubernetes Job that hits services directly:
+
+```bash
+kubectl run k6 --image=grafana/k6 --rm -it --restart=Never -- \
+  run --vus 200 --duration 6m - < phase-8-advanced-k8s/load-test.js
+```
+
+Update the load test base URL to the internal service:
+```javascript
+const BASE_URL = 'http://coverline-backend.default.svc.cluster.local:5000';
+```
+
+This gives accurate latency numbers and doesn't depend on your laptop's network stack.
+
+---
+
+### 4. Set PodDisruptionBudgets on All Stateful Workloads
+
+PDBs aren't just for application pods. Add them to PostgreSQL, Redis, and Vault too — otherwise Cluster Autoscaler scale-down or node upgrades can take down your entire database layer simultaneously:
+
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgresql-pdb
+spec:
+  maxUnavailable: 0  # never take down the primary
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+      app.kubernetes.io/component: primary
+```
+
+---
+
+### 5. Set a Cluster Autoscaler Scale-Down Delay for Stateful Pods
+
+By default, Cluster Autoscaler aggressively removes underutilised nodes. This can evict stateful pods that haven't finished flushing to disk. Add this annotation to StatefulSet pods:
+
+```yaml
+annotations:
+  cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+```
+
+This prevents Cluster Autoscaler from evicting these pods during scale-down.
+
+---
+
+### 6. Use `minReplicas: 2` on All Production HPAs
+
+An HPA with `minReplicas: 1` means the single pod is a single point of failure during scaling events — the old pod terminates before the new one is ready. Always keep at least 2 replicas in production, combined with a PDB of `minAvailable: 1`.
+
+---
+
 ## Troubleshooting
 
 ### HPA shows `<unknown>` targets

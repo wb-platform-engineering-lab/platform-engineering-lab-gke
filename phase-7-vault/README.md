@@ -355,6 +355,131 @@ export VAULT_CACERT=/tmp/vault-ca.crt
 
 ---
 
+## Production Best Practices
+
+Lessons learned running Vault on GKE in production. Apply these before going live.
+
+### 1. Isolate Vault on a Dedicated Node Pool
+
+Vault is a hard dependency — if it can't schedule, no pod that needs secrets can start. It must never compete with application workloads for CPU or memory.
+
+Add a dedicated node pool in Terraform with a taint:
+
+```hcl
+node_pool {
+  name = "vault-pool"
+  node_config {
+    machine_type = "e2-standard-2"
+    taint {
+      key    = "workload"
+      value  = "vault"
+      effect = "NO_SCHEDULE"
+    }
+  }
+  autoscaling {
+    min_node_count = 3  # one per Vault replica, never scale below 3
+    max_node_count = 3
+  }
+}
+```
+
+Add matching tolerations to `vault-values.yaml`:
+
+```yaml
+server:
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "vault"
+      effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: workload
+                operator: In
+                values: ["vault"]
+```
+
+For very high-security environments, run Vault on dedicated Compute Engine VMs outside GKE entirely — or use **HCP Vault** (HashiCorp managed) to eliminate all operational burden.
+
+---
+
+### 2. Save the Recovery Key Immediately After Init
+
+The recovery key is the only way to generate a new root token if the admin token expires or is lost. Without it, you must wipe Vault and lose all secrets.
+
+Automate the save as part of your init procedure:
+
+```bash
+# Save recovery key to GCP Secret Manager right after vault-init.sh
+echo -n "<RECOVERY_KEY>" | gcloud secrets create vault-recovery-key \
+  --data-file=- --project=<PROJECT_ID>
+```
+
+Store it in at least two places: GCP Secret Manager + an offline backup (printed, encrypted USB, or a password manager accessible to more than one person).
+
+---
+
+### 3. Use a Long-Lived Periodic Token for Automation
+
+The admin token created by `vault-init.sh` has an 8h TTL — enough for a session, not for CI/CD or long-running automation. Use a **periodic token** that renews itself:
+
+```bash
+# Create a periodic token (renews itself forever if renewed before TTL expires)
+vault token create -policy=vault-admin -orphan -period=24h -format=json \
+  | jq -r '.auth.client_token' \
+  | gcloud secrets create vault-admin-token --data-file=- --project=<PROJECT_ID>
+```
+
+Alternatively, never use long-lived tokens for automation — use AppRole or Kubernetes auth instead.
+
+---
+
+### 4. Source Vault Secret Files in the App Startup Command
+
+Vault Agent injects secrets as files (`/vault/secrets/*.env`). The app must source them before starting — this must be baked into the container command in your Helm chart, not applied as a manual patch:
+
+```yaml
+# In your Helm chart's deployment.yaml
+containers:
+  - name: backend
+    command:
+      - /bin/sh
+      - -c
+      - source /vault/secrets/backend.env && source /vault/secrets/db.env && python app.py
+```
+
+If the `source` command is missing, the app starts before secrets are available and fails with `KeyError` on any env var that should come from Vault.
+
+---
+
+### 5. Pin the Vault Node Pool to a Single Zone
+
+GKE Raft storage PVCs are zone-specific. If Cluster Autoscaler provisions a replacement node in a different zone, the Vault pod can't mount its PV and gets stuck `Pending`.
+
+```hcl
+# Terraform — pin Vault node pool to one zone
+node_locations = ["us-central1-b"]
+```
+
+This ensures replacement nodes always land in the same zone as the existing PVs.
+
+---
+
+### 6. Never Expose Vault Directly — Always Use the Agent Injector
+
+Do not have application code call the Vault HTTP API directly. Use the Vault Agent sidecar exclusively:
+
+- The Agent handles token renewal, secret rotation, and retry logic
+- The app reads a file — it never holds a Vault token
+- If Vault is unreachable, the Agent retries without crashing the app
+
+Direct API calls from app code create tight coupling and require every developer to understand Vault's token lifecycle.
+
+---
+
 ## Adding Vault Secret Injection to a New App
 
 Every new application needs 3 things to get secrets from Vault:
