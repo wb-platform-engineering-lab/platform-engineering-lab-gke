@@ -1,6 +1,6 @@
 # Platform Engineering Lab — GKE
 
-A hands-on, end-to-end platform engineering project built on Google Kubernetes Engine. Each phase solves a real business problem faced by **CoverLine** — a fictional digital health insurance platform (Alan-style) — as it grows from a 2-person startup to a 2,000,000-member enterprise.
+A hands-on, end-to-end platform engineering project built on Google Kubernetes Engine. Each phase solves a real problem faced by **CoverLine** — a fictional digital health insurer — as it grows from a 2-person startup to a 2,000,000-member enterprise.
 
 Built as a portfolio project and study path toward **7 industry certifications**: Terraform Associate, GCP ACE, Prometheus Certified Associate, CKAD, CKA, GCP Professional Cloud DevOps Engineer, and CKS.
 
@@ -36,26 +36,34 @@ Built as a portfolio project and study path toward **7 industry certifications**
 
 ---
 
-## The Product — CoverLine
+## Phases
 
-CoverLine is a B2B2C digital health insurer. Companies subscribe to offer health coverage to their employees. Members submit claims, manage their policy, and access their provider network through a web app.
+Each phase is driven by a real engineering crisis at CoverLine. Click a phase to open its step-by-step guide.
 
-Each phase is motivated by a real engineering problem that emerged as CoverLine grew:
+| Phase | Topic | Problem that triggered it | Status |
+|---|---|---|---|
+| 0 | [Foundations — Docker, Linux, Git](./phase-0-foundations/README.md) | App only runs on one laptop — can't demo to investors | ✅ Complete |
+| 1 | [Cloud & Terraform — GCP, VPC, GKE](./phase-1-terraform/README.md) | Infrastructure provisioned by hand — can't reproduce it | ✅ Complete |
+| 2 | [Kubernetes Core — raw YAML](./phase-2-kubernetes/README.md) | One bad deploy takes down the entire platform | ✅ Complete |
+| 3 | [Helm & Microservices — PostgreSQL, Redis](./phase-3-helm/README.md) | Teams block each other — everything ships as one unit | ✅ Complete |
+| 3b | Event-Driven Architecture — Kafka, Strimzi | Sync calls between services cause cascading failures | ⬜ Not started |
+| 4 | [CI/CD Pipelines](./phase-4-ci-cd/README.md) | Manual deploys take half a day, releases are delayed | ✅ Complete |
+| 5 | [GitOps with ArgoCD](./phase-5-gitops/README.md) | Someone pushed to prod on a Friday and broke claims | ✅ Complete |
+| 5b | [Progressive Delivery — Argo Rollouts](./phase-5b-progressive-delivery/README.md) | Bad releases reach 100% of users before anyone notices | ⬜ Not started |
+| 6 | [Observability — Prometheus, Grafana, Loki](./phase-6-observability/README.md) · **PCA** | 4-hour outage — found out from a customer, not an alert | ✅ Complete |
+| 7 | [Secrets Management — Vault](./phase-7-vault/README.md) | GDPR audit: DB credentials found in plaintext in Git | ✅ Complete |
+| 8 | [Advanced Kubernetes](./phase-8-advanced-k8s/README.md) · **CKAD · CKA** | Open enrollment — 10× traffic spike, app down for 45 min | 🔄 In progress |
+| 8b | Service Mesh — Istio, mTLS, tracing | Services trust each other blindly — no encryption in-cluster | ⬜ Not started |
+| 9 | [Data Platform — Airflow, dbt, BigQuery](./phase-9-data-platform/README.md) · **GCP DevOps** | Actuarial team manually exporting CSVs every Monday | ⬜ Not started |
+| 10 | Security & Production Hardening | ISO 27001 audit — pods running as root, no network policies | ⬜ Not started |
+| 10b | CKS Exam Preparation · **CKS** | — | ⬜ Not started |
+| 10c | Backup & Disaster Recovery — Velero, pg_dump | No tested restore procedure — one PVC loss = data gone | ⬜ Not started |
+| 10d | Chaos Engineering — LitmusChaos | Reliability claims are untested — failures found in production | ⬜ Not started |
+| 10e | FinOps & Cost Visibility — Kubecost | Cloud bill growing faster than the user base | ⬜ Not started |
+| 11 | Capstone — full platform, Backstage IDP | Zero manual steps, multi-environment, self-service for devs | ⬜ Not started |
+| 12 | GenAI & Agentic Workflows — Claude API, Airflow | Claims triage still done manually by the ops team | ⬜ Not started |
 
-| Phase | Members | Problem Solved |
-|---|---|---|
-| 0 | 0 | App only runs on one laptop — can't demo to investors |
-| 1 | 50 | Infrastructure provisioned by hand — can't reproduce it |
-| 2 | 200 | One bad deploy takes down the entire platform |
-| 3 | 1,000 | Teams block each other — everything deploys as one unit |
-| 4 | 5,000 | Manual deploys take half a day, releases are delayed |
-| 5 | 15,000 | Someone pushed to prod on a Friday and broke claims processing |
-| 6 | 50,000 | 4-hour outage — found out from a customer, not monitoring |
-| 7 | 100,000 | GDPR audit: DB credentials found in plaintext in Git |
-| 8 | 250,000 | Open enrollment — 10x traffic spike, app unresponsive for 45min |
-| 9 | 500,000 | Actuarial team manually exporting CSVs every Monday |
-| 10 | 1,000,000 | ISO 27001 audit — pods running as root, no network policies |
-| 11 | 2,000,000+ | Full platform — zero manual steps, multi-environment |
+> See [roadmap.md](./roadmap.md) for time estimates, cost breakdowns, and certification milestones.
 
 ---
 
@@ -65,38 +73,9 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 
 ---
 
-## Progress
-
-| Phase | Topic | Members | Est. Time | Status |
-|---|---|---|---|---|
-| 0 | [Foundations (Docker, Linux, Git)](./phase-0-foundations/README.md) | 0 | 2–3 days | ✅ Complete |
-| 1 | [Cloud & Terraform (GCP, VPC, GKE)](./phase-1-terraform/README.md) | 50 | 4–6 days | ✅ Complete |
-| 2 | [Kubernetes Core (raw YAML)](./phase-2-kubernetes/README.md) | 200 | 2–3 days | ✅ Complete |
-| 3 | [Helm & Microservices + PostgreSQL + Redis](./phase-3-helm/README.md) | 1,000 | 5–7 days | ✅ Complete |
-| 3b | Event-Driven Architecture (Kafka + Strimzi) | 2,000 | 3–4 days | ⬜ Not started |
-| 4 | [CI/CD Pipelines](./phase-4-ci-cd/README.md) | 5,000 | 3–4 days | ✅ Complete |
-| 5 | [GitOps with ArgoCD](./phase-5-gitops/README.md) | 15,000 | 2–3 days | ✅ Complete |
-| 5b | [Progressive Delivery (Argo Rollouts)](./phase-5b-progressive-delivery/README.md) | 20,000 | 2–3 days | ⬜ Not started |
-| 6 | [Observability (Prometheus, Grafana, Loki)](./phase-6-observability/README.md) + **PCA** | 50,000 | 5–7 days | ✅ Complete |
-| 7 | [Secrets Management (Vault)](./phase-7-vault/README.md) | 100,000 | 4–5 days | ✅ Complete |
-| 8 | [Advanced Kubernetes](./phase-8-advanced-k8s/README.md) + **CKAD** + **CKA** | 250,000 | 3–4 days + 4–8 wks cert | 🔄 In progress |
-| 8b | Service Mesh (Istio — mTLS, tracing) | 300,000 | 3–4 days | ⬜ Not started |
-| 9 | [Data Platform (Airflow + dbt + BigQuery)](./phase-9-data-platform/README.md) + **GCP DevOps** | 500,000 | 6–8 days | ⬜ Not started |
-| 10 | Security & Production Hardening | 1,000,000 | 3–4 days | ⬜ Not started |
-| 10b | CKS Exam Preparation + **CKS** | 1,000,000 | 5–7 days + 4–6 wks cert | ⬜ Not started |
-| 10c | Backup & Disaster Recovery (Velero, pg_dump, DR runbook) | 1,000,000 | 3–4 days | ⬜ Not started |
-| 10d | Chaos Engineering (LitmusChaos) | 1,000,000 | 3–4 days | ⬜ Not started |
-| 10e | FinOps & Cost Visibility (Kubecost) | 1,000,000 | 2–3 days | ⬜ Not started |
-| 11 | Capstone Project (+ Backstage IDP) | 2,000,000+ | 7–10 days | ⬜ Not started |
-| 12 | GenAI & Agentic Workflows (Claude API, Airflow + LLM) | 3,000,000+ | 4–6 days | ⬜ Not started |
-| | **Total lab work** | | **~80–107 days** | |
-| | **With cert study** | | **~7–10 months** | |
-
----
-
 ## Certification Path
 
-| Certification | Issuer | After Phase |
+| Certification | Issuer | Unlocked after |
 |---|---|---|
 | Terraform Associate (003) | HashiCorp | Phase 1 |
 | Google Cloud Associate Cloud Engineer | Google | Phase 1 |
@@ -108,108 +87,28 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 
 ---
 
-## Repository Structure
-
-```
-.
-├── docs/
-│   └── decisions/        # Architecture Decision Records (9 ADRs)
-├── phase-0-foundations/
-├── phase-1-terraform/
-│   └── modules/
-│       ├── networking/
-│       ├── gke/
-│       └── bigquery/
-├── phase-2-kubernetes/
-├── phase-3-helm/
-├── phase-4-ci-cd/
-├── phase-5-gitops/
-├── phase-6-observability/
-├── phase-7-vault/
-│   ├── terraform/                     # KMS key ring + Compute Engine VM for Vault
-│   ├── ansible/                       # Vault VM provisioning (playbook + templates)
-│   ├── vault-agent-injector-values.yaml  # Helm values: injector-only (server on VM)
-│   ├── vault-init.sh                  # Initialize Vault, enable auth methods, revoke root token
-│   ├── vault-policy.sh                # App policies + Kubernetes/JWT auth roles
-│   ├── vault-dynamic-secrets.sh       # PostgreSQL dynamic credentials
-│   └── vault-wi-binding.sh            # Workload Identity IAM binding (run after cluster exists)
-├── phase-8-advanced-k8s/
-├── phase-9-data-platform/
-├── phase-10-security/
-├── phase-10b-cks/
-├── phase-10c-backup-dr/
-├── phase-11-capstone/
-└── phase-12-genai/
-```
-
----
-
 ## Getting Started
-
-### GCP Account Setup
 
 Phases 1 and above require a GCP account with billing enabled.
 
-1. Go to [console.cloud.google.com](https://console.cloud.google.com) and sign in with any Google account
-2. Click **Start free trial** — you get **$300 in free credits** (credit card required but not charged unless you manually upgrade)
-3. Install the `gcloud` CLI: [cloud.google.com/sdk/docs/install](https://cloud.google.com/sdk/docs/install)
-4. Authenticate locally:
+1. Sign in at [console.cloud.google.com](https://console.cloud.google.com) and activate the **$300 free trial** (card required but not charged unless you manually upgrade)
+2. Install the [gcloud CLI](https://cloud.google.com/sdk/docs/install) and authenticate:
 
 ```bash
 gcloud auth login
 gcloud auth application-default login
 ```
 
-> **Cost warning:** A running GKE cluster costs ~$5–20/day. Always run `terraform destroy` when done with a session.
-
-### Prerequisites
-
-See [roadmap.md](./roadmap.md#prerequisites) for the full tool list with versions.
+3. Check prerequisites (full list with versions in [roadmap.md](./roadmap.md#prerequisites)):
 
 ```bash
-# Verify core tools
-docker --version
-terraform --version
-kubectl version --client
-helm version
-gcloud --version
+docker --version && terraform --version && kubectl version --client && helm version
 ```
 
-### Connect to the GKE Cluster
-
-After the cluster is provisioned via Terraform (Phase 1), configure `kubectl`:
-
-```bash
-gcloud container clusters get-credentials platform-eng-lab-will-gke \
-  --region us-central1 \
-  --project platform-eng-lab-will
-```
-
-Verify:
-
-```bash
-kubectl get nodes
-```
-
-### Branch Strategy
-
-Each phase is developed on its own branch and merged via PR:
-
-```bash
-git checkout -b phase-2
-# do work
-git push origin phase-2
-# open PR → merge to main → tag release
-```
+> **Cost:** A running GKE cluster costs ~$5–20/day. Always run `terraform destroy` when done with a session.
 
 ---
 
-## Architecture Decision Records
+## ADRs
 
-11 ADRs documented in [`docs/decisions/`](./docs/decisions/) — one for every major tool choice across phases completed so far, from why GKE over self-managed Kubernetes to why Vault over Kubernetes Secrets for secrets management.
-
----
-
-## Roadmap
-
-See [roadmap.md](./roadmap.md) for the full phase-by-phase plan, CoverLine business context, cost estimates, and certification milestones.
+11 Architecture Decision Records in [`docs/decisions/`](./docs/decisions/) document every major tool choice — from why GKE over self-managed Kubernetes to why Vault runs on a dedicated VM instead of inside the cluster.
