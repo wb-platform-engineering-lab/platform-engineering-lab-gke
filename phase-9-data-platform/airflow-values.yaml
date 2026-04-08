@@ -1,0 +1,82 @@
+# airflow-values.yaml — Helm values for Apache Airflow on GKE
+# Optimised for a lab environment (spot nodes, minimal resources)
+
+# ── Authentication ──────────────────────────────────────────────────────────
+webserverSecretKey: "coverline-airflow-secret-change-in-prod"
+
+# Default admin credentials (change in production!)
+auth:
+  username: admin
+  password: admin
+
+# ── Executor ────────────────────────────────────────────────────────────────
+# KubernetesExecutor: each task runs in its own pod (best for k8s)
+executor: KubernetesExecutor
+
+# ── DAGs ────────────────────────────────────────────────────────────────────
+dags:
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClassName: standard-rwo
+
+# ── GCP credentials ─────────────────────────────────────────────────────────
+# Mounted from the airflow-gcp-credentials secret created in Step 2
+extraVolumes:
+  - name: gcp-credentials
+    secret:
+      secretName: airflow-gcp-credentials
+
+extraVolumeMounts:
+  - name: gcp-credentials
+    mountPath: /opt/airflow/secrets
+    readOnly: true
+
+extraEnv:
+  - name: GOOGLE_APPLICATION_CREDENTIALS
+    value: /opt/airflow/secrets/credentials.json
+  - name: AIRFLOW__CORE__LOAD_EXAMPLES
+    value: "false"
+  - name: AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION
+    value: "true"
+
+# ── Resources (spot-friendly) ────────────────────────────────────────────────
+scheduler:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+webserver:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+
+workers:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# ── Internal PostgreSQL (for Airflow metadata) ───────────────────────────────
+postgresql:
+  enabled: true
+  auth:
+    password: airflow123
+  primary:
+    persistence:
+      size: 1Gi
+
+# ── Redis (for CeleryExecutor — not used here but kept for compat) ───────────
+redis:
+  enabled: false

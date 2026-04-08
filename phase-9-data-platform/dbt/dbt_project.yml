@@ -1,0 +1,22 @@
+name: coverline
+version: '1.0.0'
+config-version: 2
+
+profile: coverline
+
+model-paths: ["models"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+docs-paths: ["docs"]
+
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  coverline:
+    staging:
+      +materialized: view
+      +schema: coverline_staging
+    marts:
+      +materialized: table
+      +schema: coverline_marts
