@@ -1,0 +1,144 @@
+---
+# vault-install.yml — Install and configure HashiCorp Vault on the VM.
+# Idempotent — safe to re-run.
+#
+# Run with:
+#   export VAULT_IP=$(terraform -chdir=phase-7-vault/terraform output -raw vault_internal_ip)
+#   ansible-playbook -i phase-7-vault/ansible/inventory/hosts.yml \
+#     phase-7-vault/ansible/playbooks/vault-install.yml
+
+- name: Install and configure HashiCorp Vault
+  hosts: vault-server
+  become: true
+
+  tasks:
+
+    # ── System preparation ──────────────────────────────────────────────────
+
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - unzip
+          - curl
+          - jq
+          - python3-pip
+        state: present
+        update_cache: true
+
+    - name: Create vault system user
+      ansible.builtin.user:
+        name: vault
+        system: true
+        shell: /bin/false
+        home: /etc/vault.d
+        createhome: false
+
+    - name: Create Vault directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: vault
+        group: vault
+        mode: "0750"
+      loop:
+        - "{{ vault_config_dir }}"
+        - "{{ vault_data_dir }}"
+        - "{{ vault_log_dir }}"
+
+    # ── Install Vault binary ────────────────────────────────────────────────
+
+    - name: Check if Vault is already installed at target version
+      ansible.builtin.command: "{{ vault_install_dir }}/vault version"
+      register: vault_current_version
+      failed_when: false
+      changed_when: false
+
+    - name: Download Vault binary
+      ansible.builtin.get_url:
+        url: "https://releases.hashicorp.com/vault/{{ vault_version }}/vault_{{ vault_version }}_linux_amd64.zip"
+        dest: /tmp/vault.zip
+        mode: "0644"
+      when: vault_version not in (vault_current_version.stdout | default(''))
+
+    - name: Unzip Vault binary
+      ansible.builtin.unarchive:
+        src: /tmp/vault.zip
+        dest: "{{ vault_install_dir }}"
+        remote_src: true
+      when: vault_version not in (vault_current_version.stdout | default(''))
+
+    - name: Set Vault binary permissions
+      ansible.builtin.file:
+        path: "{{ vault_install_dir }}/vault"
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Give Vault binary mlock capability (avoids memory swap)
+      ansible.builtin.command: setcap cap_ipc_lock=+ep {{ vault_install_dir }}/vault
+      changed_when: true
+
+    - name: Clean up zip
+      ansible.builtin.file:
+        path: /tmp/vault.zip
+        state: absent
+
+    # ── Configure Vault ─────────────────────────────────────────────────────
+
+    - name: Write vault.hcl from template
+      ansible.builtin.template:
+        src: ../templates/vault.hcl.j2
+        dest: "{{ vault_config_dir }}/vault.hcl"
+        owner: vault
+        group: vault
+        mode: "0640"
+      notify: Restart Vault
+
+    - name: Write vault systemd unit
+      ansible.builtin.template:
+        src: ../templates/vault.service.j2
+        dest: /etc/systemd/system/vault.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Reload systemd
+        - Restart Vault
+
+    # ── Start Vault ──────────────────────────────────────────────────────────
+
+    - name: Enable and start Vault service
+      ansible.builtin.systemd:
+        name: vault
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Wait for Vault API to be available
+      ansible.builtin.uri:
+        url: "http://{{ ansible_host }}:8200/v1/sys/health"
+        status_code: [200, 429, 472, 473, 501, 503]
+      register: vault_health
+      until: vault_health.status in [200, 429, 472, 473, 501, 503]
+      retries: 12
+      delay: 5
+
+    - name: Print Vault status
+      ansible.builtin.debug:
+        msg: |
+          ✓ Vault is running at http://{{ ansible_host }}:8200
+          Status code: {{ vault_health.status }}
+          Next step: run vault-init.sh to initialize Vault
+
+          export VAULT_ADDR=http://{{ ansible_host }}:8200
+          bash phase-7-vault/vault-init.sh
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Restart Vault
+      ansible.builtin.systemd:
+        name: vault
+        state: restarted

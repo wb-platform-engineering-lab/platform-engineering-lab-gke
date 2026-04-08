@@ -20,12 +20,14 @@
 
 ## What was built
 
-- HashiCorp Vault in **HA mode** (3 nodes, Raft integrated storage) on GKE
+- HashiCorp Vault on a **dedicated Compute Engine VM** (outside GKE — avoids circular dependency)
+- Provisioned with **Terraform** (VM, firewall, KMS), configured with **Ansible** (binary, systemd, vault.hcl)
 - **GCP KMS Auto Unseal** — Vault unseals itself on restart, no manual key required
 - KV v2 secrets engine for static secrets (Redis host, app config)
 - **Dynamic PostgreSQL credentials** — Vault generates short-lived unique credentials per pod
 - Kubernetes auth — pods authenticate using their ServiceAccount JWT
-- Vault Agent injector — secrets mounted as files, never as env vars or in manifests
+- **Vault Agent Injector** deployed in K8s (webhook only — points to the external VM)
+- Secrets mounted as files and sourced at pod startup — never in manifests or env vars
 - **Audit logging** — every secret read logged with timestamp and client identity
 - **Root token revoked** — replaced by a scoped admin token after setup
 - **GitHub Actions JWT auth** — CI retrieves secrets from Vault via OIDC, zero static secrets in GitHub
@@ -33,21 +35,30 @@
 ## Architecture
 
 ```
-coverline-backend pod
-    ├── init container: vault-agent
-    │       └── ServiceAccount JWT → Vault K8s auth → scoped token
-    │               ├── reads static config  → /vault/secrets/backend.env
-    │               └── reads dynamic creds  → /vault/secrets/db.env (rotates every 1h)
-    └── app container: coverline-backend
-            └── sources both secret files at startup
-
-GitHub Actions CD pipeline
-    └── OIDC JWT token → Vault JWT auth (jwt/github)
-            └── reads secret/data/coverline/backend (masked env vars, never logged)
-
-GCP KMS
-    └── wraps Vault master key → auto-unseal on pod restart (no human intervention)
+GCP Project
+├── GKE Cluster
+│   ├── coverline-backend pod
+│   │       ├── init container: vault-agent
+│   │       │       └── ServiceAccount JWT → Vault K8s auth → scoped token
+│   │       │               ├── reads static config  → /vault/secrets/backend.env
+│   │       │               └── reads dynamic creds  → /vault/secrets/db.env (rotates 1h)
+│   │       └── app container
+│   │               └── source /vault/secrets/*.env → starts with secrets as env vars
+│   │
+│   └── vault-agent-injector (webhook — no Vault server in K8s)
+│           └── intercepts pod creation → injects vault-agent sidecar
+│
+├── Compute Engine VM  ← Vault server lives here, outside GKE
+│       └── vault server (systemd)
+│               ├── Raft storage (local disk)
+│               └── GCP KMS auto-unseal
+│
+└── GitHub Actions CD pipeline
+        └── OIDC JWT token → Vault JWT auth (jwt/github)
+                └── reads secret/data/coverline/backend → masked env vars
 ```
+
+> **Why outside GKE?** If Kubernetes is restarting, pods can't start without Vault — but Vault itself is a pod. Running Vault on a VM breaks this circular dependency. Vault is always reachable, even during a cluster incident.
 
 ## Screenshots
 
@@ -62,72 +73,91 @@ GCP KMS
 
 ---
 
-## Step 1 — Provision GCP KMS (Auto Unseal)
+## Step 1 — Provision Infrastructure (Terraform)
+
+This step creates the KMS key for auto-unseal, the Vault service account, and the Compute Engine VM.
 
 ```bash
 cd phase-7-vault/terraform
-
 terraform init
 terraform plan
 terraform apply
 ```
 
 This creates:
-- A KMS key ring `vault-keyring` and crypto key `vault-unseal-key`
-- A `vault` GCP service account with KMS encrypt/decrypt permissions
-- Workload Identity binding between the Vault K8s SA and the GCP SA
+- KMS key ring `vault-keyring` + crypto key `vault-unseal-key`
+- GCP service account `vault-server` with KMS encrypt/decrypt permissions
+- `e2-medium` Compute Engine VM (`vault-server`) in `us-central1-b`
+- Firewall rules: port 8200 from GKE subnet, SSH via IAP only
+
+Capture the VM IP for the next steps:
+```bash
+export VAULT_IP=$(terraform output -raw vault_internal_ip)
+export VAULT_ADDR=$(terraform output -raw vault_addr)
+echo "Vault VM: $VAULT_IP"
+echo "Vault address: $VAULT_ADDR"
+```
 
 ---
 
-## Step 2 — Install Vault (HA + Raft)
+## Step 2 — Install Vault on the VM (Ansible)
 
-First, create a JSON key for the Vault GCP service account and store it as a Kubernetes secret. Vault uses this to authenticate with GCP KMS for auto-unseal.
-
-> **Note:** GKE Workload Identity is not used here — the GKE metadata proxy does not support the `?scopes=` parameter required by Vault's `gcpckms` plugin.
-
+Install Ansible if not already installed:
 ```bash
-# Generate a new JSON key for the vault-server GCP service account
-gcloud iam service-accounts keys create vault-server-key.json \
-  --iam-account=vault-server@platform-eng-lab-will.iam.gserviceaccount.com \
-  --project=platform-eng-lab-will
-
-# Create the namespace and mount the key as a Kubernetes secret
-kubectl create namespace vault
-
-kubectl create secret generic vault-kms-credentials \
-  --from-file=credentials.json=vault-server-key.json \
-  --namespace vault
-
-# Remove the local key file — it's now stored in the cluster
-rm vault-server-key.json
+pip3 install ansible
 ```
+
+Run the install playbook — it installs the Vault binary, writes `vault.hcl`, and starts the systemd service:
+```bash
+ansible-playbook \
+  -i phase-7-vault/ansible/inventory/hosts.yml \
+  phase-7-vault/ansible/playbooks/vault-install.yml
+```
+
+The playbook connects via IAP tunnel (no public IP required). It is idempotent — safe to re-run.
+
+Verify Vault is running:
+```bash
+curl http://$VAULT_IP:8200/v1/sys/health
+```
+
+Expected response: `{"initialized":false,"sealed":true,...}` — not yet initialized, which is correct.
+
+---
+
+## Step 3 — Deploy Vault Agent Injector to K8s
+
+The Vault **server** runs on the VM. The Vault **Agent Injector** (a Kubernetes webhook) still runs in GKE — it intercepts pod creation and injects the vault-agent sidecar that fetches secrets from the VM.
 
 ```bash
 helm repo add hashicorp https://helm.releases.hashicorp.com
 helm repo update
+kubectl create namespace vault
 
-helm install vault hashicorp/vault \
+helm upgrade --install vault hashicorp/vault \
   --namespace vault \
-  -f phase-7-vault/vault-values.yaml
-
-kubectl get pods -n vault -w
+  -f phase-7-vault/vault-agent-injector-values.yaml \
+  --set injector.externalVaultAddr=http://${VAULT_IP}:8200
 ```
 
-All 3 Vault nodes (`vault-0`, `vault-1`, `vault-2`) will start automatically. With GCP KMS configured, they unseal themselves — no manual unseal step required.
-
-Verify HA cluster status:
+Verify the injector is running (no vault-0/1/2 pods — only the injector):
 ```bash
-kubectl exec -n vault vault-0 -- vault operator raft list-peers
+kubectl get pods -n vault
+```
+
+Expected:
+```
+NAME                                    READY   STATUS
+vault-agent-injector-xxx-yyy            1/1     Running
+vault-agent-injector-xxx-zzz            1/1     Running
 ```
 
 ---
 
-## Step 3 — Initialize Vault
+## Step 4 — Initialize Vault
 
 ```bash
-kubectl port-forward -n vault svc/vault 8200:8200
-
-export VAULT_ADDR="http://localhost:8200"
+export VAULT_ADDR=http://${VAULT_IP}:8200
 bash phase-7-vault/vault-init.sh
 ```
 
@@ -135,13 +165,13 @@ This script:
 1. Initializes Vault (outputs recovery key + root token)
 2. Enables KV v2 secrets engine
 3. Writes CoverLine static secrets
-4. Enables Kubernetes auth
+4. Enables Kubernetes auth (pointing at the GKE cluster)
 5. Enables GitHub Actions JWT auth
-6. Enables audit logging at `/vault/logs/audit.log`
+6. Enables audit logging
 7. Creates a scoped admin token (8h TTL)
 8. **Revokes the root token**
 
-Save the recovery key in GCP Secret Manager:
+**Save the recovery key immediately:**
 ```bash
 echo -n "<RECOVERY_KEY>" | gcloud secrets create vault-recovery-key \
   --data-file=- --project=platform-eng-lab-will
@@ -149,11 +179,11 @@ echo -n "<RECOVERY_KEY>" | gcloud secrets create vault-recovery-key \
 
 ---
 
-## Step 4 — Create Policies and Auth Roles
+## Step 5 — Create Policies and Auth Roles
 
 ```bash
-export VAULT_ADDR="http://localhost:8200"
-export VAULT_TOKEN="<ADMIN_TOKEN_FROM_STEP_3>"
+export VAULT_ADDR=http://${VAULT_IP}:8200
+export VAULT_TOKEN="<ADMIN_TOKEN_FROM_STEP_4>"
 
 bash phase-7-vault/vault-policy.sh
 ```
@@ -166,10 +196,10 @@ This creates:
 
 ---
 
-## Step 5 — Configure Dynamic PostgreSQL Credentials
+## Step 6 — Configure Dynamic PostgreSQL Credentials
 
 ```bash
-export VAULT_ADDR="http://localhost:8200"
+export VAULT_ADDR=http://${VAULT_IP}:8200
 export VAULT_TOKEN="<ADMIN_TOKEN>"
 
 PG_ADMIN_PASSWORD=$(kubectl get secret postgresql \
@@ -190,56 +220,65 @@ Key                Value
 lease_id           database/creds/coverline-backend/abc123
 lease_duration     1h
 lease_renewable    true
-password           A1a-xyz789...   ← unique, expires in 1h, then auto-revoked in PostgreSQL
+password           A1a-xyz789...   ← unique, expires in 1h, auto-revoked in PostgreSQL
 username           v-k8s-coverli-xyz
 ```
 
-Each pod gets its own credentials. Vault revokes them automatically in PostgreSQL when the TTL expires.
-
 ---
 
-## Step 6 — Inject Secrets into the Backend Pod
+## Step 7 — Verify Secret Injection in Backend Pods
 
+Restart the backend to trigger vault-agent injection:
 ```bash
-kubectl patch deployment coverline-backend \
-  --patch-file phase-7-vault/vault-agent-patch.yaml
-
+kubectl rollout restart deployment/coverline-backend
 kubectl rollout status deployment/coverline-backend
+```
 
-# Verify static secrets
-kubectl exec -it deploy/coverline-backend -c coverline-backend \
-  -- cat /vault/secrets/backend.env
+Verify secrets were injected:
+```bash
+# Static secrets (Redis, DB config)
+kubectl exec deploy/coverline-backend -c backend -- cat /vault/secrets/backend.env
 
-# Verify dynamic DB credentials
-kubectl exec -it deploy/coverline-backend -c coverline-backend \
-  -- cat /vault/secrets/db.env
+# Dynamic DB credentials (unique per pod, rotates every 1h)
+kubectl exec deploy/coverline-backend -c backend -- cat /vault/secrets/db.env
+```
+
+Verify the endpoint works end-to-end:
+```bash
+kubectl port-forward svc/coverline-backend 5000:5000 &
+curl http://localhost:5000/claims
 ```
 
 ---
 
-## Step 7 — Verify GitHub Actions JWT Auth
+## Step 8 — Verify GitHub Actions JWT Auth
 
-The CD pipeline (`cd.yml`) now authenticates to Vault using OIDC JWT instead of static secrets.
+The CD pipeline (`cd.yml`) authenticates to Vault using OIDC JWT — no static secrets in GitHub.
 
 On the next push to `main`, the workflow:
 1. Exchanges its GitHub OIDC token for a Vault token (TTL: 15min)
 2. Reads `secret/data/coverline/backend` — values exposed as masked env vars
 3. Vault token expires automatically — no cleanup needed
 
-Check the audit log to confirm:
+Check the audit log on the VM to confirm:
 ```bash
-kubectl exec -n vault vault-0 -- cat /vault/logs/audit.log | jq .
+gcloud compute ssh vault-server --zone=us-central1-b \
+  --tunnel-through-iap -- sudo journalctl -u vault -f
 ```
 
 ---
 
-## Step 8 — Access the Vault UI
+## Step 9 — Access the Vault UI
 
+Open an IAP tunnel to the VM:
 ```bash
-kubectl port-forward -n vault svc/vault 8200:8200
+gcloud compute start-iap-tunnel vault-server 8200 \
+  --local-host-port=localhost:8200 \
+  --zone=us-central1-b \
+  --project=platform-eng-lab-will
 ```
 
-Open `http://localhost:8200` — login with the admin token from Step 3.
+Open `http://localhost:8200` — login with the admin token from Step 4.
 
 ---
 
@@ -267,20 +306,24 @@ Key alerts:
 
 ---
 
-### Audit Logs → Loki
+### Audit Logs
 
-`vault-init.sh` enables two audit devices:
-- **File** — `/vault/logs/audit.log` (persistent, for compliance)
-- **Stdout** — picked up by Promtail and shipped to Loki automatically
+`vault-init.sh` enables a file audit device on the VM at `/var/log/vault/vault.log`.
 
-Query all secret reads in Grafana:
+View logs directly on the VM:
+```bash
+gcloud compute ssh vault-server --zone=us-central1-b --tunnel-through-iap \
+  -- sudo tail -f /var/log/vault/vault.log | jq .
 ```
-{namespace="vault"} | json | type="response" | path=~".*secret.*"
+
+To ship logs to Loki (via Promtail on the VM), install and configure Promtail as a systemd service on the Vault VM pointing at your Loki endpoint. Query in Grafana:
+```
+{host="vault-server"} | json | type="response" | path=~".*secret.*"
 ```
 
 Query all failed logins:
 ```
-{namespace="vault"} | json | type="response" | error != ""
+{host="vault-server"} | json | type="response" | error != ""
 ```
 
 ---
@@ -666,15 +709,15 @@ GitHub Actions runner
 
 ## Troubleshooting
 
-### Vault pods not unsealing after restart
+### Vault VM not unsealing after restart
 
-**Cause:** GCP KMS key not yet created or `vault-kms-credentials` secret missing/wrong.
+**Cause:** GCP KMS key not yet created, or the VM service account doesn't have KMS permissions.
 
-**Fix:** Verify KMS setup and credentials:
+**Fix:** Verify KMS setup and check Vault logs on the VM:
 ```bash
 terraform -chdir=phase-7-vault/terraform output
-kubectl get secret vault-kms-credentials -n vault
-kubectl logs -n vault vault-0 | grep -i seal
+gcloud compute ssh vault-server --zone=us-central1-b --tunnel-through-iap \
+  -- sudo journalctl -u vault --no-pager | grep -i "seal\|kms\|error"
 ```
 
 ### `permission denied` when backend reads secret
@@ -683,6 +726,7 @@ kubectl logs -n vault vault-0 | grep -i seal
 
 **Fix:**
 ```bash
+export VAULT_ADDR=http://${VAULT_IP}:8200
 vault read auth/kubernetes/role/coverline-backend
 kubectl get serviceaccount coverline-backend -n default
 ```
@@ -691,32 +735,19 @@ kubectl get serviceaccount coverline-backend -n default
 
 **Cause:** Vault Agent writes secrets to files (`/vault/secrets/backend.env`) but the app reads `os.environ`. The files must be sourced at container startup.
 
-**Fix:** Patch the deployment command to source the files before starting the app:
-
-```bash
-kubectl patch deployment coverline-backend --patch \
-  '{"spec":{"template":{"spec":{"containers":[{"name":"backend","command":["/bin/sh","-c","source /vault/secrets/backend.env && source /vault/secrets/db.env && python app.py"]}]}}}}'
+**Fix:** Bake the source command into the Helm chart's container command:
+```yaml
+command: ["/bin/sh", "-c", "source /vault/secrets/backend.env && source /vault/secrets/db.env && python app.py"]
 ```
 
-Verify the file contains expected values first:
+Verify the file contains expected values:
 ```bash
 kubectl exec deployment/coverline-backend -c backend -- cat /vault/secrets/backend.env
 ```
 
-If `REDIS_HOST` shows `<no value>`, the secret key name in Vault doesn't match the template. Check with:
+If `REDIS_HOST` shows `<no value>`, the secret key name in Vault doesn't match the template. Check:
 ```bash
 vault kv get secret/coverline/backend
-```
-
-### Vault pods not unsealing after restart
-
-**Cause:** GCP KMS key not yet created or `vault-kms-credentials` secret missing/wrong.
-
-**Fix:** Verify KMS setup and credentials:
-```bash
-terraform -chdir=phase-7-vault/terraform output
-kubectl get secret vault-kms-credentials -n vault
-kubectl logs -n vault vault-0 | grep -i seal
 ```
 
 ### Lost admin token / recovery key
