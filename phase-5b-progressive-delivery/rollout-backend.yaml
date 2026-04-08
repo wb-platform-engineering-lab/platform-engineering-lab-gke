@@ -1,0 +1,118 @@
+# rollout-backend.yaml
+# Replaces the coverline-backend Deployment with an Argo Rollout.
+# Canary strategy: 5% → 20% → 50% → 100%, with Prometheus analysis at each step.
+# Delete the existing Deployment before applying:
+#   kubectl delete deployment coverline-backend
+#   kubectl apply -f phase-5b-progressive-delivery/rollout-backend.yaml
+
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: coverline-backend
+  namespace: default
+spec:
+  replicas: 4
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backend
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "coverline-backend"
+        vault.hashicorp.com/agent-inject-secret-backend.env: "secret/data/coverline/backend"
+        vault.hashicorp.com/agent-inject-secret-db.env: "database/creds/coverline-backend"
+        vault.hashicorp.com/agent-inject-template-backend.env: |
+          {{- with secret "secret/data/coverline/backend" -}}
+          export DB_HOST="{{ .Data.data.db_host }}"
+          export DB_NAME="{{ .Data.data.db_name }}"
+          export REDIS_HOST="{{ .Data.data.redis_host }}"
+          {{- end }}
+        vault.hashicorp.com/agent-inject-template-db.env: |
+          {{- with secret "database/creds/coverline-backend" -}}
+          export DB_USERNAME="{{ .Data.username }}"
+          export DB_PASSWORD="{{ .Data.password }}"
+          {{- end }}
+    spec:
+      serviceAccountName: coverline-backend
+      containers:
+        - name: backend
+          image: ghcr.io/wb-platform-engineering-lab/coverline-backend:v1.0.0
+          command:
+            - /bin/sh
+            - -c
+            - source /vault/secrets/backend.env && source /vault/secrets/db.env && python app.py
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+  strategy:
+    canary:
+      # Stable service receives all traffic except the canary percentage
+      stableService: coverline-backend-stable
+      # Canary service receives only canary traffic
+      canaryService: coverline-backend-canary
+
+      steps:
+        # Step 1 — 5% canary, pause for manual inspection
+        - setWeight: 5
+        - pause:
+            duration: 2m
+
+        # Step 2 — Run Prometheus analysis at 5%
+        - analysis:
+            templates:
+              - templateName: coverline-error-rate
+            args:
+              - name: service-name
+                value: coverline-backend
+
+        # Step 3 — Promote to 20%, pause
+        - setWeight: 20
+        - pause:
+            duration: 2m
+
+        # Step 4 — Run analysis at 20%
+        - analysis:
+            templates:
+              - templateName: coverline-error-rate
+            args:
+              - name: service-name
+                value: coverline-backend
+
+        # Step 5 — Promote to 50%, pause
+        - setWeight: 50
+        - pause:
+            duration: 2m
+
+        # Step 6 — Run analysis at 50%
+        - analysis:
+            templates:
+              - templateName: coverline-error-rate
+            args:
+              - name: service-name
+                value: coverline-backend
+
+        # Step 7 — Full rollout (100%)
+        - setWeight: 100

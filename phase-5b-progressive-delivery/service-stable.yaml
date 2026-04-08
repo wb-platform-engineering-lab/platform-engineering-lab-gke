@@ -1,0 +1,16 @@
+# service-stable.yaml
+# Stable service — receives traffic from all users not in the canary slice.
+# Argo Rollouts manages the selector to point at stable ReplicaSet pods.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: coverline-backend-stable
+  namespace: default
+spec:
+  selector:
+    app.kubernetes.io/name: backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+      protocol: TCP

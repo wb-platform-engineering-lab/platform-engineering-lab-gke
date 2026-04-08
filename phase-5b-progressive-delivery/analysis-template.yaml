@@ -1,0 +1,64 @@
+# analysis-template.yaml
+# Prometheus-based analysis run during each canary step.
+# Queries the HTTP error rate for the backend service.
+# Rollout aborts automatically if error rate exceeds 1% during any analysis window.
+
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: coverline-error-rate
+  namespace: default
+spec:
+  args:
+    - name: service-name
+
+  metrics:
+    # --- 1. HTTP error rate ---
+    - name: error-rate
+      interval: 30s          # query every 30s
+      count: 5               # run 5 queries total (2.5 min window)
+      failureLimit: 1        # abort if more than 1 query returns a failing value
+      successCondition: result[0] < 0.01   # pass if error rate < 1%
+      failureCondition: result[0] >= 0.01  # fail if error rate >= 1%
+      provider:
+        prometheus:
+          address: http://prometheus-operated.monitoring.svc.cluster.local:9090
+          query: |
+            sum(
+              rate(
+                http_requests_total{
+                  kubernetes_service_name="{{args.service-name}}",
+                  status=~"5.."
+                }[2m]
+              )
+            )
+            /
+            sum(
+              rate(
+                http_requests_total{
+                  kubernetes_service_name="{{args.service-name}}"
+                }[2m]
+              )
+            )
+
+    # --- 2. p99 latency ---
+    - name: p99-latency
+      interval: 30s
+      count: 5
+      failureLimit: 1
+      successCondition: result[0] < 2.0   # pass if p99 < 2s
+      failureCondition: result[0] >= 2.0
+      provider:
+        prometheus:
+          address: http://prometheus-operated.monitoring.svc.cluster.local:9090
+          query: |
+            histogram_quantile(
+              0.99,
+              sum(
+                rate(
+                  http_request_duration_seconds_bucket{
+                    kubernetes_service_name="{{args.service-name}}"
+                  }[2m]
+                )
+              ) by (le)
+            )

@@ -1,0 +1,17 @@
+# service-canary.yaml
+# Canary service — receives only the canary traffic slice (5%, 20%, 50%).
+# Argo Rollouts manages the selector to point at canary ReplicaSet pods.
+# Used by Prometheus analysis to query canary-specific metrics.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: coverline-backend-canary
+  namespace: default
+spec:
+  selector:
+    app.kubernetes.io/name: backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+      protocol: TCP
