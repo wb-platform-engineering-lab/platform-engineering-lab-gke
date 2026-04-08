@@ -1,0 +1,29 @@
+# pdb.yaml — Pod Disruption Budgets for CoverLine
+# Prevents Kubernetes from taking down too many pods simultaneously
+# during node drains, upgrades, or Cluster Autoscaler scale-down.
+
+---
+# Backend: at least 2 pods must remain available at all times
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: coverline-backend
+  namespace: default
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+
+---
+# Frontend: at least 1 pod must remain available at all times
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: coverline-frontend
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: frontend

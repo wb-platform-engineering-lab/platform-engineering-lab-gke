@@ -1,0 +1,3 @@
+project_id  = "REPLACE-WITH-GCP-PROJECT_ID"  # e.g. platform-eng-lab-will
+region      = "REPLACE-WITH-GCP-REGION"      # e.g. eu-west-3
+environment = "REPLACE-WITH-ENVIRONMENT"     # e.g. dev

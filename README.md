@@ -9,27 +9,7 @@ Built as a portfolio project and study path toward **7 industry certifications**
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ---
-
-## The Product — CoverLine
-
-CoverLine is a B2B2C digital health insurer. Companies subscribe to offer health coverage to their employees. Members submit claims, manage their policy, and access their provider network through a web app.
-
-Each phase is motivated by a real engineering problem that emerged as CoverLine grew:
-
-| Phase | Members | Problem Solved |
-|---|---|---|
-| 0 | 0 | App only runs on one laptop — can't demo to investors |
-| 1 | 50 | Infrastructure provisioned by hand — can't reproduce it |
-| 2 | 200 | One bad deploy takes down the entire platform |
-| 3 | 1,000 | Teams block each other — everything deploys as one unit |
-| 4 | 5,000 | Manual deploys take half a day, releases are delayed |
-| 5 | 15,000 | Someone pushed to prod on a Friday and broke claims processing |
-| 6 | 50,000 | 4-hour outage — found out from a customer, not monitoring |
-| 7 | 100,000 | GDPR audit: DB credentials found in plaintext in Git |
-| 8 | 250,000 | Open enrollment — 10x traffic spike, app unresponsive for 45min |
-| 9 | 500,000 | Actuarial team manually exporting CSVs every Monday |
-| 10 | 1,000,000 | ISO 27001 audit — pods running as root, no network policies |
-| 11 | 2,000,000+ | Full platform — zero manual steps, multi-environment |
+![Banner_Coverline](./img/coverline_banner.png)
 
 ---
 
@@ -56,27 +36,32 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 
 ---
 
+## The Product — CoverLine
+
+CoverLine is a B2B2C digital health insurer. Companies subscribe to offer health coverage to their employees. Members submit claims, manage their policy, and access their provider network through a web app.
+
+Each phase is motivated by a real engineering problem that emerged as CoverLine grew:
+
+| Phase | Members | Problem Solved |
+|---|---|---|
+| 0 | 0 | App only runs on one laptop — can't demo to investors |
+| 1 | 50 | Infrastructure provisioned by hand — can't reproduce it |
+| 2 | 200 | One bad deploy takes down the entire platform |
+| 3 | 1,000 | Teams block each other — everything deploys as one unit |
+| 4 | 5,000 | Manual deploys take half a day, releases are delayed |
+| 5 | 15,000 | Someone pushed to prod on a Friday and broke claims processing |
+| 6 | 50,000 | 4-hour outage — found out from a customer, not monitoring |
+| 7 | 100,000 | GDPR audit: DB credentials found in plaintext in Git |
+| 8 | 250,000 | Open enrollment — 10x traffic spike, app unresponsive for 45min |
+| 9 | 500,000 | Actuarial team manually exporting CSVs every Monday |
+| 10 | 1,000,000 | ISO 27001 audit — pods running as root, no network policies |
+| 11 | 2,000,000+ | Full platform — zero manual steps, multi-environment |
+
+---
+
 ## Architecture
 
-```
-                        ┌──────────────────────────────────────────────────┐
-                        │                   GCP Project                    │
-                        │                                                  │
-                        │  ┌────────────────────────────────────────────┐ │
-                        │  │                   VPC                      │ │
-                        │  │                                            │ │
-                        │  │  ┌─────────────────────┐  ┌────────────┐  │ │
-   Developer  ──push──▶ │  │  │    GKE Cluster       │  │  Artifact  │ │ │
-                        │  │  │                      │  │  Registry  │ │ │
-   GitHub CI  ──build──▶│  │  │  ArgoCD  │ Helm      │  └────────────┘ │ │
-              ──push──▶ │  │  │  Vault   │ Falco     │                  │ │
-                        │  │  │  Prometheus│ Grafana │  ┌────────────┐  │ │
-   ArgoCD  ──sync──────▶│  │  │  Loki    │ Airflow   │  │  BigQuery  │ │ │
-                        │  │  │  PostgreSQL│ Redis   │  └────────────┘  │ │
-                        │  │  └─────────────────────┘                   │ │
-                        │  └────────────────────────────────────────────┘ │
-                        └──────────────────────────────────────────────────┘
-```
+![Architecture](./img/architecture_v1.0.png)
 
 ---
 
