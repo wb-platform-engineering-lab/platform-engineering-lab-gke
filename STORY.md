@@ -44,7 +44,7 @@ Then an investor asked for a demo. Léa tried to run it on her laptop. It didn't
 
 They rescheduled the demo. That weekend, they containerised everything properly.
 
-→ **[Phase 0 — Foundations](./phase-0-foundations/README.md)**
+→ **[Phase 0 — Foundations](./phase-0-foundations/README.md)** · [▶ watch the incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-0-foundations/incident-animation.html)
 
 ---
 
@@ -64,7 +64,7 @@ Thomas paused. *"A day. Maybe two."*
 
 Every resource moved to Terraform. The entire platform became reproducible from a single command.
 
-→ **[Phase 1 — Cloud & Terraform](./phase-1-terraform/README.md)**
+→ **[Phase 1 — Cloud & Terraform](./phase-1-terraform/README.md)** · [▶ watch the incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-1-terraform/incident-animation.html)
 
 ---
 
@@ -84,7 +84,7 @@ The team tried running two containers behind a load balancer. It worked, until a
 
 They moved to Kubernetes.
 
-→ **[Phase 2 — Kubernetes Core](./phase-2-kubernetes/README.md)**
+→ **[Phase 2 — Kubernetes Core](./phase-2-kubernetes/README.md)** · [▶ watch the incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-2-kubernetes/incident-animation.html)
 
 ---
 
@@ -98,7 +98,7 @@ Thomas called an all-hands. *"We have four engineers and we already can't tell w
 
 Everything moved to Helm. One source of truth. Versioned. Rollbackable.
 
-→ **[Phase 3 — Helm & Microservices](./phase-3-helm/README.md)**
+→ **[Phase 3 — Helm & Microservices](./phase-3-helm/README.md)** · [▶ watch the incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-3-helm/incident-animation.html)
 
 ---
 
@@ -116,7 +116,7 @@ Karim found six different versions of the deploy process spread across Slack thr
 
 He built GitHub Actions pipelines. Every merge to main triggers a build, a push, and a deploy. No runbooks. No manual steps.
 
-→ **[Phase 4 — CI/CD Pipelines](./phase-4-ci-cd/README.md)**
+→ **[Phase 4 — CI/CD Pipelines](./phase-4-ci-cd/README.md)** · [▶ watch the incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-4-ci-cd/incident-animation.html)
 
 ---
 
@@ -132,7 +132,7 @@ By 5 PM, the claims API was returning 500s. Neither developer knew the other had
 
 Karim introduced ArgoCD. The cluster state is driven entirely from Git. Drift is impossible. Every change is traceable.
 
-→ **[Phase 5 — GitOps with ArgoCD](./phase-5-gitops/README.md)**
+→ **[Phase 5 — GitOps with ArgoCD](./phase-5-gitops/README.md)** · [▶ watch the incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-5-gitops/incident-animation.html)
 
 ---
 
@@ -150,7 +150,7 @@ Karim and Sarah spent a week building the observability stack. Prometheus. Grafa
 
 The next incident, they woke up before the customer did.
 
-→ **[Phase 6 — Observability](./phase-6-observability/README.md)**
+→ **[Phase 6 — Observability](./phase-6-observability/README.md)** · [▶ watch the incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-6-observability/incident-animation.html)
 
 ---
 
@@ -174,7 +174,7 @@ The Series B was delayed by six weeks pending a full security remediation.
 
 They deployed HashiCorp Vault. Credentials never touch the filesystem. Pods get short-lived dynamic credentials that rotate automatically. Git contains no secrets — not even accidentally.
 
-→ **[Phase 7 — Secrets Management (Vault)](./phase-7-vault/README.md)**
+→ **[Phase 7 — Secrets Management (Vault)](./phase-7-vault/README.md)** · [▶ watch the incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-7-vault/incident-animation.html)
 
 ---
 
