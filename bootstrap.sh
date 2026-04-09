@@ -26,7 +26,7 @@ done
 
 if [ -z "$PHASE" ]; then
   echo "Usage: bash bootstrap.sh --phase <number>"
-  echo "  Supported phases: 3, 4, 5, 6, 7, 8"
+  echo "  Supported phases: 3, 4, 5, 5b, 6, 7, 8"
   exit 1
 fi
 
@@ -90,6 +90,24 @@ install_argocd() {
   kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
   kubectl rollout status deployment/argocd-server -n argocd --timeout=5m
   echo "Phase 5 — done."
+}
+
+install_argo_rollouts() {
+  echo ""
+  echo "[phase 5b] Installing Argo Rollouts..."
+  kubectl create namespace argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -n argo-rollouts \
+    -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+  kubectl rollout status deployment/argo-rollouts -n argo-rollouts --timeout=5m
+  echo "Phase 5b — Argo Rollouts ready."
+  echo ""
+  echo "Next steps:"
+  echo "  1. Install the kubectl plugin:  brew install argoproj/tap/kubectl-argo-rollouts"
+  echo "  2. Delete the existing Deployment and apply the Rollout:"
+  echo "       kubectl delete deployment coverline-backend"
+  echo "       kubectl apply -f phase-5b-progressive-delivery/rollout.yaml"
+  echo "  3. Apply the AnalysisTemplate:"
+  echo "       kubectl apply -f phase-5b-progressive-delivery/analysis-template.yaml"
 }
 
 install_observability() {
@@ -164,6 +182,12 @@ case $PHASE in
     install_postgresql_redis
     install_argocd
     ;;
+  5b)
+    install_postgresql_redis
+    install_argocd
+    install_observability
+    install_argo_rollouts
+    ;;
   6)
     install_postgresql_redis
     install_argocd
@@ -197,7 +221,7 @@ case $PHASE in
     echo "Phase 8 — done."
     ;;
   *)
-    echo "Unknown phase: $PHASE. Supported: 3, 4, 5, 6, 7, 8"
+    echo "Unknown phase: $PHASE. Supported: 3, 4, 5, 5b, 6, 7, 8"
     exit 1
     ;;
 esac
