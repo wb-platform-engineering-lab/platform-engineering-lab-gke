@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 6 Quiz — Observability Stack</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .progress-bar-wrap {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: #e2e8f0;
+      z-index: 100;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #818cf8);
+      transition: width 0.4s ease;
+    }
+
+    .header {
+      position: fixed;
+      top: 12px; right: 20px;
+      font-size: 13px;
+      color: #94a3b8;
+      z-index: 100;
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 48px;
+      max-width: 680px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      animation: fadeUp 0.35s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .phase-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6366f1;
+      margin-bottom: 12px;
+    }
+
+    .question {
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.5;
+      color: #0f172a;
+      margin-bottom: 32px;
+    }
+
+    .question code {
+      background: #f1f5f9;
+      color: #4f46e5;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 15px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .options { display: flex; flex-direction: column; gap: 12px; }
+
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 16px 18px;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      user-select: none;
+    }
+
+    .option:hover:not(.disabled) {
+      border-color: #6366f1;
+      background: #eef2ff;
+      transform: translateX(3px);
+    }
+
+    .option-key {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      transition: all 0.15s;
+    }
+
+    .option-text {
+      font-size: 15px;
+      line-height: 1.5;
+      color: #334155;
+      padding-top: 3px;
+    }
+
+    .option-text code {
+      background: #f1f5f9;
+      color: #4f46e5;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .option.correct {
+      border-color: #22c55e;
+      background: #f0fdf4;
+    }
+    .option.correct .option-key {
+      background: #22c55e;
+      border-color: #22c55e;
+      color: #fff;
+    }
+    .option.correct .option-text { color: #166534; }
+
+    .option.wrong {
+      border-color: #ef4444;
+      background: #fef2f2;
+    }
+    .option.wrong .option-key {
+      background: #ef4444;
+      border-color: #ef4444;
+      color: #fff;
+    }
+    .option.wrong .option-text { color: #991b1b; }
+
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+
+    .explanation {
+      margin-top: 20px;
+      padding: 16px 18px;
+      background: #f8fafc;
+      border-left: 3px solid #6366f1;
+      border-radius: 0 8px 8px 0;
+      font-size: 14px;
+      line-height: 1.65;
+      color: #475569;
+      animation: fadeUp 0.25s ease;
+    }
+
+    .explanation code {
+      background: #f1f5f9;
+      color: #4f46e5;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .btn-next {
+      margin-top: 28px;
+      padding: 14px 32px;
+      background: #6366f1;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      width: 100%;
+    }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .btn-next:active { transform: translateY(0); }
+
+    .score-screen { text-align: center; }
+
+    .score-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 28px;
+    }
+
+    .score-number {
+      font-size: 36px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .score-total {
+      font-size: 14px;
+      color: rgba(255,255,255,0.7);
+      margin-top: 2px;
+    }
+
+    .score-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 10px;
+    }
+
+    .score-subtitle {
+      font-size: 15px;
+      color: #64748b;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .score-breakdown {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .score-tag {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+    .btn-restart {
+      padding: 14px 40px;
+      background: transparent;
+      color: #6366f1;
+      font-size: 15px;
+      font-weight: 600;
+      border: 1.5px solid #6366f1;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-right: 12px;
+    }
+    .btn-restart:hover { background: #eef2ff; }
+
+    .btn-back {
+      padding: 14px 40px;
+      background: #6366f1;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar-wrap">
+  <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+</div>
+<div class="header" id="questionCounter"></div>
+
+<div class="card" id="quizCard"></div>
+
+<script>
+const questions = [
+  {
+    q: "CoverLine's on-call team found out about a 4-hour outage from a customer email. What was missing that would have alerted the engineer automatically?",
+    options: [
+      "A load balancer with health checks",
+      "Prometheus alerting rules with Alertmanager routing to PagerDuty or Slack",
+      "More replicas in the Deployment",
+      "A Loki LogQL query running on a schedule"
+    ],
+    correct: 1,
+    explanation: "Prometheus scrapes metrics and evaluates alerting rules (e.g. BackendDown). Alertmanager routes firing alerts to notification channels. Without this pipeline, incidents are only discovered when users complain."
+  },
+  {
+    q: "What is the role of Promtail in the observability stack?",
+    options: [
+      "It scrapes Prometheus metrics from pods",
+      "It stores log data on persistent volumes",
+      "It runs as a DaemonSet and ships container logs to Loki",
+      "It renders Grafana dashboards from LogQL queries"
+    ],
+    correct: 2,
+    explanation: "Promtail is a log collector deployed as a DaemonSet — one pod per node. It tails container log files from the node filesystem and ships them to Loki for storage and querying."
+  },
+  {
+    q: "Which LogQL query finds all error logs across the <code>default</code> namespace?",
+    options: [
+      '<code>{namespace="default"} | json | level="error"</code>',
+      '<code>rate({namespace="default"}[5m]) > 0</code>',
+      '<code>{namespace="default"} |= "error" or "ERROR" or "Error"</code>',
+      '<code>sum({namespace="default"}) by (pod)</code>'
+    ],
+    correct: 2,
+    explanation: 'The <code>|=</code> filter operator does a case-sensitive substring match. Chaining multiple <code>|=</code> with <code>or</code> covers different capitalizations. This is the first query to run during an incident to quickly identify which pod is generating errors.'
+  },
+  {
+    q: "A pod is restarting in a loop and you suspect an OOM kill. Which LogQL query confirms it?",
+    options: [
+      '<code>{namespace="default"} | json | status >= 500</code>',
+      '<code>{namespace="default"} |= "OOMKilled" or "out of memory" or "killed"</code>',
+      '<code>{namespace="kube-system"} |= "FailedScheduling"</code>',
+      '<code>sum by (pod) (rate({namespace="default"}[5m]))</code>'
+    ],
+    correct: 1,
+    explanation: 'OOM kills appear in logs as "OOMKilled" or "out of memory". Once confirmed, you increase the memory <code>limit</code> in the pod spec. Without this query you might incorrectly diagnose a code bug.'
+  },
+  {
+    q: "In the kube-prometheus-stack, what is the difference between Prometheus and Grafana?",
+    options: [
+      "Prometheus stores logs; Grafana stores metrics",
+      "Prometheus collects and stores metrics; Grafana visualises them with dashboards",
+      "Grafana collects metrics; Prometheus only generates alerts",
+      "They are interchangeable — both query Loki"
+    ],
+    correct: 1,
+    explanation: "Prometheus scrapes <code>/metrics</code> endpoints every 15s, stores time-series data, and evaluates alerting rules. Grafana connects to Prometheus as a data source and renders dashboards. They are complementary, not interchangeable."
+  },
+  {
+    q: "You run <code>helm install loki grafana/loki --namespace monitoring -f loki-values.yaml</code> but <code>loki-chunks-cache-0</code> stays in Pending. What is the most likely cause?",
+    options: [
+      "Loki requires a dedicated node pool",
+      "The monitoring namespace was not created first",
+      "Insufficient node memory — e2-standard-2 nodes fill up quickly",
+      "Grafana must be installed before Loki"
+    ],
+    correct: 2,
+    explanation: "The loki-chunks-cache sidecar is memory-intensive. On small nodes (e2-standard-2, 8 GB), the cluster runs out of allocatable memory. The fix is to disable the cache in loki-values.yaml with <code>chunksCache.enabled: false</code>."
+  },
+  {
+    q: "How do you connect Loki as a data source in Grafana after installing both with Helm?",
+    options: [
+      "Edit the kube-prometheus-stack values.yaml and add a Loki section, then <code>helm upgrade</code>",
+      "In Grafana: Connections → Data sources → Add → Loki → URL: <code>http://loki-gateway.monitoring.svc.cluster.local</code>",
+      "Run <code>kubectl apply -f loki-datasource.yaml</code> in the monitoring namespace",
+      "Restart Grafana — it auto-discovers Loki via service discovery"
+    ],
+    correct: 1,
+    explanation: "Loki is added as a data source manually in the Grafana UI (or via a ConfigMap). The service URL uses Kubernetes DNS: <code>http://loki-gateway.monitoring.svc.cluster.local</code>. Grafana does not auto-discover Loki."
+  },
+  {
+    q: "A PrometheusRule alert named <code>CoverLineBackendDown</code> is defined but nobody is notified when it fires. What is missing?",
+    options: [
+      "The alert needs a <code>for: 0s</code> field to fire immediately",
+      "Alertmanager must be configured with a receiver (Slack, PagerDuty) and routing rules",
+      "The alert must be applied in the <code>default</code> namespace, not <code>monitoring</code>",
+      "Prometheus needs to be restarted after applying the PrometheusRule"
+    ],
+    correct: 1,
+    explanation: "PrometheusRule defines the alerting condition. Alertmanager handles routing: it receives firing alerts from Prometheus and dispatches them to configured receivers (Slack webhook, PagerDuty integration key). Without Alertmanager configuration, alerts fire silently."
+  },
+  {
+    q: "What does this LogQL query measure? <code>sum by (pod) (count_over_time({namespace=&quot;default&quot;}[1h]))</code>",
+    options: [
+      "CPU usage per pod over the last hour",
+      "Number of HTTP requests per pod in the last hour",
+      "Total log line count per pod in the last hour — identifies over-logging services",
+      "Memory allocation per pod aggregated by hour"
+    ],
+    correct: 2,
+    explanation: "<code>count_over_time</code> counts log entries in a time window. <code>sum by (pod)</code> aggregates per pod. This reveals which service produces the most log volume — useful for reducing Loki storage costs by lowering log verbosity on noisy services."
+  },
+  {
+    q: "In production, why should Grafana never be exposed via port-forward with the default <code>admin/admin123</code> password?",
+    options: [
+      "Port-forward has a 5-minute timeout and would disconnect users",
+      "Grafana cannot display metrics over port-forward connections",
+      "Dashboards may contain sensitive business metrics; shared passwords violate least-privilege and cannot be audited",
+      "The admin account is rate-limited to 10 logins per day"
+    ],
+    correct: 2,
+    explanation: "Grafana dashboards displaying claims rates, revenue metrics, or error rates are sensitive data. In production: expose via an Ingress with TLS, enforce SSO (Google OAuth, Okta) for individual accountability and revocability. Shared passwords are not auditable and cannot be rotated per-user."
+  }
+];
+
+const LABEL = "Phase 6 — Observability";
+const NEXT_PHASE = "../phase-7-vault/quiz.html";
+
+let current = 0;
+let score = 0;
+let answered = false;
+
+function render() {
+  const q = questions[current];
+  const card = document.getElementById("quizCard");
+  const keys = ["A", "B", "C", "D"];
+  document.getElementById("progressBar").style.width =
+    ((current / questions.length) * 100) + "%";
+  document.getElementById("questionCounter").textContent =
+    (current + 1) + " / " + questions.length;
+  card.innerHTML =
+    '<div class="phase-label">' + LABEL + '</div>' +
+    '<div class="question">' + q.q + '</div>' +
+    '<div class="options" id="options">' +
+    q.options.map(function(opt, i) {
+      return '<div class="option" data-i="' + i + '" onclick="select(' + i + ')">' +
+        '<div class="option-key">' + keys[i] + '</div>' +
+        '<div class="option-text">' + opt + '</div>' +
+        '</div>';
+    }).join('') +
+    '</div>';
+  answered = false;
+}
+
+function select(i) {
+  if (answered) return;
+  answered = true;
+  var q = questions[current];
+  var opts = document.querySelectorAll(".option");
+  opts.forEach(function(el) { el.classList.add("disabled"); });
+  if (i === q.correct) {
+    opts[i].classList.add("correct");
+    score++;
+  } else {
+    opts[i].classList.add("wrong");
+    opts[q.correct].classList.add("correct");
+  }
+  opts.forEach(function(el, idx) {
+    if (idx !== i && idx !== q.correct) el.classList.add("dimmed");
+  });
+  var exp = document.createElement("div");
+  exp.className = "explanation";
+  exp.innerHTML = q.explanation;
+  document.getElementById("options").after(exp);
+  var btn = document.createElement("button");
+  btn.className = "btn-next";
+  btn.textContent = current < questions.length - 1 ? "Next question →" : "See results";
+  btn.onclick = function() {
+    current++;
+    if (current < questions.length) { render(); }
+    else { renderScore(); }
+  };
+  exp.after(btn);
+}
+
+function renderScore() {
+  var pct = Math.round((score / questions.length) * 100);
+  var msg = pct === 100 ? "Perfect score! You know your observability stack cold." :
+            pct >= 70  ? "Solid understanding of Prometheus, Loki, and Grafana." :
+                         "Review the README and retry — observability is critical for production.";
+  document.getElementById("progressBar").style.width = "100%";
+  document.getElementById("questionCounter").textContent = "";
+  var breakdown = questions.map(function(q, i) {
+    return '<span class="score-tag ' + (i < score ? 'correct' : 'wrong') + '">' + (i + 1) + '</span>';
+  }).join('');
+  document.getElementById("quizCard").innerHTML =
+    '<div class="score-screen">' +
+    '<div class="score-circle"><div class="score-number">' + score + '</div><div class="score-total">/ ' + questions.length + '</div></div>' +
+    '<div class="score-title">' + pct + '% — ' + (pct >= 70 ? 'Nice work' : 'Keep going') + '</div>' +
+    '<div class="score-subtitle">' + msg + '</div>' +
+    '<div class="score-breakdown">' + breakdown + '</div>' +
+    '<button class="btn-restart" onclick="restart()">Retry</button>' +
+    '<a class="btn-back" href="' + NEXT_PHASE + '">Phase 7 →</a>' +
+    '</div>';
+}
+
+function restart() {
+  current = 0; score = 0;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

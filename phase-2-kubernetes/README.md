@@ -189,3 +189,8 @@ This lab exposes services over HTTP. In production, the Ingress must terminate T
 
 ### 6. Set a `revisionHistoryLimit`
 By default, Kubernetes keeps 10 versions of each Deployment. In production with frequent deploys, this wastes storage unnecessarily. A value of 3 is generally sufficient to support rollbacks.
+
+
+---
+
+[📝 Take the Phase 2 quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-2-kubernetes/quiz.html)

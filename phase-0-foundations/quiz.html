@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 0 Quiz — Foundations & Docker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .progress-bar-wrap { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: #e2e8f0; z-index: 100; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); transition: width 0.4s ease; }
+    .header { position: fixed; top: 12px; right: 20px; font-size: 13px; color: #94a3b8; z-index: 100; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 48px; max-width: 680px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.06); animation: fadeUp 0.35s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .phase-label { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6366f1; margin-bottom: 12px; }
+    .question { font-size: 20px; font-weight: 600; line-height: 1.5; color: #0f172a; margin-bottom: 32px; }
+    .question code { background: #f1f5f9; color: #4f46e5; padding: 2px 7px; border-radius: 5px; font-size: 15px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .options { display: flex; flex-direction: column; gap: 12px; }
+    .option { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; user-select: none; }
+    .option:hover:not(.disabled) { border-color: #6366f1; background: #eef2ff; transform: translateX(3px); }
+    .option-key { width: 28px; height: 28px; min-width: 28px; border: 1.5px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #64748b; transition: all 0.15s; }
+    .option-text { font-size: 15px; line-height: 1.5; color: #334155; padding-top: 3px; }
+    .option-text code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .option.correct { border-color: #22c55e; background: #f0fdf4; }
+    .option.correct .option-key { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .option.correct .option-text { color: #166534; }
+    .option.wrong { border-color: #ef4444; background: #fef2f2; }
+    .option.wrong .option-key { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .option.wrong .option-text { color: #991b1b; }
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+    .explanation { margin-top: 20px; padding: 16px 18px; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.65; color: #475569; animation: fadeUp 0.25s ease; }
+    .explanation code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .btn-next { margin-top: 28px; padding: 14px 32px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .score-screen { text-align: center; }
+    .score-circle { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 28px; }
+    .score-number { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+    .score-total { font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .score-title { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+    .score-subtitle { font-size: 15px; color: #64748b; margin-bottom: 32px; line-height: 1.6; }
+    .score-breakdown { display: flex; gap: 12px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+    .score-tag { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-restart { padding: 14px 40px; background: transparent; color: #6366f1; font-size: 15px; font-weight: 600; border: 1.5px solid #6366f1; border-radius: 10px; cursor: pointer; transition: background 0.15s; margin-right: 12px; }
+    .btn-restart:hover { background: #eef2ff; }
+    .btn-back { padding: 14px 40px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s; text-decoration: none; display: inline-block; }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+<div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width: 0%"></div></div>
+<div class="header" id="questionCounter"></div>
+<div class="card" id="quizCard"></div>
+<script>
+const questions = [
+  {
+    "q": "Your frontend container uses <code>BACKEND_URL=http://localhost:5000</code>. Requests to the backend fail. Why?",
+    "options": [
+      "The frontend container doesn't have curl installed by default",
+      "<code>localhost</code> inside a container resolves to that container only — the backend is a separate container with its own network namespace",
+      "Docker Compose requires IP addresses — service names are not supported as hostnames",
+      "Port 5000 must be published with <code>ports:</code> before containers can communicate"
+    ],
+    "correct": 1,
+    "explanation": "Each container has its own network namespace. <code>localhost</code> inside the frontend resolves to the frontend itself, not the backend. Docker Compose services communicate using the service name as a hostname (e.g. <code>http://backend:5000</code>) over the shared bridge network."
+  },
+  {
+    "q": "You change <code>app.py</code> and run <code>docker compose up</code>. The change is not reflected. What is the correct fix?",
+    "options": [
+      "Restart the Docker daemon",
+      "Run <code>docker compose stop</code> then <code>docker compose start</code>",
+      "Run <code>docker compose up --build</code> to force a rebuild",
+      "Run <code>docker compose pull</code> to fetch the latest image"
+    ],
+    "correct": 2,
+    "explanation": "<code>docker compose up</code> reuses the existing image. To pick up code changes you must rebuild the image with <code>--build</code>. <code>docker compose pull</code> only applies to images from a remote registry — not locally built ones."
+  },
+  {
+    "q": "The Python backend image is 1.62 GB with a standard base. After a multi-stage build it drops to 210 MB. What is the main reason?",
+    "options": [
+      "Python bytecode is compiled and source files are no longer needed",
+      "The final stage copies only the app and installed packages — build tools and compilers stay in discarded intermediate stages",
+      "Docker automatically compresses all layers in a multi-stage build",
+      "Multi-stage builds strip unused environment variables which account for most of the size"
+    ],
+    "correct": 1,
+    "explanation": "In a multi-stage build only the last stage ships. The first stage uses a full Python image to install dependencies; the final stage copies only the compiled packages and application into a slim base. All build tooling is left in the discarded intermediate stage."
+  },
+  {
+    "q": "<code>docker compose up</code> fails with <code>Bind for 0.0.0.0:5000 failed: port is already allocated</code>. What is the most likely cause?",
+    "options": [
+      "Docker's internal network has no free ports in the 5000 range",
+      "Another process or a leftover container is already listening on port 5000 on the host",
+      "Port 5000 is reserved by Docker for internal health checks",
+      "Both frontend and backend are mapped to host port 5000 in docker-compose.yml"
+    ],
+    "correct": 1,
+    "explanation": "Port 5000 on the host is already in use — either by another application or a container that was not stopped cleanly. Run <code>docker compose down</code> to stop all containers, then <code>docker ps -a</code> to find any lingering ones."
+  },
+  {
+    "q": "The frontend uses <code>depends_on: [backend]</code> but still crashes on startup with a connection error. Why?",
+    "options": [
+      "<code>depends_on</code> is deprecated in Docker Compose v2",
+      "<code>depends_on</code> waits for the container to start — not for the application inside it to be ready and accepting connections",
+      "The health check endpoint is not exposed on the backend service",
+      "The frontend must be declared before the backend in docker-compose.yml"
+    ],
+    "correct": 1,
+    "explanation": "<code>depends_on</code> ensures the backend <em>container</em> starts before the frontend. But the backend process (Flask) may still be initialising. The fix is to add a <code>healthcheck</code> and use <code>depends_on: condition: service_healthy</code>."
+  },
+  {
+    "q": "An image built on Apple Silicon fails on GKE with <code>exec format error</code>. What is the root cause?",
+    "options": [
+      "GKE does not support Docker images — only OCI-compliant images work",
+      "The image was built for <code>linux/arm64</code> (Apple Silicon) but GKE nodes run <code>linux/amd64</code>",
+      "The container uses bash, which is not available on GKE node images",
+      "Multi-stage builds require the same CPU architecture in every stage"
+    ],
+    "correct": 1,
+    "explanation": "Docker images are architecture-specific. Apple Silicon Macs build <code>linux/arm64</code> by default. GKE nodes run <code>linux/amd64</code>. Fix: <code>docker build --platform linux/amd64 -t &lt;IMAGE&gt; .</code>"
+  },
+  {
+    "q": "<code>docker exec frontend env | grep BACKEND_URL</code> returns nothing. What does this indicate?",
+    "options": [
+      "The variable was set but unset by the entrypoint script",
+      "The container was started with <code>docker run</code> instead of <code>docker compose up</code> — env vars from docker-compose.yml were never injected",
+      "Docker blocks env output in non-interactive terminals",
+      "<code>BACKEND_URL</code> is not a standard variable name and Docker silently ignores it"
+    ],
+    "correct": 1,
+    "explanation": "Environment variables defined under <code>environment:</code> in docker-compose.yml are only injected when containers start via <code>docker compose up</code>. Running <code>docker run &lt;image&gt;</code> directly bypasses docker-compose entirely."
+  },
+  {
+    "q": "The frontend calls <code>http://backend:5000/health</code>. What makes the hostname <code>backend</code> resolve correctly inside the container?",
+    "options": [
+      "You must add an entry to <code>/etc/hosts</code> inside the frontend container",
+      "Docker Compose creates a shared bridge network and registers each service name as a DNS hostname",
+      "The <code>links:</code> directive adds a static route between containers",
+      "You must publish port 5000 with <code>ports: \"5000:5000\"</code> for DNS resolution to work"
+    ],
+    "correct": 1,
+    "explanation": "Docker Compose automatically creates a bridge network and attaches all services. Each service name is registered in Docker's embedded DNS resolver. No manual configuration needed — <code>ports:</code> only maps to the host, it doesn't affect container-to-container DNS."
+  },
+  {
+    "q": "Which of the following is NOT a benefit of multi-stage Docker builds?",
+    "options": [
+      "Smaller final image — build tools are excluded from the production image",
+      "Reduced attack surface — fewer packages means fewer CVEs in the image that ships",
+      "Automatic secret rotation — secrets used during the build are rotated in each stage",
+      "Reproducibility — you can cache and reuse expensive build stages"
+    ],
+    "correct": 2,
+    "explanation": "Multi-stage builds do not handle secret rotation. Secrets passed as <code>--build-arg</code> are baked into layer history. The correct approach is <code>docker build --secret id=s,src=./file</code> with <code>RUN --mount=type=secret</code>."
+  },
+  {
+    "q": "The CoverLine MVP ran with three <code>docker run</code> commands only the CTO had memorised. What is the primary operational risk?",
+    "options": [
+      "Docker containers are not reproducible without a Dockerfile",
+      "The application cannot scale horizontally with <code>docker run</code>",
+      "The deployment procedure exists only in one person's memory — it cannot be version-controlled or run by anyone else reliably",
+      "Manually started containers don't receive OS security patches automatically"
+    ],
+    "correct": 2,
+    "explanation": "If the steps to deploy live in someone's head, the entire operation is a single point of failure. Docker Compose solves this by codifying the full stack in <code>docker-compose.yml</code> — anyone can run it with one command, and it can be reviewed and version-controlled."
+  }
+];
+
+let current = 0, score = 0, answered = false;
+const results = [];
+
+function render() {
+  const card = document.getElementById('quizCard');
+  const bar  = document.getElementById('progressBar');
+  const counter = document.getElementById('questionCounter');
+  if (current >= questions.length) { renderScore(); return; }
+  const q = questions[current];
+  answered = false;
+  bar.style.width = `${(current / questions.length) * 100}%`;
+  counter.textContent = `${current + 1} / ${questions.length}`;
+  card.innerHTML = `
+    <div class="phase-label">Phase 0 · Foundations & Docker</div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="options">
+      ${q.options.map((opt, i) => `
+        <div class="option" data-index="${i}" onclick="select(${i})">
+          <div class="option-key">${String.fromCharCode(65 + i)}</div>
+          <div class="option-text">${opt}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function select(chosen) {
+  if (answered) return;
+  answered = true;
+  const q = questions[current];
+  const options = document.querySelectorAll('.option');
+  options.forEach((el, i) => {
+    el.classList.add('disabled');
+    if (i === q.correct) el.classList.add('correct');
+    else if (i === chosen) el.classList.add('wrong');
+    else el.classList.add('dimmed');
+  });
+  const isCorrect = chosen === q.correct;
+  if (isCorrect) score++;
+  results.push(isCorrect);
+  const exp = document.createElement('div');
+  exp.className = 'explanation';
+  exp.innerHTML = (isCorrect ? '✓ Correct. ' : '✗ Not quite. ') + q.explanation;
+  document.getElementById('options').after(exp);
+  const btn = document.createElement('button');
+  btn.className = 'btn-next';
+  btn.textContent = current < questions.length - 1 ? 'Next question →' : 'See my results';
+  btn.onclick = () => { current++; render(); };
+  exp.after(btn);
+}
+
+function renderScore() {
+  const card = document.getElementById('quizCard');
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('questionCounter').textContent = '';
+  const pct = Math.round((score / questions.length) * 100);
+  let msg, sub;
+  if (pct === 100) { msg = 'Perfect score!'; sub = 'Excellent. Ready for Phase 1.'; }
+  else if (pct >= 70) { msg = 'Good work.'; sub = 'Solid understanding. Review the questions you missed before moving on.'; }
+  else if (pct >= 50) { msg = 'Getting there.'; sub = 'Some gaps to fill. Re-read the README and try again.'; }
+  else { msg = 'Keep studying.'; sub = "Go back through the guide and revisit the concepts. You've got this."; }
+  const wrongCount = questions.length - score;
+  card.innerHTML = `
+    <div class="score-screen">
+      <div class="score-circle">
+        <div class="score-number">${score}</div>
+        <div class="score-total">/ ${questions.length}</div>
+      </div>
+      <div class="score-title">${msg}</div>
+      <div class="score-subtitle">${sub}</div>
+      <div class="score-breakdown">
+        <span class="score-tag correct">✓ ${score} correct</span>
+        <span class="score-tag wrong">✗ ${wrongCount} wrong</span>
+      </div>
+      <button class="btn-restart" onclick="restart()">Try again</button>
+      <a class="btn-back" href="../README.md">Back to phase</a>
+    </div>
+  `;
+}
+
+function restart() { current = 0; score = 0; answered = false; results.length = 0; render(); }
+render();
+</script>
+</body>
+</html>

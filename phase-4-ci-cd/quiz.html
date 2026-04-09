@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 4 Quiz — CI/CD Pipelines</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .progress-bar-wrap { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: #e2e8f0; z-index: 100; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); transition: width 0.4s ease; }
+    .header { position: fixed; top: 12px; right: 20px; font-size: 13px; color: #94a3b8; z-index: 100; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 48px; max-width: 680px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.06); animation: fadeUp 0.35s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .phase-label { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6366f1; margin-bottom: 12px; }
+    .question { font-size: 20px; font-weight: 600; line-height: 1.5; color: #0f172a; margin-bottom: 32px; }
+    .question code { background: #f1f5f9; color: #4f46e5; padding: 2px 7px; border-radius: 5px; font-size: 15px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .options { display: flex; flex-direction: column; gap: 12px; }
+    .option { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; user-select: none; }
+    .option:hover:not(.disabled) { border-color: #6366f1; background: #eef2ff; transform: translateX(3px); }
+    .option-key { width: 28px; height: 28px; min-width: 28px; border: 1.5px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #64748b; transition: all 0.15s; }
+    .option-text { font-size: 15px; line-height: 1.5; color: #334155; padding-top: 3px; }
+    .option-text code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .option.correct { border-color: #22c55e; background: #f0fdf4; }
+    .option.correct .option-key { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .option.correct .option-text { color: #166534; }
+    .option.wrong { border-color: #ef4444; background: #fef2f2; }
+    .option.wrong .option-key { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .option.wrong .option-text { color: #991b1b; }
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+    .explanation { margin-top: 20px; padding: 16px 18px; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.65; color: #475569; animation: fadeUp 0.25s ease; }
+    .explanation code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .btn-next { margin-top: 28px; padding: 14px 32px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .score-screen { text-align: center; }
+    .score-circle { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 28px; }
+    .score-number { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+    .score-total { font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .score-title { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+    .score-subtitle { font-size: 15px; color: #64748b; margin-bottom: 32px; line-height: 1.6; }
+    .score-breakdown { display: flex; gap: 12px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+    .score-tag { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-restart { padding: 14px 40px; background: transparent; color: #6366f1; font-size: 15px; font-weight: 600; border: 1.5px solid #6366f1; border-radius: 10px; cursor: pointer; transition: background 0.15s; margin-right: 12px; }
+    .btn-restart:hover { background: #eef2ff; }
+    .btn-back { padding: 14px 40px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s; text-decoration: none; display: inline-block; }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+<div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width: 0%"></div></div>
+<div class="header" id="questionCounter"></div>
+<div class="card" id="quizCard"></div>
+<script>
+const questions = [
+  {
+    "q": "What is Workload Identity Federation and why is it used instead of storing a JSON service account key in GitHub Secrets?",
+    "options": [
+      "It encrypts the JSON key before storing it in GitHub",
+      "It lets GitHub Actions exchange a short-lived OIDC token for GCP credentials — no long-lived key ever leaves GCP or gets stored in GitHub",
+      "It automatically rotates the JSON key every 24 hours",
+      "It restricts which GitHub repos can use the service account via IP allowlist"
+    ],
+    "correct": 1,
+    "explanation": "Workload Identity Federation uses OIDC: GitHub generates a short-lived token for each job, which is exchanged at GCP's Security Token Service for temporary credentials scoped to the specific repository. No key file is ever created, stored, or at risk of being leaked."
+  },
+  {
+    "q": "The CD workflow does not trigger after a merge to main. What is the most likely cause?",
+    "options": [
+      "The main branch is protected and blocks automated workflows",
+      "The <code>paths</code> filter — the CD workflow only triggers when files matching the configured paths change",
+      "GitHub Actions cannot be triggered by merge commits — only direct pushes",
+      "The GitHub token has expired and must be regenerated"
+    ],
+    "correct": 1,
+    "explanation": "The CD workflow uses <code>paths:</code> to filter triggers — it only runs when <code>phase-3-helm/app/**</code> or <code>.github/workflows/cd.yml</code> change. A merge that only touches files outside those paths (e.g. documentation) will not trigger CD."
+  },
+  {
+    "q": "Images are tagged with the git SHA (<code>:abc1234</code>) in addition to <code>:latest</code>. What does this enable?",
+    "options": [
+      "Smaller image size — git SHA tags are more efficiently cached",
+      "Full traceability — you can identify exactly which commit produced any running image",
+      "Automatic rollback — Kubernetes uses the SHA to find the previous image",
+      "Parallel builds — multiple SHAs allow concurrent CI jobs on the same image name"
+    ],
+    "correct": 1,
+    "explanation": "Tagging with the git SHA creates a permanent, unique identifier for every image. Given any running pod's image tag, you can immediately find the exact commit in Git. This is essential for debugging production incidents: <code>git show abc1234</code> shows exactly what changed."
+  },
+  {
+    "q": "<code>helm upgrade</code> in the CD workflow fails with <code>Error: release not found</code>. What flag fixes this?",
+    "options": [
+      "<code>--force</code> — forces Helm to reinstall the release",
+      "<code>--install</code> — creates the release if it doesn't exist, upgrades it if it does",
+      "<code>--create-namespace</code> — creates the namespace before upgrading",
+      "<code>--atomic</code> — rolls back automatically if the upgrade fails"
+    ],
+    "correct": 1,
+    "explanation": "<code>helm upgrade --install</code> is idempotent: it installs the release on the first run and upgrades it on subsequent runs. Without <code>--install</code>, <code>helm upgrade</code> fails if the release doesn't exist yet — e.g. on a fresh cluster after nightly destruction."
+  },
+  {
+    "q": "The CI pipeline runs on every branch push; the CD pipeline runs only on merges to main. What is the key difference in what they do?",
+    "options": [
+      "CI only runs linters; CD runs tests",
+      "CI builds and pushes images tagged with SHA and <code>dev</code>; CD builds, pushes, tags <code>latest</code>, and deploys to GKE via Helm",
+      "CI is faster because it skips the Docker build",
+      "CI runs on GitHub-hosted runners; CD uses self-hosted runners"
+    ],
+    "correct": 1,
+    "explanation": "CI (on feature branches) validates code by building and pushing a <code>dev</code>-tagged image — no deploy. CD (on main) does the same build + push but also tags <code>latest</code> and runs <code>helm upgrade --install</code> to deploy to GKE. This way every commit to main automatically reaches the cluster."
+  },
+  {
+    "q": "Why should self-hosted runners be used for CoverLine's CI/CD rather than GitHub-hosted runners?",
+    "options": [
+      "Self-hosted runners are 10x faster than GitHub-hosted runners",
+      "GitHub-hosted runners are shared across all GitHub customers — for health insurance data, code and artefacts should never leave the secure GCP VPC perimeter",
+      "Self-hosted runners support more operating systems",
+      "GitHub-hosted runners cannot push to Artifact Registry"
+    ],
+    "correct": 1,
+    "explanation": "GitHub-hosted runners run on shared infrastructure outside your network. For regulated data (health insurance claims), every build artefact and secret should stay within your GCP VPC. Self-hosted runners inside GCP ensure that code, images, and credentials never traverse the public internet."
+  },
+  {
+    "q": "What is the purpose of <code>pre-commit</code> hooks in this project?",
+    "options": [
+      "They prevent commits to the main branch without a PR",
+      "They run linters (TFLint, Hadolint, yamllint) locally before every commit — catching errors before they reach CI",
+      "They automatically format code and stage the changes",
+      "They sign commits with a GPG key"
+    ],
+    "correct": 1,
+    "explanation": "Pre-commit hooks run configured checks before <code>git commit</code> completes. In this project: TFLint for Terraform, Hadolint for Dockerfiles, yamllint for YAML. If any check fails, the commit is blocked. This catches simple errors (formatting, deprecated syntax) before they enter the shared branch and waste CI minutes."
+  },
+  {
+    "q": "In production, a manual approval gate should be added before deploying to prod. How does GitHub Actions support this?",
+    "options": [
+      "By using a <code>delay:</code> key in the workflow YAML to pause for 5 minutes",
+      "By configuring an <code>environment:</code> with required reviewers — the workflow pauses at that job until an approver clicks approve in the GitHub UI",
+      "By requiring a specific label on the PR before the CD job can run",
+      "By adding a <code>manual: true</code> field to the push trigger"
+    ],
+    "correct": 1,
+    "explanation": "GitHub Actions <code>environments</code> support required reviewers. When a job targets an environment with reviewers configured, the workflow pauses and sends a notification. A designated reviewer must approve in GitHub Settings before the deploy job proceeds."
+  },
+  {
+    "q": "The CI pipeline does not scan Docker images for vulnerabilities. What should be added in production?",
+    "options": [
+      "A <code>SECURITY_SCAN=true</code> environment variable to trigger Docker's built-in scanner",
+      "A vulnerability scanner step (Trivy or Grype) that blocks the pipeline if critical CVEs are found before pushing the image to the registry",
+      "An IAM policy that prevents images with known CVEs from being pushed to Artifact Registry",
+      "Binary Authorization — it scans images at deploy time instead of build time"
+    ],
+    "correct": 1,
+    "explanation": "Scanning at build time (before push) is the earliest possible catch. Tools like Trivy or Grype check the image against vulnerability databases and can fail the pipeline on critical CVEs. Binary Authorization (Phase 1 production consideration) enforces that only signed images reach GKE — complementary, not a replacement."
+  },
+  {
+    "q": "Why separate CI (build) from CD (deploy) into distinct repositories in strict GitOps?",
+    "options": [
+      "GitHub Actions cannot run both build and deploy steps in the same workflow file",
+      "It prevents a config change (env var, replica count) from triggering a full image rebuild — CI owns the code repo, a separate config repo owned by CD holds Helm values",
+      "Separate repos allow different team members to approve CI and CD separately",
+      "It avoids hitting GitHub's concurrent workflow limits"
+    ],
+    "correct": 1,
+    "explanation": "In strict GitOps, source code changes and config changes are decoupled. The app repo triggers CI (new image). CI then bumps the image tag in a separate config repo. ArgoCD (CD) watches the config repo and deploys — never running <code>helm upgrade</code> directly. This is the pattern from Phase 5 onwards."
+  }
+];
+
+let current = 0, score = 0, answered = false;
+const results = [];
+
+function render() {
+  const card = document.getElementById('quizCard');
+  const bar  = document.getElementById('progressBar');
+  const counter = document.getElementById('questionCounter');
+  if (current >= questions.length) { renderScore(); return; }
+  const q = questions[current];
+  answered = false;
+  bar.style.width = `${(current / questions.length) * 100}%`;
+  counter.textContent = `${current + 1} / ${questions.length}`;
+  card.innerHTML = `
+    <div class="phase-label">Phase 4 · CI/CD Pipelines</div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="options">
+      ${q.options.map((opt, i) => `
+        <div class="option" data-index="${i}" onclick="select(${i})">
+          <div class="option-key">${String.fromCharCode(65 + i)}</div>
+          <div class="option-text">${opt}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function select(chosen) {
+  if (answered) return;
+  answered = true;
+  const q = questions[current];
+  const options = document.querySelectorAll('.option');
+  options.forEach((el, i) => {
+    el.classList.add('disabled');
+    if (i === q.correct) el.classList.add('correct');
+    else if (i === chosen) el.classList.add('wrong');
+    else el.classList.add('dimmed');
+  });
+  const isCorrect = chosen === q.correct;
+  if (isCorrect) score++;
+  results.push(isCorrect);
+  const exp = document.createElement('div');
+  exp.className = 'explanation';
+  exp.innerHTML = (isCorrect ? '✓ Correct. ' : '✗ Not quite. ') + q.explanation;
+  document.getElementById('options').after(exp);
+  const btn = document.createElement('button');
+  btn.className = 'btn-next';
+  btn.textContent = current < questions.length - 1 ? 'Next question →' : 'See my results';
+  btn.onclick = () => { current++; render(); };
+  exp.after(btn);
+}
+
+function renderScore() {
+  const card = document.getElementById('quizCard');
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('questionCounter').textContent = '';
+  const pct = Math.round((score / questions.length) * 100);
+  let msg, sub;
+  if (pct === 100) { msg = 'Perfect score!'; sub = 'Excellent. Ready for Phase 5.'; }
+  else if (pct >= 70) { msg = 'Good work.'; sub = 'Solid understanding. Review the questions you missed before moving on.'; }
+  else if (pct >= 50) { msg = 'Getting there.'; sub = 'Some gaps to fill. Re-read the README and try again.'; }
+  else { msg = 'Keep studying.'; sub = "Go back through the guide and revisit the concepts. You've got this."; }
+  const wrongCount = questions.length - score;
+  card.innerHTML = `
+    <div class="score-screen">
+      <div class="score-circle">
+        <div class="score-number">${score}</div>
+        <div class="score-total">/ ${questions.length}</div>
+      </div>
+      <div class="score-title">${msg}</div>
+      <div class="score-subtitle">${sub}</div>
+      <div class="score-breakdown">
+        <span class="score-tag correct">✓ ${score} correct</span>
+        <span class="score-tag wrong">✗ ${wrongCount} wrong</span>
+      </div>
+      <button class="btn-restart" onclick="restart()">Try again</button>
+      <a class="btn-back" href="../README.md">Back to phase</a>
+    </div>
+  `;
+}
+
+function restart() { current = 0; score = 0; answered = false; results.length = 0; render(); }
+render();
+</script>
+</body>
+</html>

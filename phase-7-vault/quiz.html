@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 7 Quiz — Secrets Management (Vault)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .progress-bar-wrap {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: #e2e8f0;
+      z-index: 100;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #818cf8);
+      transition: width 0.4s ease;
+    }
+
+    .header {
+      position: fixed;
+      top: 12px; right: 20px;
+      font-size: 13px;
+      color: #94a3b8;
+      z-index: 100;
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 48px;
+      max-width: 680px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      animation: fadeUp 0.35s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .phase-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6366f1;
+      margin-bottom: 12px;
+    }
+
+    .question {
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.5;
+      color: #0f172a;
+      margin-bottom: 32px;
+    }
+
+    .question code {
+      background: #f1f5f9;
+      color: #4f46e5;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 15px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .options { display: flex; flex-direction: column; gap: 12px; }
+
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 16px 18px;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      user-select: none;
+    }
+
+    .option:hover:not(.disabled) {
+      border-color: #6366f1;
+      background: #eef2ff;
+      transform: translateX(3px);
+    }
+
+    .option-key {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      transition: all 0.15s;
+    }
+
+    .option-text {
+      font-size: 15px;
+      line-height: 1.5;
+      color: #334155;
+      padding-top: 3px;
+    }
+
+    .option-text code {
+      background: #f1f5f9;
+      color: #4f46e5;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .option.correct {
+      border-color: #22c55e;
+      background: #f0fdf4;
+    }
+    .option.correct .option-key {
+      background: #22c55e;
+      border-color: #22c55e;
+      color: #fff;
+    }
+    .option.correct .option-text { color: #166534; }
+
+    .option.wrong {
+      border-color: #ef4444;
+      background: #fef2f2;
+    }
+    .option.wrong .option-key {
+      background: #ef4444;
+      border-color: #ef4444;
+      color: #fff;
+    }
+    .option.wrong .option-text { color: #991b1b; }
+
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+
+    .explanation {
+      margin-top: 20px;
+      padding: 16px 18px;
+      background: #f8fafc;
+      border-left: 3px solid #6366f1;
+      border-radius: 0 8px 8px 0;
+      font-size: 14px;
+      line-height: 1.65;
+      color: #475569;
+      animation: fadeUp 0.25s ease;
+    }
+
+    .explanation code {
+      background: #f1f5f9;
+      color: #4f46e5;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .btn-next {
+      margin-top: 28px;
+      padding: 14px 32px;
+      background: #6366f1;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      width: 100%;
+    }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .btn-next:active { transform: translateY(0); }
+
+    .score-screen { text-align: center; }
+
+    .score-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 28px;
+    }
+
+    .score-number {
+      font-size: 36px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .score-total {
+      font-size: 14px;
+      color: rgba(255,255,255,0.7);
+      margin-top: 2px;
+    }
+
+    .score-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 10px;
+    }
+
+    .score-subtitle {
+      font-size: 15px;
+      color: #64748b;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .score-breakdown {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .score-tag {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+    .btn-restart {
+      padding: 14px 40px;
+      background: transparent;
+      color: #6366f1;
+      font-size: 15px;
+      font-weight: 600;
+      border: 1.5px solid #6366f1;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-right: 12px;
+    }
+    .btn-restart:hover { background: #eef2ff; }
+
+    .btn-back {
+      padding: 14px 40px;
+      background: #6366f1;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar-wrap">
+  <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+</div>
+<div class="header" id="questionCounter"></div>
+
+<div class="card" id="quizCard"></div>
+
+<script>
+const questions = [
+  {
+    q: "CoverLine's Series B was delayed after an audit found database credentials committed in plaintext in Git. What does Vault's dynamic credentials feature do to prevent this class of problem?",
+    options: [
+      "It encrypts credentials before they are committed to Git",
+      "It generates short-lived unique credentials per pod at runtime — credentials never exist in manifests or Git",
+      "It rotates credentials weekly and sends them to the CISO by email",
+      "It stores credentials in Kubernetes Secrets, which are base64-encoded for security"
+    ],
+    correct: 1,
+    explanation: "Dynamic credentials are generated on demand by Vault's database secrets engine. Each pod gets a unique username/password with a 1-hour TTL. Vault auto-revokes them in PostgreSQL when the TTL expires. They never appear in Git, manifests, or environment variables."
+  },
+  {
+    q: "What is GCP KMS Auto Unseal and why is it important for a production Vault cluster?",
+    options: [
+      "It automatically backs up the Vault data to GCS every hour",
+      "It replaces TLS certificates when they expire, preventing Vault from sealing",
+      "It wraps the Vault master key with a GCP KMS key so Vault unseals itself on restart without human intervention",
+      "It rotates the Vault root token every 24 hours using a GCP Cloud Function"
+    ],
+    correct: 2,
+    explanation: "When a Vault pod restarts (upgrade, OOM kill, node replacement), it starts sealed and cannot serve requests. GCP KMS Auto Unseal wraps the master key — Vault fetches the unwrapped key from KMS automatically at startup. Without this, an operator must manually enter unseal keys every time any Vault node restarts."
+  },
+  {
+    q: "How does a Kubernetes pod authenticate to Vault to retrieve secrets?",
+    options: [
+      "The pod provides a static API token stored in a Kubernetes Secret",
+      "The pod's ServiceAccount JWT is presented to Vault Kubernetes auth, which validates it against the Kubernetes API",
+      "The pod uses the node's IAM service account via Workload Identity",
+      "The Vault root token is mounted into every pod as an environment variable"
+    ],
+    correct: 1,
+    explanation: "Vault Kubernetes auth accepts the pod's ServiceAccount JWT token (auto-mounted at <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>). Vault validates the JWT with the Kubernetes API server. If the ServiceAccount name and namespace match a configured role, Vault issues a scoped token."
+  },
+  {
+    q: "What is the Vault Agent injector and how do secrets reach the application container?",
+    options: [
+      "It runs as a sidecar and exposes secrets via a REST API on localhost",
+      "It patches Deployments to add environment variables from Vault at deploy time",
+      "It runs as an init container, authenticates to Vault, writes secret files to a shared volume, and the app reads them at startup",
+      "It replaces the kubelet secret fetch mechanism with a Vault-native implementation"
+    ],
+    correct: 2,
+    explanation: "Vault Agent runs as an init container (and optionally a sidecar for renewal). It authenticates using the pod's ServiceAccount JWT, fetches secrets, and writes them as files to an in-memory <code>emptyDir</code> volume shared with the app container. The app sources these files — secrets never appear in env vars, manifests, or logs."
+  },
+  {
+    q: "After running <code>vault-init.sh</code>, why is the root token immediately revoked?",
+    options: [
+      "Root tokens expire automatically after 1 hour in all Vault versions",
+      "The root token has unlimited access with no TTL — revoking it forces all access through scoped tokens with auditable identities",
+      "GCP KMS requires root token revocation before auto-unseal can be activated",
+      "Root tokens consume a Vault license seat in the HA configuration"
+    ],
+    correct: 1,
+    explanation: "The root token has unrestricted access and never expires. Keeping it active violates least-privilege. After initialization, a scoped admin token (8h TTL) is created for day-to-day operations. The root token is revoked — it can be regenerated from recovery keys if needed, creating an auditable paper trail."
+  },
+  {
+    q: "A GitHub Actions workflow needs to read a database password from Vault. What authentication method avoids storing any static secret in GitHub?",
+    options: [
+      "Store the Vault token in a GitHub Actions secret variable",
+      "Use the Vault AppRole method with a role-id stored in the workflow YAML",
+      "Use Vault JWT auth: GitHub Actions exchanges its OIDC token for a Vault token bound to the repository and branch",
+      "Mount the Vault token as a Kubernetes Secret and access it from a self-hosted runner"
+    ],
+    correct: 2,
+    explanation: "GitHub Actions generates an OIDC JWT token per workflow run, signed by GitHub. Vault JWT auth validates this token against GitHub's JWKS endpoint. The JWT role is bound to a specific repository and branch (e.g. <code>refs/heads/main</code>). The resulting Vault token has a 15-minute TTL — nothing static is ever stored in GitHub."
+  },
+  {
+    q: "Vault is running in HA mode with 3 nodes using Raft integrated storage. What is the benefit of Raft over an external Consul backend?",
+    options: [
+      "Raft requires no additional infrastructure — consensus and storage are built into Vault itself",
+      "Raft provides faster secret reads because it uses in-memory storage only",
+      "Raft automatically replicates secrets to GCS for backup",
+      "Raft allows more than 5 Vault nodes in a single cluster"
+    ],
+    correct: 0,
+    explanation: "Raft integrated storage is built into Vault — no separate Consul cluster is needed. It provides consensus-based replication across the 3 Vault nodes. This simplifies operations significantly: one fewer stateful system to manage, back up, and monitor."
+  },
+  {
+    q: "What does audit logging in Vault record, and why does it matter for a Series B security audit?",
+    options: [
+      "It records Kubernetes API calls made by pods in the cluster",
+      "It logs every Vault request: who read what secret, when, from which IP, with which token",
+      "It captures TLS handshake failures to help debug connectivity issues",
+      "It writes a daily report of secret rotation events to Slack"
+    ],
+    correct: 1,
+    explanation: "Vault audit logs record every API request: authentication events, secret reads, token creation, policy lookups. Each entry includes timestamp, client token identity, operation, and path. This is critical for compliance: if an auditor asks who accessed the production database password on a given date, the audit log has the answer."
+  },
+  {
+    q: "A new microservice needs to read secrets from Vault. What three things must be configured?",
+    options: [
+      "A Kubernetes Secret, a ConfigMap, and a ServiceAccount",
+      "A Vault policy (what paths the app can read), a Kubernetes auth role (which ServiceAccount can use it), and Vault annotations in the Helm chart",
+      "A Vault AppRole, a GitHub secret, and a Kubernetes NetworkPolicy",
+      "A dynamic secret engine, a lease renewal CronJob, and a Vault namespace"
+    ],
+    correct: 1,
+    explanation: "Every app needs: (1) a <strong>Vault policy</strong> — defines which secret paths are readable; (2) a <strong>Kubernetes auth role</strong> — binds a ServiceAccount to the policy; (3) <strong>Vault Agent annotations</strong> in the Deployment — tells the injector which secrets to fetch and where to write them. The Helm chart renders these annotations from a <code>vault:</code> block in values.yaml."
+  },
+  {
+    q: "The Vault Agent init container is stuck in <code>Init:0/1</code>. What is the most likely cause?",
+    options: [
+      "The Vault root token has been revoked",
+      "The pod's ServiceAccount does not exist in the cluster",
+      "Vault Agent cannot reach the Vault service — network connectivity or DNS issue",
+      "The Vault namespace was not created before installing Vault"
+    ],
+    correct: 2,
+    explanation: "Vault Agent attempts to connect to <code>http://vault.vault.svc.cluster.local:8200</code> to authenticate and fetch secrets. If Vault is unreachable (wrong service name, namespace mismatch, NetworkPolicy blocking traffic), the init container hangs. Debug with: <code>kubectl run vault-test --rm -it --image=curlimages/curl -- curl http://vault.vault.svc.cluster.local:8200/v1/sys/health</code>"
+  }
+];
+
+const LABEL = "Phase 7 — Vault Secrets";
+const NEXT_PHASE = "../phase-8-advanced-k8s/quiz.html";
+
+let current = 0;
+let score = 0;
+let answered = false;
+
+function render() {
+  const q = questions[current];
+  const card = document.getElementById("quizCard");
+  const keys = ["A", "B", "C", "D"];
+  document.getElementById("progressBar").style.width =
+    ((current / questions.length) * 100) + "%";
+  document.getElementById("questionCounter").textContent =
+    (current + 1) + " / " + questions.length;
+  card.innerHTML =
+    '<div class="phase-label">' + LABEL + '</div>' +
+    '<div class="question">' + q.q + '</div>' +
+    '<div class="options" id="options">' +
+    q.options.map(function(opt, i) {
+      return '<div class="option" data-i="' + i + '" onclick="select(' + i + ')">' +
+        '<div class="option-key">' + keys[i] + '</div>' +
+        '<div class="option-text">' + opt + '</div>' +
+        '</div>';
+    }).join('') +
+    '</div>';
+  answered = false;
+}
+
+function select(i) {
+  if (answered) return;
+  answered = true;
+  var q = questions[current];
+  var opts = document.querySelectorAll(".option");
+  opts.forEach(function(el) { el.classList.add("disabled"); });
+  if (i === q.correct) {
+    opts[i].classList.add("correct");
+    score++;
+  } else {
+    opts[i].classList.add("wrong");
+    opts[q.correct].classList.add("correct");
+  }
+  opts.forEach(function(el, idx) {
+    if (idx !== i && idx !== q.correct) el.classList.add("dimmed");
+  });
+  var exp = document.createElement("div");
+  exp.className = "explanation";
+  exp.innerHTML = q.explanation;
+  document.getElementById("options").after(exp);
+  var btn = document.createElement("button");
+  btn.className = "btn-next";
+  btn.textContent = current < questions.length - 1 ? "Next question →" : "See results";
+  btn.onclick = function() {
+    current++;
+    if (current < questions.length) { render(); }
+    else { renderScore(); }
+  };
+  exp.after(btn);
+}
+
+function renderScore() {
+  var pct = Math.round((score / questions.length) * 100);
+  var msg = pct === 100 ? "Perfect — you understand secrets management deeply." :
+            pct >= 70  ? "Good grasp of Vault. Review the dynamic credentials and audit logging sections." :
+                         "Secrets management is critical. Re-read the README and retry.";
+  document.getElementById("progressBar").style.width = "100%";
+  document.getElementById("questionCounter").textContent = "";
+  var breakdown = questions.map(function(q, i) {
+    return '<span class="score-tag ' + (i < score ? 'correct' : 'wrong') + '">' + (i + 1) + '</span>';
+  }).join('');
+  document.getElementById("quizCard").innerHTML =
+    '<div class="score-screen">' +
+    '<div class="score-circle"><div class="score-number">' + score + '</div><div class="score-total">/ ' + questions.length + '</div></div>' +
+    '<div class="score-title">' + pct + '% — ' + (pct >= 70 ? 'Nice work' : 'Keep going') + '</div>' +
+    '<div class="score-subtitle">' + msg + '</div>' +
+    '<div class="score-breakdown">' + breakdown + '</div>' +
+    '<button class="btn-restart" onclick="restart()">Retry</button>' +
+    '<a class="btn-back" href="' + NEXT_PHASE + '">Phase 8 →</a>' +
+    '</div>';
+}
+
+function restart() {
+  current = 0; score = 0;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

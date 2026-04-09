@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 3 Quiz — Helm & Microservices</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .progress-bar-wrap { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: #e2e8f0; z-index: 100; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); transition: width 0.4s ease; }
+    .header { position: fixed; top: 12px; right: 20px; font-size: 13px; color: #94a3b8; z-index: 100; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 48px; max-width: 680px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.06); animation: fadeUp 0.35s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .phase-label { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6366f1; margin-bottom: 12px; }
+    .question { font-size: 20px; font-weight: 600; line-height: 1.5; color: #0f172a; margin-bottom: 32px; }
+    .question code { background: #f1f5f9; color: #4f46e5; padding: 2px 7px; border-radius: 5px; font-size: 15px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .options { display: flex; flex-direction: column; gap: 12px; }
+    .option { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; user-select: none; }
+    .option:hover:not(.disabled) { border-color: #6366f1; background: #eef2ff; transform: translateX(3px); }
+    .option-key { width: 28px; height: 28px; min-width: 28px; border: 1.5px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #64748b; transition: all 0.15s; }
+    .option-text { font-size: 15px; line-height: 1.5; color: #334155; padding-top: 3px; }
+    .option-text code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .option.correct { border-color: #22c55e; background: #f0fdf4; }
+    .option.correct .option-key { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .option.correct .option-text { color: #166534; }
+    .option.wrong { border-color: #ef4444; background: #fef2f2; }
+    .option.wrong .option-key { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .option.wrong .option-text { color: #991b1b; }
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+    .explanation { margin-top: 20px; padding: 16px 18px; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.65; color: #475569; animation: fadeUp 0.25s ease; }
+    .explanation code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .btn-next { margin-top: 28px; padding: 14px 32px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .score-screen { text-align: center; }
+    .score-circle { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 28px; }
+    .score-number { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+    .score-total { font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .score-title { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+    .score-subtitle { font-size: 15px; color: #64748b; margin-bottom: 32px; line-height: 1.6; }
+    .score-breakdown { display: flex; gap: 12px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+    .score-tag { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-restart { padding: 14px 40px; background: transparent; color: #6366f1; font-size: 15px; font-weight: 600; border: 1.5px solid #6366f1; border-radius: 10px; cursor: pointer; transition: background 0.15s; margin-right: 12px; }
+    .btn-restart:hover { background: #eef2ff; }
+    .btn-back { padding: 14px 40px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s; text-decoration: none; display: inline-block; }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+<div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width: 0%"></div></div>
+<div class="header" id="questionCounter"></div>
+<div class="card" id="quizCard"></div>
+<script>
+const questions = [
+  {
+    "q": "You run <code>helm rollback coverline 1</code>. What does this do?",
+    "options": [
+      "Rolls back the Kubernetes cluster to its previous node configuration",
+      "Reverts the <code>coverline</code> Helm release to revision 1, redeploying the chart with its previous values and image",
+      "Deletes the current release and reinstalls it from scratch",
+      "Rolls back all Helm releases in the namespace simultaneously"
+    ],
+    "correct": 1,
+    "explanation": "<code>helm rollback &lt;release&gt; &lt;revision&gt;</code> reverts a specific release to a previous revision. Helm tracks the full history of values and rendered templates — this makes rollback as simple as referencing a revision number from <code>helm history coverline</code>."
+  },
+  {
+    "q": "The backend pods crash on startup with a DB connection error — PostgreSQL isn't ready yet. What is the correct fix?",
+    "options": [
+      "Set <code>replicaCount: 0</code> in values.yaml until PostgreSQL is ready",
+      "Wait for PostgreSQL to be Running before installing the backend chart: <code>kubectl wait pod/postgresql-0 --for=condition=ready --timeout=120s</code>",
+      "Add a liveness probe to the backend pod that retries the DB connection",
+      "Install both charts simultaneously — Kubernetes will retry the failed pods automatically"
+    ],
+    "correct": 1,
+    "explanation": "<code>kubectl wait</code> blocks until the condition is met. PostgreSQL is a StatefulSet — its pod name is predictable (<code>postgresql-0</code>). Waiting for the ready condition before installing the backend chart avoids the race condition at the cost of a slightly longer deploy time."
+  },
+  {
+    "q": "Why should passwords never be placed in <code>values.yaml</code> and committed to Git?",
+    "options": [
+      "Helm doesn't support string values — only integers and booleans",
+      "Git history is permanent and public; plaintext credentials in values.yaml are readable by anyone with repo access, forever",
+      "Helm encrypts values.yaml at rest, which breaks secret injection",
+      "Kubernetes Secrets are automatically created from values.yaml, making a separate file redundant"
+    ],
+    "correct": 1,
+    "explanation": "Git history is immutable. A password committed to values.yaml — even if deleted in a later commit — remains visible in <code>git log</code> forever and to anyone who has ever cloned the repo. Secrets must be injected at deploy time via Vault (Phase 7) or external-secrets — never stored in version control."
+  },
+  {
+    "q": "The GET <code>/claims</code> endpoint returns <code>source: cache</code> immediately after a POST. You expected fresh data. Why?",
+    "options": [
+      "The POST endpoint has a bug — it writes to Redis instead of PostgreSQL",
+      "Redis has a 30-second TTL — the cache hasn't expired yet, so GET still returns the previous cached result",
+      "The backend is using a read replica that hasn't synced yet",
+      "The ConfigMap has not been reloaded since the POST request"
+    ],
+    "correct": 1,
+    "explanation": "The Redis cache TTL is 30 seconds. A GET after a POST returns cached data until the TTL expires. This is by design in this lab. In production you'd use event-driven invalidation: the POST handler explicitly purges the cache key after writing to PostgreSQL."
+  },
+  {
+    "q": "What does <code>helm list</code> show?",
+    "options": [
+      "All Helm charts available in the configured repositories",
+      "All deployed Helm releases in the current namespace — name, chart, version, status, and last deploy time",
+      "All Kubernetes resources created by Helm across all namespaces",
+      "All available upgrades for installed charts"
+    ],
+    "correct": 1,
+    "explanation": "<code>helm list</code> shows all releases in the current namespace: the release name, namespace, chart name + version, app version, status (deployed, failed, etc.), and the timestamp of the last operation. Use <code>helm list -A</code> to see releases across all namespaces."
+  },
+  {
+    "q": "You run <code>helm upgrade coverline charts/backend/ --set replicaCount=3</code>. What happens to the previous <code>replicaCount</code> value of 2?",
+    "options": [
+      "It is preserved — <code>--set</code> only adds new values",
+      "It is replaced — <code>--set</code> overrides only the specified key; all other values come from values.yaml",
+      "Helm merges the new value with the previous release's computed values",
+      "The upgrade fails — you must pass all values explicitly with <code>--set</code>"
+    ],
+    "correct": 1,
+    "explanation": "<code>--set</code> overrides a single key. All other values come from the chart's <code>values.yaml</code>. To preserve values from the previous release you use <code>--reuse-values</code>. Without it, the chart's defaults are re-applied for any key not specified in the upgrade command."
+  },
+  {
+    "q": "In production, why should Helm charts be versioned and published to a registry rather than referenced locally (<code>./charts/backend</code>)?",
+    "options": [
+      "Local paths are not supported by GKE",
+      "Versioned charts in a registry guarantee that every environment deploys the exact same artifact — no drift from local file edits or uncommitted changes",
+      "Helm requires an internet connection and can't resolve local paths",
+      "Local charts cannot use Secrets or ConfigMaps"
+    ],
+    "correct": 1,
+    "explanation": "Referencing a local path means whoever runs <code>helm install</code> deploys whatever is currently on their filesystem — including uncommitted changes, local experiments, or accidental edits. Publishing versioned charts (semver) to Artifact Registry ensures every deploy is reproducible and auditable."
+  },
+  {
+    "q": "What is a Helm <em>release</em>?",
+    "options": [
+      "A tag in the chart's Git repository",
+      "A specific deployed instance of a chart — a name, namespace, and set of values applied to a cluster",
+      "The latest stable version of a chart in a repository",
+      "A snapshot of all Kubernetes resources in a namespace"
+    ],
+    "correct": 1,
+    "explanation": "A Helm release is a named deployment of a chart into a cluster. You can have multiple releases of the same chart in the same cluster with different names and values — e.g. <code>helm install coverline-dev charts/backend</code> and <code>helm install coverline-prod charts/backend --set image.tag=stable</code>."
+  },
+  {
+    "q": "Why use Helmfile to manage multiple environments rather than plain Helm?",
+    "options": [
+      "Helmfile adds Lua scripting support to Helm templates",
+      "Helmfile declares all releases, their values, and environment-specific overrides in a single file — replacing fragile shell scripts that call <code>helm install</code> with different flags",
+      "Helmfile encrypts secrets in values.yaml automatically",
+      "Helmfile is required to install Bitnami charts"
+    ],
+    "correct": 1,
+    "explanation": "Plain Helm has no native concept of environments. Teams end up with shell scripts like <code>if [ $ENV == prod ]; then helm upgrade ...</code>. Helmfile replaces this with a declarative <code>helmfile.yaml</code> that defines all releases per environment, making the deploy config versionable and reviewable."
+  },
+  {
+    "q": "PodAntiAffinity is recommended for the backend in production. What specific failure does it prevent that running 2 replicas without affinity rules does not?",
+    "options": [
+      "It prevents two pods from running the same container image simultaneously",
+      "It forces replicas onto different nodes — ensuring at least one pod survives a single node failure",
+      "It prevents the Cluster Autoscaler from evicting backend pods during scale-down",
+      "It prevents two replicas from connecting to PostgreSQL at the same time"
+    ],
+    "correct": 1,
+    "explanation": "Without anti-affinity, the scheduler may place both replicas on the same node. If that node fails, both pods are lost simultaneously and the service is down. <code>requiredDuringSchedulingIgnoredDuringExecution</code> with <code>topologyKey: kubernetes.io/hostname</code> forces each replica to a different node."
+  }
+];
+
+let current = 0, score = 0, answered = false;
+const results = [];
+
+function render() {
+  const card = document.getElementById('quizCard');
+  const bar  = document.getElementById('progressBar');
+  const counter = document.getElementById('questionCounter');
+  if (current >= questions.length) { renderScore(); return; }
+  const q = questions[current];
+  answered = false;
+  bar.style.width = `${(current / questions.length) * 100}%`;
+  counter.textContent = `${current + 1} / ${questions.length}`;
+  card.innerHTML = `
+    <div class="phase-label">Phase 3 · Helm & Microservices</div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="options">
+      ${q.options.map((opt, i) => `
+        <div class="option" data-index="${i}" onclick="select(${i})">
+          <div class="option-key">${String.fromCharCode(65 + i)}</div>
+          <div class="option-text">${opt}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function select(chosen) {
+  if (answered) return;
+  answered = true;
+  const q = questions[current];
+  const options = document.querySelectorAll('.option');
+  options.forEach((el, i) => {
+    el.classList.add('disabled');
+    if (i === q.correct) el.classList.add('correct');
+    else if (i === chosen) el.classList.add('wrong');
+    else el.classList.add('dimmed');
+  });
+  const isCorrect = chosen === q.correct;
+  if (isCorrect) score++;
+  results.push(isCorrect);
+  const exp = document.createElement('div');
+  exp.className = 'explanation';
+  exp.innerHTML = (isCorrect ? '✓ Correct. ' : '✗ Not quite. ') + q.explanation;
+  document.getElementById('options').after(exp);
+  const btn = document.createElement('button');
+  btn.className = 'btn-next';
+  btn.textContent = current < questions.length - 1 ? 'Next question →' : 'See my results';
+  btn.onclick = () => { current++; render(); };
+  exp.after(btn);
+}
+
+function renderScore() {
+  const card = document.getElementById('quizCard');
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('questionCounter').textContent = '';
+  const pct = Math.round((score / questions.length) * 100);
+  let msg, sub;
+  if (pct === 100) { msg = 'Perfect score!'; sub = 'Excellent. Ready for Phase 4.'; }
+  else if (pct >= 70) { msg = 'Good work.'; sub = 'Solid understanding. Review the questions you missed before moving on.'; }
+  else if (pct >= 50) { msg = 'Getting there.'; sub = 'Some gaps to fill. Re-read the README and try again.'; }
+  else { msg = 'Keep studying.'; sub = "Go back through the guide and revisit the concepts. You've got this."; }
+  const wrongCount = questions.length - score;
+  card.innerHTML = `
+    <div class="score-screen">
+      <div class="score-circle">
+        <div class="score-number">${score}</div>
+        <div class="score-total">/ ${questions.length}</div>
+      </div>
+      <div class="score-title">${msg}</div>
+      <div class="score-subtitle">${sub}</div>
+      <div class="score-breakdown">
+        <span class="score-tag correct">✓ ${score} correct</span>
+        <span class="score-tag wrong">✗ ${wrongCount} wrong</span>
+      </div>
+      <button class="btn-restart" onclick="restart()">Try again</button>
+      <a class="btn-back" href="../README.md">Back to phase</a>
+    </div>
+  `;
+}
+
+function restart() { current = 0; score = 0; answered = false; results.length = 0; render(); }
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 5 Quiz — GitOps with ArgoCD</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .progress-bar-wrap { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: #e2e8f0; z-index: 100; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); transition: width 0.4s ease; }
+    .header { position: fixed; top: 12px; right: 20px; font-size: 13px; color: #94a3b8; z-index: 100; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 48px; max-width: 680px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.06); animation: fadeUp 0.35s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .phase-label { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6366f1; margin-bottom: 12px; }
+    .question { font-size: 20px; font-weight: 600; line-height: 1.5; color: #0f172a; margin-bottom: 32px; }
+    .question code { background: #f1f5f9; color: #4f46e5; padding: 2px 7px; border-radius: 5px; font-size: 15px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .options { display: flex; flex-direction: column; gap: 12px; }
+    .option { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; user-select: none; }
+    .option:hover:not(.disabled) { border-color: #6366f1; background: #eef2ff; transform: translateX(3px); }
+    .option-key { width: 28px; height: 28px; min-width: 28px; border: 1.5px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #64748b; transition: all 0.15s; }
+    .option-text { font-size: 15px; line-height: 1.5; color: #334155; padding-top: 3px; }
+    .option-text code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .option.correct { border-color: #22c55e; background: #f0fdf4; }
+    .option.correct .option-key { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .option.correct .option-text { color: #166534; }
+    .option.wrong { border-color: #ef4444; background: #fef2f2; }
+    .option.wrong .option-key { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .option.wrong .option-text { color: #991b1b; }
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+    .explanation { margin-top: 20px; padding: 16px 18px; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.65; color: #475569; animation: fadeUp 0.25s ease; }
+    .explanation code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .btn-next { margin-top: 28px; padding: 14px 32px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .score-screen { text-align: center; }
+    .score-circle { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 28px; }
+    .score-number { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+    .score-total { font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .score-title { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+    .score-subtitle { font-size: 15px; color: #64748b; margin-bottom: 32px; line-height: 1.6; }
+    .score-breakdown { display: flex; gap: 12px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+    .score-tag { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-restart { padding: 14px 40px; background: transparent; color: #6366f1; font-size: 15px; font-weight: 600; border: 1.5px solid #6366f1; border-radius: 10px; cursor: pointer; transition: background 0.15s; margin-right: 12px; }
+    .btn-restart:hover { background: #eef2ff; }
+    .btn-back { padding: 14px 40px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s; text-decoration: none; display: inline-block; }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+<div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width: 0%"></div></div>
+<div class="header" id="questionCounter"></div>
+<div class="card" id="quizCard"></div>
+<script>
+const questions = [
+  {
+    "q": "What does <code>selfHeal: true</code> mean in an ArgoCD Application?",
+    "options": [
+      "ArgoCD automatically upgrades the application when a new chart version is published",
+      "If someone modifies cluster resources directly (e.g. with <code>kubectl</code>), ArgoCD detects the drift and automatically reverts the cluster to match Git",
+      "ArgoCD restarts unhealthy pods automatically",
+      "ArgoCD re-applies the manifest every 3 minutes regardless of whether a change was detected"
+    ],
+    "correct": 1,
+    "explanation": "Self-heal means ArgoCD continuously compares the live cluster state against the desired state in Git. If drift is detected — e.g. someone runs <code>kubectl scale deployment/backend --replicas=5</code> — ArgoCD immediately reverts it. Git is the sole source of truth; direct cluster changes are overwritten."
+  },
+  {
+    "q": "ArgoCD polls the repository every 3 minutes by default. How can sync delay be reduced to near-instant in production?",
+    "options": [
+      "Set <code>syncPolicy.automated.prune: true</code> in the Application spec",
+      "Configure a GitHub webhook that calls the ArgoCD API endpoint when a push occurs",
+      "Increase the ArgoCD replica count to 3",
+      "Use ArgoCD Image Updater to watch the container registry instead of the repo"
+    ],
+    "correct": 1,
+    "explanation": "Webhooks push a notification to ArgoCD immediately on every push, reducing sync delay from ~3 minutes to a few seconds. Without a webhook, ArgoCD falls back to polling. GitHub webhooks are configured in the repo settings pointing at the ArgoCD webhook endpoint."
+  },
+  {
+    "q": "An ArgoCD Application is stuck in <code>Progressing</code>. What is the most likely cause in this lab?",
+    "options": [
+      "The ArgoCD server pod has insufficient memory",
+      "The backend pods cannot start because PostgreSQL and Redis are not deployed",
+      "The Git repository is private and ArgoCD does not have read access",
+      "The Helm chart has a syntax error in values.yaml"
+    ],
+    "correct": 1,
+    "explanation": "The backend requires a PostgreSQL connection at startup. If PostgreSQL and Redis are not running in the cluster, the backend pods crash on start, keeping the Application in Progressing. Fix: deploy the dependencies with Helm before applying the ArgoCD Application manifests."
+  },
+  {
+    "q": "An Application shows <code>OutOfSync</code> in ArgoCD. What does this mean?",
+    "options": [
+      "The application is unhealthy — pods are crashing",
+      "The live cluster state no longer matches the desired state defined in Git — a change has been made to the repo or directly to the cluster",
+      "ArgoCD has lost connection to the cluster",
+      "The Helm chart version has been updated in the registry"
+    ],
+    "correct": 1,
+    "explanation": "<code>OutOfSync</code> means a diff was detected between what is in Git and what is running in the cluster. This could be a new commit to the repo (not yet deployed) or a manual change made directly to cluster resources. ArgoCD will auto-sync if <code>automated:</code> is configured."
+  },
+  {
+    "q": "What is the GitOps loop in this phase?",
+    "options": [
+      "Push to branch → CI builds image → CD deploys to cluster",
+      "Push to main → ArgoCD polls repo (every 3 min) → detects diff → auto-syncs Helm chart → cluster matches Git",
+      "Push to main → webhook → Terraform applies → GKE updates",
+      "Merge PR → GitHub Actions runs <code>helm upgrade</code> → deployment completes"
+    ],
+    "correct": 1,
+    "explanation": "The GitOps loop: developer pushes to main → ArgoCD detects the diff between repo and cluster state → applies the Helm chart changes automatically. No CI pipeline touches the cluster directly. The cluster always converges to what Git says it should be."
+  },
+  {
+    "q": "Why should the application repo be separated from the config repo in production?",
+    "options": [
+      "GitHub limits repos to one GitHub Actions workflow file",
+      "Config changes (scaling, env vars) should not trigger a full image rebuild — separating repos lets you deploy config changes without rerunning CI",
+      "ArgoCD can only watch one repository per Application",
+      "Separate repos prevent accidental force-pushes to the config"
+    ],
+    "correct": 1,
+    "explanation": "Mixing code and config means every config change (bumping a replica count) triggers CI, rebuilds the image, and restores the container. Separating repos lets ops update values without touching the code pipeline. It also means CI is responsible for image builds, and ArgoCD is responsible for deploys."
+  },
+  {
+    "q": "How do you retrieve the ArgoCD initial admin password?",
+    "options": [
+      "It is printed to the ArgoCD server logs during startup",
+      "<code>kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d</code>",
+      "It is stored in <code>argocd-values.yaml</code> under <code>server.adminPassword</code>",
+      "Run <code>argocd admin initial-password</code> after installing the CLI"
+    ],
+    "correct": 1,
+    "explanation": "ArgoCD stores the auto-generated initial admin password in a Kubernetes Secret named <code>argocd-initial-admin-secret</code> in the <code>argocd</code> namespace. The value is base64-encoded — piping through <code>base64 -d</code> decodes it. This secret should be deleted after setting a permanent password."
+  },
+  {
+    "q": "What is the App of Apps pattern?",
+    "options": [
+      "Running multiple ArgoCD instances in the same cluster for high availability",
+      "A parent ArgoCD Application that manages all other Applications — a single entry point for the entire cluster state, versioned in Git",
+      "Deploying the same Helm chart to multiple namespaces simultaneously",
+      "Using ArgoCD ApplicationSets to generate Applications from a template"
+    ],
+    "correct": 1,
+    "explanation": "App of Apps: one root Application points ArgoCD at a directory of Application manifests. ArgoCD deploys the root Application, which in turn creates all child Applications (backend, frontend, monitoring...). The entire cluster is bootstrapped from a single <code>kubectl apply</code> and everything else is GitOps."
+  },
+  {
+    "q": "Why should <code>selfHeal: true</code> be scoped with sync windows in production?",
+    "options": [
+      "selfHeal consumes too much CPU when enabled globally",
+      "An operator may need to make an emergency change directly in production — selfHeal would immediately revert it, prolonging the incident",
+      "selfHeal is only supported in ArgoCD Enterprise",
+      "Sync windows reduce ArgoCD's API rate limit usage"
+    ],
+    "correct": 1,
+    "explanation": "During an incident, an on-call engineer may <code>kubectl scale</code> or patch a resource as an emergency mitigation. With unrestricted selfHeal, ArgoCD reverts the change immediately — undoing the fix. Sync Windows allow pausing selfHeal during critical windows (e.g. maintenance, incident response) while keeping it active otherwise."
+  },
+  {
+    "q": "You push a change to <code>values.yaml</code> scaling the backend to 3 replicas. How long before ArgoCD applies it (default config)?",
+    "options": [
+      "Immediately — ArgoCD watches the Kubernetes API server for changes",
+      "Up to 3 minutes — ArgoCD polls the repository on a configurable interval",
+      "Up to 10 minutes — ArgoCD uses an exponential backoff when polling",
+      "Instantly if using HTTPS, up to 5 minutes if using SSH"
+    ],
+    "correct": 1,
+    "explanation": "ArgoCD polls the Git repository every 3 minutes by default. Without a webhook configured, there is up to a 3-minute delay between pushing a commit and the sync triggering. With a GitHub webhook, the delay drops to a few seconds."
+  }
+];
+
+let current = 0, score = 0, answered = false;
+const results = [];
+
+function render() {
+  const card = document.getElementById('quizCard');
+  const bar  = document.getElementById('progressBar');
+  const counter = document.getElementById('questionCounter');
+  if (current >= questions.length) { renderScore(); return; }
+  const q = questions[current];
+  answered = false;
+  bar.style.width = `${(current / questions.length) * 100}%`;
+  counter.textContent = `${current + 1} / ${questions.length}`;
+  card.innerHTML = `
+    <div class="phase-label">Phase 5 · GitOps with ArgoCD</div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="options">
+      ${q.options.map((opt, i) => `
+        <div class="option" data-index="${i}" onclick="select(${i})">
+          <div class="option-key">${String.fromCharCode(65 + i)}</div>
+          <div class="option-text">${opt}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function select(chosen) {
+  if (answered) return;
+  answered = true;
+  const q = questions[current];
+  const options = document.querySelectorAll('.option');
+  options.forEach((el, i) => {
+    el.classList.add('disabled');
+    if (i === q.correct) el.classList.add('correct');
+    else if (i === chosen) el.classList.add('wrong');
+    else el.classList.add('dimmed');
+  });
+  const isCorrect = chosen === q.correct;
+  if (isCorrect) score++;
+  results.push(isCorrect);
+  const exp = document.createElement('div');
+  exp.className = 'explanation';
+  exp.innerHTML = (isCorrect ? '✓ Correct. ' : '✗ Not quite. ') + q.explanation;
+  document.getElementById('options').after(exp);
+  const btn = document.createElement('button');
+  btn.className = 'btn-next';
+  btn.textContent = current < questions.length - 1 ? 'Next question →' : 'See my results';
+  btn.onclick = () => { current++; render(); };
+  exp.after(btn);
+}
+
+function renderScore() {
+  const card = document.getElementById('quizCard');
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('questionCounter').textContent = '';
+  const pct = Math.round((score / questions.length) * 100);
+  let msg, sub;
+  if (pct === 100) { msg = 'Perfect score!'; sub = 'Excellent. Ready for Phase 5b.'; }
+  else if (pct >= 70) { msg = 'Good work.'; sub = 'Solid understanding. Review the questions you missed before moving on.'; }
+  else if (pct >= 50) { msg = 'Getting there.'; sub = 'Some gaps to fill. Re-read the README and try again.'; }
+  else { msg = 'Keep studying.'; sub = "Go back through the guide and revisit the concepts. You've got this."; }
+  const wrongCount = questions.length - score;
+  card.innerHTML = `
+    <div class="score-screen">
+      <div class="score-circle">
+        <div class="score-number">${score}</div>
+        <div class="score-total">/ ${questions.length}</div>
+      </div>
+      <div class="score-title">${msg}</div>
+      <div class="score-subtitle">${sub}</div>
+      <div class="score-breakdown">
+        <span class="score-tag correct">✓ ${score} correct</span>
+        <span class="score-tag wrong">✗ ${wrongCount} wrong</span>
+      </div>
+      <button class="btn-restart" onclick="restart()">Try again</button>
+      <a class="btn-back" href="../README.md">Back to phase</a>
+    </div>
+  `;
+}
+
+function restart() { current = 0; score = 0; answered = false; results.length = 0; render(); }
+render();
+</script>
+</body>
+</html>

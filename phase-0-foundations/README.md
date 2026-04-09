@@ -94,3 +94,8 @@ docker ps -a  # find and remove leftover containers
 ```bash
 docker compose up --build
 ```
+
+
+---
+
+[📝 Take the Phase 0 quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-0-foundations/quiz.html)

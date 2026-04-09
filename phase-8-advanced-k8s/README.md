@@ -277,3 +277,8 @@ kubectl describe configmap cluster-autoscaler-status -n kube-system
 ```bash
 kubectl get events --sort-by='.lastTimestamp' | grep -i "scale\|trigger\|unschedulable"
 ```
+
+
+---
+
+[📝 Take the Phase 8 quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-8-advanced-k8s/quiz.html)

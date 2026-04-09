@@ -152,3 +152,8 @@ In this lab, source code and Helm values live in the same repo. In production, c
 
 ### 6. Scope `selfHeal` in production with sync windows
 `selfHeal: true` automatically corrects any drift — which is powerful but can be dangerous if an operator makes an emergency change directly in production. ArgoCD Sync Windows allow disabling auto-sync during low-traffic hours or maintenance windows.
+
+
+---
+
+[📝 Take the Phase 5 quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-5-gitops/quiz.html)

@@ -174,3 +174,8 @@ This lab uses `persistence.size=1Gi` with no backups. In production, PostgreSQL 
 
 ### 6. Increase Redis TTL or adopt an explicit invalidation strategy
 The 30-second TTL cache works for a lab but is too short for production (too many PostgreSQL hits) and too long for critical data like claims. In production, invalidation should be event-driven: the cache is purged as soon as a claim is modified, not after a fixed delay.
+
+
+---
+
+[📝 Take the Phase 3 quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-3-helm/quiz.html)

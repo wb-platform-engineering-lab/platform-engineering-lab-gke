@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 2 Quiz — Kubernetes Core</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .progress-bar-wrap { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: #e2e8f0; z-index: 100; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); transition: width 0.4s ease; }
+    .header { position: fixed; top: 12px; right: 20px; font-size: 13px; color: #94a3b8; z-index: 100; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 48px; max-width: 680px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.06); animation: fadeUp 0.35s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .phase-label { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6366f1; margin-bottom: 12px; }
+    .question { font-size: 20px; font-weight: 600; line-height: 1.5; color: #0f172a; margin-bottom: 32px; }
+    .question code { background: #f1f5f9; color: #4f46e5; padding: 2px 7px; border-radius: 5px; font-size: 15px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .options { display: flex; flex-direction: column; gap: 12px; }
+    .option { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; user-select: none; }
+    .option:hover:not(.disabled) { border-color: #6366f1; background: #eef2ff; transform: translateX(3px); }
+    .option-key { width: 28px; height: 28px; min-width: 28px; border: 1.5px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #64748b; transition: all 0.15s; }
+    .option-text { font-size: 15px; line-height: 1.5; color: #334155; padding-top: 3px; }
+    .option-text code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .option.correct { border-color: #22c55e; background: #f0fdf4; }
+    .option.correct .option-key { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .option.correct .option-text { color: #166534; }
+    .option.wrong { border-color: #ef4444; background: #fef2f2; }
+    .option.wrong .option-key { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .option.wrong .option-text { color: #991b1b; }
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+    .explanation { margin-top: 20px; padding: 16px 18px; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.65; color: #475569; animation: fadeUp 0.25s ease; }
+    .explanation code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .btn-next { margin-top: 28px; padding: 14px 32px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .score-screen { text-align: center; }
+    .score-circle { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 28px; }
+    .score-number { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+    .score-total { font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .score-title { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+    .score-subtitle { font-size: 15px; color: #64748b; margin-bottom: 32px; line-height: 1.6; }
+    .score-breakdown { display: flex; gap: 12px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+    .score-tag { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-restart { padding: 14px 40px; background: transparent; color: #6366f1; font-size: 15px; font-weight: 600; border: 1.5px solid #6366f1; border-radius: 10px; cursor: pointer; transition: background 0.15s; margin-right: 12px; }
+    .btn-restart:hover { background: #eef2ff; }
+    .btn-back { padding: 14px 40px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s; text-decoration: none; display: inline-block; }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+<div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width: 0%"></div></div>
+<div class="header" id="questionCounter"></div>
+<div class="card" id="quizCard"></div>
+<script>
+const questions = [
+  {
+    "q": "A bad image tag is deployed. The backend pods enter <code>ImagePullBackOff</code>. What is the fastest recovery?",
+    "options": [
+      "Delete all pods and reapply the manifest",
+      "Run <code>kubectl rollout undo deployment/backend</code> to revert to the previous ReplicaSet",
+      "Scale the Deployment to 0 then scale back up",
+      "Run <code>kubectl apply -f backend/</code> again — Kubernetes will self-correct"
+    ],
+    "correct": 1,
+    "explanation": "<code>kubectl rollout undo</code> atomically switches back to the previous ReplicaSet, starting healthy pods before terminating the broken ones. Deleting pods leaves the Deployment pointing at the broken image and it immediately recreates them."
+  },
+  {
+    "q": "A pod stays in <code>ImagePullBackOff</code> after you granted <code>roles/artifactregistry.reader</code> to the compute service account. What should you do next?",
+    "options": [
+      "Re-apply the Deployment manifest to refresh the IAM binding",
+      "Run <code>kubectl rollout restart deployment/backend</code> — the IAM change only takes effect on new pods",
+      "Recreate the service account and regenerate the key",
+      "Delete the pod — the controller will create a new one that picks up updated permissions automatically"
+    ],
+    "correct": 1,
+    "explanation": "IAM changes propagate eventually but existing pods use cached credentials. <code>kubectl rollout restart</code> replaces all pods with fresh ones that will authenticate with the updated service account permissions when pulling the image."
+  },
+  {
+    "q": "Both backend replicas are scheduled on the same node. That node goes down. What happens?",
+    "options": [
+      "Kubernetes immediately starts replacements on another node with no downtime",
+      "Both pods are lost simultaneously — the service is unavailable until new pods are scheduled, which can take several minutes",
+      "The Ingress reroutes traffic to the frontend during recovery",
+      "The Cluster Autoscaler provisions a new node within 30 seconds"
+    ],
+    "correct": 1,
+    "explanation": "There is a node eviction detection delay (~5 minutes by default). Both pods on the same node is a single point of failure. The fix is <code>PodAntiAffinity</code> to force replicas onto different nodes, ensuring one pod survives any single node failure."
+  },
+  {
+    "q": "What is the role of a <code>ConfigMap</code> in the Phase 2 architecture?",
+    "options": [
+      "It stores TLS certificates for the Ingress controller",
+      "It injects non-sensitive configuration values into pods as env vars, keeping hardcoded values out of manifests",
+      "It defines which pods can communicate with each other",
+      "It replaces docker-compose.yml as the source of truth for the stack"
+    ],
+    "correct": 1,
+    "explanation": "A <code>ConfigMap</code> decouples configuration from container images. In Phase 2 it holds values like <code>BACKEND_URL</code> read by pods as env vars. The same image can be deployed across environments with different configs without rebuilding."
+  },
+  {
+    "q": "The backend should only be reachable inside the cluster. What Kubernetes Service type should it use?",
+    "options": [
+      "<code>LoadBalancer</code> — so the backend gets its own public IP",
+      "<code>NodePort</code> — so the Ingress can route to any node",
+      "<code>ClusterIP</code> — internal only, not reachable from the internet",
+      "<code>ExternalName</code> — so Kubernetes can resolve the backend by DNS name"
+    ],
+    "correct": 2,
+    "explanation": "The backend should never be exposed publicly. <code>ClusterIP</code> gives it a stable internal IP reachable only within the cluster — the Ingress routes to it internally. A <code>LoadBalancer</code> would provision a new GCP load balancer and public IP, which is expensive and unnecessary for internal services."
+  },
+  {
+    "q": "Why should production workloads never run in the <code>default</code> namespace?",
+    "options": [
+      "The <code>default</code> namespace does not support persistent volumes",
+      "Kubernetes applies stricter resource limits to the <code>default</code> namespace automatically",
+      "Separating services into namespaces enables RBAC isolation, resource quotas, and limits the blast radius of incidents",
+      "The Ingress controller cannot route traffic to services in the <code>default</code> namespace"
+    ],
+    "correct": 2,
+    "explanation": "Namespaces are the primary isolation boundary in Kubernetes. Each namespace gets independent RBAC policies, ResourceQuotas, and NetworkPolicies. A runaway deployment in one namespace can't consume all cluster resources or delete another team's objects."
+  },
+  {
+    "q": "<code>kubectl describe pod &lt;pending-pod&gt;</code> shows <code>Insufficient cpu</code>. What is happening?",
+    "options": [
+      "The pod is waiting for a PersistentVolumeClaim to be provisioned",
+      "No node has enough free CPU to schedule the pod — it stays Pending until capacity is freed or a new node joins",
+      "The Deployment controller is rate-limiting pod creation",
+      "The container image is still being pulled"
+    ],
+    "correct": 1,
+    "explanation": "When a pod is Pending due to <code>Insufficient cpu</code>, the scheduler cannot find a node that satisfies the pod's CPU request. The pod waits until CPU is freed — e.g. another pod is deleted or the Cluster Autoscaler adds a node. Accurate resource requests prevent over-scheduling."
+  },
+  {
+    "q": "What does <code>kubectl rollout status deployment/backend</code> tell you?",
+    "options": [
+      "Whether pods are passing their liveness probes",
+      "Whether the rolling update has completed — all desired replicas are available and the old ReplicaSet is scaled down",
+      "The history of all previous revisions and image tags",
+      "The current CPU and memory usage across backend pods"
+    ],
+    "correct": 1,
+    "explanation": "<code>kubectl rollout status</code> watches the Deployment and exits 0 when all desired pods are Available and updated. It exits non-zero if the rollout times out. This is the command to use in CI/CD pipelines to block the next step until the deploy is confirmed healthy."
+  },
+  {
+    "q": "One public IP serves all external traffic via a single Ingress with path-based routing. What is the main benefit over giving each service its own <code>LoadBalancer</code>?",
+    "options": [
+      "The Ingress provides mTLS between pods automatically",
+      "One GCP load balancer handles all HTTP traffic — significantly cheaper and simpler than a separate load balancer per service",
+      "The Ingress enforces NetworkPolicies between services",
+      "LoadBalancer services cannot route HTTP — only TCP"
+    ],
+    "correct": 1,
+    "explanation": "Each <code>LoadBalancer</code> service on GCP provisions a dedicated load balancer and public IP. A single Ingress handles all external HTTP/HTTPS traffic with host/path routing (<code>/api/*</code> → backend, <code>/</code> → frontend) using one GCP load balancer."
+  },
+  {
+    "q": "A <code>PodDisruptionBudget</code> with <code>minAvailable: 1</code> is applied. An engineer runs <code>kubectl drain &lt;node&gt;</code>. What happens if the drain would take the only available backend pod offline?",
+    "options": [
+      "The drain succeeds immediately — PDBs only apply during cluster upgrades",
+      "The drain is blocked — Kubernetes refuses to evict the pod because it would violate the budget",
+      "The PDB triggers a scale-out to add a new replica before the drain",
+      "The backend Service reroutes traffic to the frontend until the drain completes"
+    ],
+    "correct": 1,
+    "explanation": "A PDB tells Kubernetes: <em>never voluntarily take down pods below minAvailable</em>. <code>kubectl drain</code> respects PDBs — if evicting the pod would violate the budget, the drain stalls until another pod becomes available. This is what prevents the simultaneous pod eviction described in the Phase 8 incident."
+  }
+];
+
+let current = 0, score = 0, answered = false;
+const results = [];
+
+function render() {
+  const card = document.getElementById('quizCard');
+  const bar  = document.getElementById('progressBar');
+  const counter = document.getElementById('questionCounter');
+  if (current >= questions.length) { renderScore(); return; }
+  const q = questions[current];
+  answered = false;
+  bar.style.width = `${(current / questions.length) * 100}%`;
+  counter.textContent = `${current + 1} / ${questions.length}`;
+  card.innerHTML = `
+    <div class="phase-label">Phase 2 · Kubernetes Core</div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="options">
+      ${q.options.map((opt, i) => `
+        <div class="option" data-index="${i}" onclick="select(${i})">
+          <div class="option-key">${String.fromCharCode(65 + i)}</div>
+          <div class="option-text">${opt}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function select(chosen) {
+  if (answered) return;
+  answered = true;
+  const q = questions[current];
+  const options = document.querySelectorAll('.option');
+  options.forEach((el, i) => {
+    el.classList.add('disabled');
+    if (i === q.correct) el.classList.add('correct');
+    else if (i === chosen) el.classList.add('wrong');
+    else el.classList.add('dimmed');
+  });
+  const isCorrect = chosen === q.correct;
+  if (isCorrect) score++;
+  results.push(isCorrect);
+  const exp = document.createElement('div');
+  exp.className = 'explanation';
+  exp.innerHTML = (isCorrect ? '✓ Correct. ' : '✗ Not quite. ') + q.explanation;
+  document.getElementById('options').after(exp);
+  const btn = document.createElement('button');
+  btn.className = 'btn-next';
+  btn.textContent = current < questions.length - 1 ? 'Next question →' : 'See my results';
+  btn.onclick = () => { current++; render(); };
+  exp.after(btn);
+}
+
+function renderScore() {
+  const card = document.getElementById('quizCard');
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('questionCounter').textContent = '';
+  const pct = Math.round((score / questions.length) * 100);
+  let msg, sub;
+  if (pct === 100) { msg = 'Perfect score!'; sub = 'Excellent. Ready for Phase 3.'; }
+  else if (pct >= 70) { msg = 'Good work.'; sub = 'Solid understanding. Review the questions you missed before moving on.'; }
+  else if (pct >= 50) { msg = 'Getting there.'; sub = 'Some gaps to fill. Re-read the README and try again.'; }
+  else { msg = 'Keep studying.'; sub = "Go back through the guide and revisit the concepts. You've got this."; }
+  const wrongCount = questions.length - score;
+  card.innerHTML = `
+    <div class="score-screen">
+      <div class="score-circle">
+        <div class="score-number">${score}</div>
+        <div class="score-total">/ ${questions.length}</div>
+      </div>
+      <div class="score-title">${msg}</div>
+      <div class="score-subtitle">${sub}</div>
+      <div class="score-breakdown">
+        <span class="score-tag correct">✓ ${score} correct</span>
+        <span class="score-tag wrong">✗ ${wrongCount} wrong</span>
+      </div>
+      <button class="btn-restart" onclick="restart()">Try again</button>
+      <a class="btn-back" href="../README.md">Back to phase</a>
+    </div>
+  `;
+}
+
+function restart() { current = 0; score = 0; answered = false; results.length = 0; render(); }
+render();
+</script>
+</body>
+</html>

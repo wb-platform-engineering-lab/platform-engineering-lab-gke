@@ -153,3 +153,8 @@ This lab has no protection on the `main` branch. In production, the main branch 
 
 ### 6. Use self-hosted runners for sensitive workloads
 GitHub-hosted runners (ubuntu-latest) are shared across all GitHub customers. For sensitive projects (health data in CoverLine's case), self-hosted runners inside the GCP VPC guarantee that code and artefacts never leave the secure perimeter.
+
+
+---
+
+[📝 Take the Phase 4 quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-4-ci-cd/quiz.html)

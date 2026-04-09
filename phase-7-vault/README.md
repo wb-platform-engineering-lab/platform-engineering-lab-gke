@@ -544,3 +544,8 @@ kubectl run vault-test --rm -it --image=curlimages/curl -- \
 vault read auth/jwt/github/role/github-ci
 # bound_claims should match repository and ref from the workflow
 ```
+
+
+---
+
+[📝 Take the Phase 7 quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-7-vault/quiz.html)

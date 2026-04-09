@@ -343,3 +343,8 @@ LLM analysis:
 ```
 
 > The LogQL queries in this README are the exact queries the Phase 12 agent will run automatically.
+
+
+---
+
+[📝 Take the Phase 6 quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-6-observability/quiz.html)

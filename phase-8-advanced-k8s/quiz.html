@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 8 Quiz — Advanced Kubernetes</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .progress-bar-wrap {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: #e2e8f0;
+      z-index: 100;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #818cf8);
+      transition: width 0.4s ease;
+    }
+
+    .header {
+      position: fixed;
+      top: 12px; right: 20px;
+      font-size: 13px;
+      color: #94a3b8;
+      z-index: 100;
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 48px;
+      max-width: 680px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      animation: fadeUp 0.35s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .phase-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6366f1;
+      margin-bottom: 12px;
+    }
+
+    .question {
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.5;
+      color: #0f172a;
+      margin-bottom: 32px;
+    }
+
+    .question code {
+      background: #f1f5f9;
+      color: #4f46e5;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 15px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .options { display: flex; flex-direction: column; gap: 12px; }
+
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 16px 18px;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      user-select: none;
+    }
+
+    .option:hover:not(.disabled) {
+      border-color: #6366f1;
+      background: #eef2ff;
+      transform: translateX(3px);
+    }
+
+    .option-key {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      transition: all 0.15s;
+    }
+
+    .option-text {
+      font-size: 15px;
+      line-height: 1.5;
+      color: #334155;
+      padding-top: 3px;
+    }
+
+    .option-text code {
+      background: #f1f5f9;
+      color: #4f46e5;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .option.correct {
+      border-color: #22c55e;
+      background: #f0fdf4;
+    }
+    .option.correct .option-key {
+      background: #22c55e;
+      border-color: #22c55e;
+      color: #fff;
+    }
+    .option.correct .option-text { color: #166534; }
+
+    .option.wrong {
+      border-color: #ef4444;
+      background: #fef2f2;
+    }
+    .option.wrong .option-key {
+      background: #ef4444;
+      border-color: #ef4444;
+      color: #fff;
+    }
+    .option.wrong .option-text { color: #991b1b; }
+
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+
+    .explanation {
+      margin-top: 20px;
+      padding: 16px 18px;
+      background: #f8fafc;
+      border-left: 3px solid #6366f1;
+      border-radius: 0 8px 8px 0;
+      font-size: 14px;
+      line-height: 1.65;
+      color: #475569;
+      animation: fadeUp 0.25s ease;
+    }
+
+    .explanation code {
+      background: #f1f5f9;
+      color: #4f46e5;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .btn-next {
+      margin-top: 28px;
+      padding: 14px 32px;
+      background: #6366f1;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      width: 100%;
+    }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .btn-next:active { transform: translateY(0); }
+
+    .score-screen { text-align: center; }
+
+    .score-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 28px;
+    }
+
+    .score-number {
+      font-size: 36px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .score-total {
+      font-size: 14px;
+      color: rgba(255,255,255,0.7);
+      margin-top: 2px;
+    }
+
+    .score-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 10px;
+    }
+
+    .score-subtitle {
+      font-size: 15px;
+      color: #64748b;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .score-breakdown {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .score-tag {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+    .btn-restart {
+      padding: 14px 40px;
+      background: transparent;
+      color: #6366f1;
+      font-size: 15px;
+      font-weight: 600;
+      border: 1.5px solid #6366f1;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-right: 12px;
+    }
+    .btn-restart:hover { background: #eef2ff; }
+
+    .btn-back {
+      padding: 14px 40px;
+      background: #6366f1;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar-wrap">
+  <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+</div>
+<div class="header" id="questionCounter"></div>
+
+<div class="card" id="quizCard"></div>
+
+<script>
+const questions = [
+  {
+    q: "During open enrollment, one CoverLine pod consumed all CPU on node 2, starving the frontend. Which Kubernetes feature would have prevented this?",
+    options: [
+      "A PodDisruptionBudget with <code>minAvailable: 2</code>",
+      "A HorizontalPodAutoscaler targeting 50% CPU",
+      "CPU resource limits on the pod — capping the maximum CPU any single pod can consume",
+      "Cluster Autoscaler adding a new node before the incident"
+    ],
+    correct: 2,
+    explanation: "Resource <code>limits</code> cap the maximum CPU a pod can consume. Without a limit, one runaway pod can starve all co-located pods. A limit of e.g. <code>500m</code> means the pod cannot use more than half a vCPU regardless of what the node has available."
+  },
+  {
+    q: "What is the difference between a resource <em>request</em> and a resource <em>limit</em> in Kubernetes?",
+    options: [
+      "Requests are for memory only; limits apply to CPU only",
+      "Requests tell the scheduler how much to reserve for placement; limits cap the maximum the container can consume at runtime",
+      "Requests and limits are identical — Kubernetes uses whichever is higher",
+      "Limits are applied at the namespace level; requests are per-container"
+    ],
+    correct: 1,
+    explanation: "The <strong>request</strong> is used by the scheduler: it only places a pod on a node that has at least that much allocatable capacity. The <strong>limit</strong> is enforced by the kubelet at runtime via cgroups — CPU is throttled and memory is OOM-killed if the limit is exceeded."
+  },
+  {
+    q: "You apply an HPA targeting 50% CPU but <code>kubectl get hpa</code> shows <code>TARGETS: &lt;unknown&gt;/50%</code> after 3 minutes. What is the most likely cause?",
+    options: [
+      "metrics-server is not installed in the cluster",
+      "The HPA object has a typo in the deployment name",
+      "Resource <code>requests</code> are not set on the target deployment — HPA computes utilisation as current usage divided by request",
+      "The HPA must be in the same namespace as metrics-server"
+    ],
+    correct: 2,
+    explanation: "HPA calculates CPU utilisation as <code>current CPU usage / CPU request</code>. If no request is set, the denominator is zero and the percentage cannot be computed — HPA shows <code>&lt;unknown&gt;</code>. Fix: set <code>resources.requests.cpu</code> on the Deployment, then wait ~60s for HPA to re-evaluate."
+  },
+  {
+    q: "What does the Cluster Autoscaler do that the HPA cannot?",
+    options: [
+      "It scales deployments based on custom metrics from Prometheus",
+      "It adds and removes nodes when pods cannot be scheduled due to insufficient cluster capacity",
+      "It evicts pods from overloaded nodes to rebalance CPU usage",
+      "It enforces resource quotas at the namespace level"
+    ],
+    correct: 1,
+    explanation: "HPA adds pod replicas. If all nodes are full, those new pods stay Pending. Cluster Autoscaler watches for Pending pods caused by insufficient capacity and provisions new nodes from the node pool. It also scales down nodes that have been underutilised for a sustained period."
+  },
+  {
+    q: "During the open enrollment incident, a routine node upgrade took down 2 of 3 backend pods simultaneously. Which feature would have prevented this?",
+    options: [
+      "A HorizontalPodAutoscaler with <code>minReplicas: 3</code>",
+      "A PodDisruptionBudget with <code>minAvailable: 2</code> — Kubernetes cannot evict more than 1 pod at a time",
+      "Resource limits preventing the node from being drained",
+      "Cluster Autoscaler blocking node upgrades during business hours"
+    ],
+    correct: 1,
+    explanation: "A PodDisruptionBudget (PDB) with <code>minAvailable: 2</code> tells Kubernetes: at least 2 backend pods must remain running at all times. When <code>kubectl drain</code> tries to evict a second pod, it gets: <em>cannot evict pod as it would violate the pod disruption budget</em>. This prevents planned maintenance from causing an outage."
+  },
+  {
+    q: "After the load test ends and CPU drops, how long does HPA wait before scaling pods back down?",
+    options: [
+      "Immediately — HPA scales down as soon as CPU falls below the target",
+      "30 seconds — the default evaluation period",
+      "5 minutes — the default scale-down stabilisation window (cooldown)",
+      "15 minutes — HPA waits for a full Prometheus scrape cycle"
+    ],
+    correct: 2,
+    explanation: "HPA has a built-in scale-down stabilisation window (default 5 minutes) to prevent flapping. After traffic drops, HPA waits to confirm the lower load is sustained before removing pods. Scale-up is more aggressive and happens within ~45 seconds of CPU exceeding the target."
+  },
+  {
+    q: "You run <code>kubectl drain &lt;node&gt;</code> and see: <em>eviction.k8s.io is forbidden: cannot evict pod as it would violate the pod disruption budget</em>. What does this mean?",
+    options: [
+      "The node is locked by Cluster Autoscaler and cannot be drained manually",
+      "The PDB is preventing eviction because doing so would leave fewer pods running than <code>minAvailable</code> allows",
+      "The pod has a finalizer that blocks deletion",
+      "The drain operation requires <code>--force</code> flag for pods with PDBs"
+    ],
+    correct: 1,
+    explanation: "This is the PDB working as designed. The drain was blocked because evicting this pod would violate the disruption budget. To proceed: wait for HPA to add a replacement pod first, or <code>kubectl uncordon</code> the node and investigate whether the PDB <code>minAvailable</code> is correctly sized for your replica count."
+  },
+  {
+    q: "Which tool is used in Phase 8 to simulate open enrollment traffic and observe HPA scaling?",
+    options: [
+      "Apache JMeter with a thread group of 40,000 users",
+      "Locust running in the cluster as a Kubernetes Job",
+      "<code>k6</code> running a JavaScript load test script",
+      "<code>ab</code> (Apache Bench) with a concurrency flag"
+    ],
+    correct: 2,
+    explanation: "<code>k6</code> is a modern load testing tool that runs JavaScript scripts. It ramps up virtual users, sends HTTP requests, and reports throughput, latency, and error rates. During the test, you watch <code>kubectl get hpa -w</code> and <code>kubectl get nodes -w</code> in parallel to see the cluster respond."
+  },
+  {
+    q: "In what order do HPA and Cluster Autoscaler respond to a traffic spike?",
+    options: [
+      "Cluster Autoscaler adds nodes first, then HPA adds pods to fill them",
+      "HPA scales pods first; if new pods are Pending due to insufficient capacity, Cluster Autoscaler provisions new nodes",
+      "They respond simultaneously — HPA and Cluster Autoscaler are coordinated by the Kubernetes scheduler",
+      "HPA only acts after Cluster Autoscaler has added at least one node"
+    ],
+    correct: 1,
+    explanation: "HPA reacts first (~45s): it creates new pod replicas. If the cluster has spare capacity, pods schedule immediately. If all nodes are full, new pods stay Pending. Cluster Autoscaler then detects the Pending pods and provisions a new node (~3-4 minutes on GKE). This is why node provisioning time matters during sudden traffic spikes."
+  },
+  {
+    q: "The claims API is configured with <code>requests: cpu: 100m</code> and <code>limits: cpu: 500m</code>. Under heavy load, what happens when CPU usage hits 600m?",
+    options: [
+      "The pod is OOM-killed and restarted",
+      "CPU is throttled back to 500m — the process continues running but is slowed down",
+      "The pod is evicted and rescheduled on a less loaded node",
+      "Kubernetes sends a SIGTERM to the pod after 30 seconds of sustained overuse"
+    ],
+    correct: 1,
+    explanation: "CPU limits are enforced via Linux cgroups CPU throttling. The process is not killed — it continues running but is throttled to the configured limit (500m). This is unlike memory limits, where exceeding the limit causes an OOM kill. CPU throttling can significantly increase request latency, which is why limits should be set generously enough for burst traffic."
+  }
+];
+
+const LABEL = "Phase 8 — Advanced Kubernetes";
+const NEXT_PHASE = "../phase-0-foundations/quiz.html";
+
+let current = 0;
+let score = 0;
+let answered = false;
+
+function render() {
+  const q = questions[current];
+  const card = document.getElementById("quizCard");
+  const keys = ["A", "B", "C", "D"];
+  document.getElementById("progressBar").style.width =
+    ((current / questions.length) * 100) + "%";
+  document.getElementById("questionCounter").textContent =
+    (current + 1) + " / " + questions.length;
+  card.innerHTML =
+    '<div class="phase-label">' + LABEL + '</div>' +
+    '<div class="question">' + q.q + '</div>' +
+    '<div class="options" id="options">' +
+    q.options.map(function(opt, i) {
+      return '<div class="option" data-i="' + i + '" onclick="select(' + i + ')">' +
+        '<div class="option-key">' + keys[i] + '</div>' +
+        '<div class="option-text">' + opt + '</div>' +
+        '</div>';
+    }).join('') +
+    '</div>';
+  answered = false;
+}
+
+function select(i) {
+  if (answered) return;
+  answered = true;
+  var q = questions[current];
+  var opts = document.querySelectorAll(".option");
+  opts.forEach(function(el) { el.classList.add("disabled"); });
+  if (i === q.correct) {
+    opts[i].classList.add("correct");
+    score++;
+  } else {
+    opts[i].classList.add("wrong");
+    opts[q.correct].classList.add("correct");
+  }
+  opts.forEach(function(el, idx) {
+    if (idx !== i && idx !== q.correct) el.classList.add("dimmed");
+  });
+  var exp = document.createElement("div");
+  exp.className = "explanation";
+  exp.innerHTML = q.explanation;
+  document.getElementById("options").after(exp);
+  var btn = document.createElement("button");
+  btn.className = "btn-next";
+  btn.textContent = current < questions.length - 1 ? "Next question →" : "See results";
+  btn.onclick = function() {
+    current++;
+    if (current < questions.length) { render(); }
+    else { renderScore(); }
+  };
+  exp.after(btn);
+}
+
+function renderScore() {
+  var pct = Math.round((score / questions.length) * 100);
+  var msg = pct === 100 ? "Excellent! You understand how to build resilient, self-scaling clusters." :
+            pct >= 70  ? "Good. Review HPA, PDB, and Cluster Autoscaler interactions." :
+                         "These concepts are foundational for production. Re-read the README and retry.";
+  document.getElementById("progressBar").style.width = "100%";
+  document.getElementById("questionCounter").textContent = "";
+  var breakdown = questions.map(function(q, i) {
+    return '<span class="score-tag ' + (i < score ? 'correct' : 'wrong') + '">' + (i + 1) + '</span>';
+  }).join('');
+  document.getElementById("quizCard").innerHTML =
+    '<div class="score-screen">' +
+    '<div class="score-circle"><div class="score-number">' + score + '</div><div class="score-total">/ ' + questions.length + '</div></div>' +
+    '<div class="score-title">' + pct + '% — ' + (pct >= 70 ? 'Nice work' : 'Keep going') + '</div>' +
+    '<div class="score-subtitle">' + msg + '</div>' +
+    '<div class="score-breakdown">' + breakdown + '</div>' +
+    '<button class="btn-restart" onclick="restart()">Retry</button>' +
+    '<a class="btn-back" href="' + NEXT_PHASE + '">Back to Phase 0 →</a>' +
+    '</div>';
+}
+
+function restart() {
+  current = 0; score = 0;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
