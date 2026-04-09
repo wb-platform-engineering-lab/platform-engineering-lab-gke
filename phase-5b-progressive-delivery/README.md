@@ -173,7 +173,15 @@ Inspect what the analysis will measure:
 kubectl describe analysistemplate coverline-success-rate
 ```
 
-The template queries Prometheus for the HTTP success rate of the `coverline-backend` service over the last 2 minutes. If the success rate drops below 99%, the analysis fails and the rollback fires.
+The template queries `kube_pod_container_status_ready` from kube-state-metrics — a metric that is always present without any app instrumentation. It checks that all canary pods are in a ready state. If any canary pod becomes unready (crash, OOM, failed probe), the analysis fails and the rollback fires.
+
+> **Note:** In production with a properly instrumented app, replace this with an HTTP success rate query:
+> ```promql
+> sum(rate(http_requests_total{namespace="default",job="coverline-backend",status!~"5.."}[2m]))
+> /
+> sum(rate(http_requests_total{namespace="default",job="coverline-backend"}[2m]))
+> ```
+> This requires the app to expose a `/metrics` endpoint (e.g. via `prometheus-flask-exporter` for Python). The `kube_pod_container_status_ready` gate is a reliable baseline for any app regardless of instrumentation.
 
 ---
 

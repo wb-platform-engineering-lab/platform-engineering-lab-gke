@@ -16,22 +16,13 @@ spec:
         prometheus:
           address: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
           query: |
-            sum(
-              rate(
-                http_requests_total{
-                  service="coverline-backend",
-                  status!~"5.."
-                }[2m]
-              )
+            min(
+              kube_pod_container_status_ready{
+                namespace="default",
+                pod=~"coverline-backend.*",
+                container="backend"
+              }
             )
-            /
-            sum(
-              rate(
-                http_requests_total{
-                  service="coverline-backend"
-                }[2m]
-              )
-            )
-      # Promotion requires success rate >= 99%
-      successCondition: result[0] >= 0.99
-      failureCondition: result[0] < 0.99
+      # All canary pods must be ready (1 = ready, 0 = not ready)
+      successCondition: result[0] >= 1
+      failureCondition: result[0] < 1
