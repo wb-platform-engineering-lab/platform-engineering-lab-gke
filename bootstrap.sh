@@ -63,18 +63,21 @@ install_cert_manager() {
 install_postgresql_redis() {
   echo ""
   echo "[phase 3] Installing PostgreSQL..."
+  # Use standard (HDD) storage class — SSD quota is consumed by GKE node boot disks
   helm upgrade --install postgresql bitnami/postgresql \
     --set auth.username=coverline \
     --set auth.password=coverline123 \
     --set auth.database=coverline \
     --set primary.persistence.size=1Gi \
-    --wait --timeout 5m
+    --set global.storageClass=standard \
+    --wait --timeout 10m
 
   echo "[phase 3] Installing Redis..."
   helm upgrade --install redis bitnami/redis \
     --set auth.enabled=false \
     --set master.persistence.size=1Gi \
-    --wait --timeout 5m
+    --set global.storageClass=standard \
+    --wait --timeout 10m
 
   echo "[phase 3] Installing CoverLine apps..."
   helm upgrade --install coverline          phase-3-helm/charts/backend/  --wait --timeout 3m
