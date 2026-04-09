@@ -173,7 +173,7 @@ Inspect what the analysis will measure:
 kubectl describe analysistemplate coverline-success-rate
 ```
 
-The template queries `kube_pod_container_status_ready` from kube-state-metrics — a metric that is always present without any app instrumentation. It checks that all canary pods are in a ready state. If any canary pod becomes unready (crash, OOM, failed probe), the analysis fails and the rollback fires.
+The template queries `kube_pod_status_ready{condition="true"}` from kube-state-metrics — a metric that is always present for any running pod, with no app instrumentation required. It checks that all canary pods are in a ready state. If any canary pod becomes unready (crash, OOM, failed readiness probe), the analysis fails and the rollback fires.
 
 > **Note:** In production with a properly instrumented app, replace this with an HTTP success rate query:
 > ```promql

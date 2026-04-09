@@ -5,24 +5,21 @@ metadata:
   namespace: default
 spec:
   metrics:
-    - name: success-rate
-      # Query Prometheus every 30 seconds
+    - name: pod-readiness
       interval: 30s
-      # Require 3 consecutive successful measurements before promoting
       count: 3
-      # Allow 0 failures — any single failed measurement triggers rollback
       failureLimit: 0
       provider:
         prometheus:
           address: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
           query: |
             min(
-              kube_pod_container_status_ready{
+              kube_pod_status_ready{
                 namespace="default",
                 pod=~"coverline-backend.*",
-                container="backend"
+                condition="true"
               }
             )
-      # All canary pods must be ready (1 = ready, 0 = not ready)
+      # All canary pods must report ready
       successCondition: result[0] >= 1
       failureCondition: result[0] < 1
