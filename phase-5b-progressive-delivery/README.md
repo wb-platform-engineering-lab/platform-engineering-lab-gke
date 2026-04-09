@@ -19,6 +19,44 @@
 
 ---
 
+## End-to-end delivery workflow
+
+From a merged pull request to production — zero manual steps:
+
+```
+Developer opens PR → review → merge to main
+        │
+        ▼
+GitHub Actions (cd.yml)
+  ├── Build backend image
+  ├── Push to Artifact Registry  (us-central1-docker.pkg.dev/.../backend:<sha>)
+  ├── Update tag in phase-3-helm/charts/backend/values.yaml
+  └── Commit + push values.yaml back to Git
+        │
+        ▼
+ArgoCD detects values.yaml change (polls every 3 min or via webhook)
+  └── Syncs Helm chart to cluster
+        │
+        ▼
+Argo Rollouts intercepts — starts canary
+  ├── 10% traffic → new version
+  ├── pause 2 minutes
+  ├── AnalysisTemplate queries Prometheus (success rate ≥ 99%?)
+  │     ├── ✔ pass → advance to 30%
+  │     └── ✖ fail → rollback to stable immediately
+  ├── 30% traffic → new version
+  ├── pause 2 minutes
+  ├── AnalysisTemplate queries Prometheus again
+  │     ├── ✔ pass → advance to 100%
+  │     └── ✖ fail → rollback to stable immediately
+  └── 100% traffic → rollout complete, stable pointer updated
+```
+
+> **What changed vs Phase 5 (GitOps only):**
+> Phase 5 syncs 100% of traffic to the new version in one step. Phase 5b intercepts that sync and gates promotion on live production metrics. A bad release never reaches more than 10% of members before being rolled back automatically.
+
+---
+
 ## What we'll build
 
 | Component | What it does |
