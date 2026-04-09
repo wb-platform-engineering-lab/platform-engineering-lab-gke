@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: coverline-success-rate
+  namespace: default
+spec:
+  metrics:
+    - name: success-rate
+      # Query Prometheus every 30 seconds
+      interval: 30s
+      # Require 3 consecutive successful measurements before promoting
+      count: 3
+      # Allow 0 failures — any single failed measurement triggers rollback
+      failureLimit: 0
+      provider:
+        prometheus:
+          address: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(
+              rate(
+                http_requests_total{
+                  service="coverline-backend",
+                  status!~"5.."
+                }[2m]
+              )
+            )
+            /
+            sum(
+              rate(
+                http_requests_total{
+                  service="coverline-backend"
+                }[2m]
+              )
+            )
+      # Promotion requires success rate >= 99%
+      successCondition: result[0] >= 0.99
+      failureCondition: result[0] < 0.99

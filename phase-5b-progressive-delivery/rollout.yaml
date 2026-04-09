@@ -1,0 +1,84 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: coverline-backend
+  namespace: default
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: coverline
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backend
+      annotations:
+        # Vault Agent injection — same annotations as the original Deployment
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "coverline-backend"
+        vault.hashicorp.com/agent-inject-secret-backend.env: "secret/data/coverline/backend"
+        vault.hashicorp.com/agent-inject-template-backend.env: |
+          {{- with secret "secret/data/coverline/backend" -}}
+          export DB_HOST="{{ .Data.data.db_host }}"
+          export DB_NAME="{{ .Data.data.db_name }}"
+          export REDIS_HOST="{{ .Data.data.redis_host }}"
+          {{- end }}
+        vault.hashicorp.com/agent-inject-secret-db.env: "database/creds/coverline-backend"
+        vault.hashicorp.com/agent-inject-template-db.env: |
+          {{- with secret "database/creds/coverline-backend" -}}
+          export DB_DYNAMIC_USERNAME="{{ .Data.username }}"
+          export DB_DYNAMIC_PASSWORD="{{ .Data.password }}"
+          {{- end }}
+    spec:
+      serviceAccountName: coverline-backend
+      containers:
+        - name: backend
+          image: us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:latest
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+  strategy:
+    canary:
+      # Canary steps: 10% → analysis → 30% → analysis → 100%
+      steps:
+        - setWeight: 10
+        - pause: {duration: 2m}
+        - analysis:
+            templates:
+              - templateName: coverline-success-rate
+        - setWeight: 30
+        - pause: {duration: 2m}
+        - analysis:
+            templates:
+              - templateName: coverline-success-rate
+
+      # Keep the stable ReplicaSet running during the canary
+      # This ensures instant rollback — no need to re-create pods
+      scaleDownDelaySeconds: 30
+
+      # Anti-affinity: spread canary and stable pods across nodes
+      antiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          weight: 1
