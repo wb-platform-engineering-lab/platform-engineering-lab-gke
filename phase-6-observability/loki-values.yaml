@@ -17,6 +17,8 @@ singleBinary:
     limits:
       cpu: 200m
       memory: 512Mi
+  persistence:
+    storageClass: standard  # HDD — SSD quota exhausted by GKE node boot disks
 
 # Disable components not needed for a lab
 backend:
