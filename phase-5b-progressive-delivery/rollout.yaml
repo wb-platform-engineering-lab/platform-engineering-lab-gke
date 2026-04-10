@@ -15,28 +15,15 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: backend
-      annotations:
-        # Vault Agent injection — same annotations as the original Deployment
-        vault.hashicorp.com/agent-inject: "true"
-        vault.hashicorp.com/role: "coverline-backend"
-        vault.hashicorp.com/agent-inject-secret-backend.env: "secret/data/coverline/backend"
-        vault.hashicorp.com/agent-inject-template-backend.env: |
-          {{- with secret "secret/data/coverline/backend" -}}
-          export DB_HOST="{{ .Data.data.db_host }}"
-          export DB_NAME="{{ .Data.data.db_name }}"
-          export REDIS_HOST="{{ .Data.data.redis_host }}"
-          {{- end }}
-        vault.hashicorp.com/agent-inject-secret-db.env: "database/creds/coverline-backend"
-        vault.hashicorp.com/agent-inject-template-db.env: |
-          {{- with secret "database/creds/coverline-backend" -}}
-          export DB_DYNAMIC_USERNAME="{{ .Data.username }}"
-          export DB_DYNAMIC_PASSWORD="{{ .Data.password }}"
-          {{- end }}
     spec:
-      serviceAccountName: coverline-backend
       containers:
         - name: backend
           image: us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:latest
+          env:
+            - name: DB_PORT
+              value: "5432"
+            - name: REDIS_PORT
+              value: "6379"
           ports:
             - containerPort: 5000
           resources:

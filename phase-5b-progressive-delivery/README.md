@@ -122,12 +122,17 @@ Argo Rollouts uses a `Rollout` custom resource that mirrors the Deployment spec 
 A `Rollout` and a `Deployment` managing the same pods will conflict — both will try to own the ReplicaSets. The cleanest approach is to delete the Deployment and apply the Rollout in its place.
 
 ```bash
+# Apply the AnalysisTemplate FIRST — if the Rollout starts without it, the first canary will immediately degrade
+kubectl apply -f phase-5b-progressive-delivery/analysis-template.yaml
+
 # Remove the existing Deployment
 kubectl delete deployment coverline-backend
 
 # Apply the Rollout
 kubectl apply -f phase-5b-progressive-delivery/rollout.yaml
 ```
+
+> **Note:** If you apply the Rollout without deleting the Deployment first, Argo Rollouts will scale the Deployment down to 0 automatically and take over. Either approach works, but deleting first is cleaner.
 
 Watch it come up:
 ```bash
@@ -153,12 +158,11 @@ Replicas:
 
 ---
 
-## Step 3 — Create the AnalysisTemplate
+## Step 3 — Verify the AnalysisTemplate is applied
 
-The AnalysisTemplate defines the Prometheus query that acts as a promotion gate. Before traffic advances from 10% to 30%, and from 30% to 100%, the analysis must pass.
+The AnalysisTemplate was already applied in Step 2. Confirm it is present before proceeding — if it is missing, the first canary will degrade immediately with `AnalysisTemplate not found`.
 
 ```bash
-kubectl apply -f phase-5b-progressive-delivery/analysis-template.yaml
 kubectl get analysistemplate
 ```
 
@@ -216,44 +220,47 @@ watch kubectl argo rollouts get rollout coverline-backend
 
 ## Step 5 — Simulate a bad deploy (automatic rollback)
 
-Now simulate the Thursday afternoon incident: ship a broken version and watch the automatic rollback fire before you have time to notice.
+Now simulate the Thursday afternoon incident: ship a broken version and watch it get caught before it reaches 100%.
 
 ```bash
 kubectl argo rollouts set image coverline-backend \
-  backend=us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:v3-broken
-```
+  backend=us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:broken-image
 
-Watch the analysis fail and rollback trigger:
-```bash
 kubectl argo rollouts get rollout coverline-backend --watch
 ```
 
-Expected sequence:
+The canary pod will enter `ImagePullBackOff` — it can never become ready, so Argo Rollouts stalls at step 0 waiting for it. The 2-minute pause timer doesn't start until the canary pod is available.
+
+> **Why doesn't it auto-abort?** Argo Rollouts waits for the canary pod to become ready before starting the pause timer. A pod stuck in `ImagePullBackOff` will eventually be caught by `progressDeadlineSeconds` (default: 10 minutes). For this lab, abort manually.
+
+```bash
+# Trigger the abort
+kubectl argo rollouts abort coverline-backend
+
+# Roll back to the previous stable revision
+kubectl argo rollouts undo coverline-backend
 ```
-Status:  ॥ Paused
-Message: CanaryPauseStep
 
-... (30s later, analysis fires)
+`undo` creates a new revision (e.g. revision 4) with the previous image — it goes through the canary steps again since both canary and stable are now the same image. Let it promote, or skip the steps:
 
-Status:  ✖ Degraded
-Message: RolloutAborted: metric "success-rate" assessed Failed due to failed (1) > failureLimit (0)
+```bash
+kubectl argo rollouts promote coverline-backend --full
 ```
 
 Verify traffic is back on the stable version:
 ```bash
 kubectl argo rollouts get rollout coverline-backend
-# SetWeight: 0  ← canary traffic removed
-# ActualWeight: 0
+# Status: ✔ Healthy
 ```
 
-### Check the AnalysisRun that triggered the rollback
+### Check the AnalysisRuns
 
 ```bash
 kubectl get analysisrun
 kubectl describe analysisrun <name>
 ```
 
-The AnalysisRun log shows the exact Prometheus query result that caused the failure — the same data Karim would have seen on Grafana, but acted on automatically.
+The AnalysisRun log shows the exact Prometheus query result — the same signal Karim would have seen on Grafana, but acted on automatically.
 
 ---
 
@@ -322,7 +329,21 @@ Take screenshots for the README:
 
 ## Troubleshooting
 
-### Rollout stuck at 0% weight
+### Canary pod in `ImagePullBackOff` — rollout stalls at step 0
+
+**Cause:** Argo Rollouts waits for the canary pod to become available before starting the pause timer. A pod that can never start (bad image tag, registry auth failure) stalls the rollout indefinitely.
+
+**Fix:** Abort and undo manually:
+```bash
+kubectl argo rollouts abort coverline-backend
+kubectl argo rollouts undo coverline-backend
+```
+
+To avoid this blocking in production, set `progressDeadlineSeconds: 300` in the Rollout spec — the rollout is automatically aborted if it hasn't progressed within that window.
+
+---
+
+### Rollout stuck at 0% weight (analysis cannot reach Prometheus)
 
 **Cause:** The AnalysisTemplate references a Prometheus service that isn't reachable.
 
