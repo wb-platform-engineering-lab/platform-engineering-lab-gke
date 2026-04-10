@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 10 Quiz — Security &amp; Production Hardening</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .progress-bar-wrap { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: #e2e8f0; z-index: 100; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); transition: width 0.4s ease; }
+    .header { position: fixed; top: 12px; right: 20px; font-size: 13px; color: #94a3b8; z-index: 100; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 48px; max-width: 680px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.06); animation: fadeUp 0.35s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .phase-label { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6366f1; margin-bottom: 12px; }
+    .question { font-size: 20px; font-weight: 600; line-height: 1.5; color: #0f172a; margin-bottom: 32px; }
+    .question code { background: #f1f5f9; color: #4f46e5; padding: 2px 7px; border-radius: 5px; font-size: 15px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .options { display: flex; flex-direction: column; gap: 12px; }
+    .option { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; user-select: none; }
+    .option:hover:not(.disabled) { border-color: #6366f1; background: #eef2ff; transform: translateX(3px); }
+    .option-key { width: 28px; height: 28px; min-width: 28px; border: 1.5px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #64748b; transition: all 0.15s; }
+    .option-text { font-size: 15px; line-height: 1.5; color: #334155; padding-top: 3px; }
+    .option-text code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .option.correct { border-color: #22c55e; background: #f0fdf4; }
+    .option.correct .option-key { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .option.correct .option-text { color: #166534; }
+    .option.wrong { border-color: #ef4444; background: #fef2f2; }
+    .option.wrong .option-key { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .option.wrong .option-text { color: #991b1b; }
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+    .explanation { margin-top: 20px; padding: 16px 18px; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.65; color: #475569; animation: fadeUp 0.25s ease; }
+    .explanation code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .btn-next { margin-top: 28px; padding: 14px 32px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .score-screen { text-align: center; }
+    .score-circle { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 28px; }
+    .score-number { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+    .score-total { font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .score-title { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+    .score-subtitle { font-size: 15px; color: #64748b; margin-bottom: 32px; line-height: 1.6; }
+    .score-breakdown { display: flex; gap: 12px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+    .score-tag { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-restart { padding: 14px 40px; background: transparent; color: #6366f1; font-size: 15px; font-weight: 600; border: 1.5px solid #6366f1; border-radius: 10px; cursor: pointer; transition: background 0.15s; margin-right: 12px; }
+    .btn-restart:hover { background: #eef2ff; }
+    .btn-back { padding: 14px 40px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s; text-decoration: none; display: inline-block; }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+<div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+<div class="header" id="questionCounter"></div>
+<div class="card" id="quizCard"></div>
+<script>
+const questions = [
+  {
+    q: "The ISO 27001 auditor flagged the CI/CD service account as a critical finding. What was the problem and what is the correct fix?",
+    options: [
+      "The service account had no password — fix by adding a secret token",
+      "The service account had <code>cluster-admin</code> — fix by replacing it with a scoped Role that only allows updating Deployments and reading pod status",
+      "The service account was in the wrong namespace — move it to <code>kube-system</code>",
+      "The service account was not rotated monthly — fix by adding a CronJob to regenerate the token"
+    ],
+    correct: 1,
+    explanation: "<code>cluster-admin</code> grants unrestricted access to every resource in the cluster. A developer who can push a GitHub Actions workflow can use it to read all Secrets, delete namespaces, or exfiltrate data. The fix is a scoped <code>Role</code> (not ClusterRole) with only the verbs the pipeline actually needs: <code>update</code> on Deployments, <code>get/list</code> on Pods."
+  },
+  {
+    q: "You apply a <code>default-deny-all</code> NetworkPolicy to the default namespace. Within seconds, all pods start failing DNS lookups. Why?",
+    options: [
+      "NetworkPolicies block the kubelet heartbeat, which also carries DNS traffic",
+      "The default-deny policy blocks egress to port 53 (kube-dns) — DNS resolution breaks for every pod",
+      "GKE disables kube-dns when NetworkPolicies are present",
+      "The pods need to be restarted to pick up the new DNS configuration"
+    ],
+    correct: 1,
+    explanation: "A default-deny egress policy blocks all outbound traffic, including UDP/TCP port 53 to kube-dns. Without DNS, pods cannot resolve service names like <code>postgresql</code> or <code>redis</code>. Always pair a default-deny policy with an <code>allow-dns-egress</code> rule that permits port 53 to all pods. This is the most common NetworkPolicy mistake."
+  },
+  {
+    q: "What does <code>readOnlyRootFilesystem: true</code> in a pod's security context protect against?",
+    options: [
+      "It prevents other pods from reading this pod's filesystem via a shared volume",
+      "It stops an attacker who has code execution inside the container from writing malware, backdoors, or modified binaries to the filesystem",
+      "It enforces that the container image is pulled from a trusted registry",
+      "It makes the pod's ConfigMap and Secret mounts immutable"
+    ],
+    correct: 1,
+    explanation: "If an attacker exploits a vulnerability and gets code execution inside a container, a writable filesystem lets them install backdoors, modify application binaries, or write scripts that persist across restarts. <code>readOnlyRootFilesystem: true</code> makes the entire root filesystem read-only — the attacker can run code but cannot persist anything. Pair it with <code>emptyDir</code> mounts for directories the app legitimately needs to write to (e.g. <code>/tmp</code>)."
+  },
+  {
+    q: "A NetworkPolicy allows <code>frontend → backend:5000</code> but after applying it, the frontend still cannot reach the backend. What is missing?",
+    options: [
+      "NetworkPolicies require a restart of the affected pods to take effect",
+      "The ingress rule on the backend allows the frontend in, but the frontend has no egress rule allowing outbound to the backend — both sides must be explicitly allowed",
+      "The port must be specified as a string (<code>\"5000\"</code>), not an integer",
+      "The frontend and backend must be in different namespaces for NetworkPolicies to apply"
+    ],
+    correct: 1,
+    explanation: "NetworkPolicies are enforced on both the sending and receiving pod. An ingress rule on the backend allows traffic in, but the frontend also needs a corresponding egress rule allowing it to send traffic out to port 5000. Under default-deny, missing either side results in the connection being dropped."
+  },
+  {
+    q: "Trivy is added to CI with <code>--exit-code 1 --severity CRITICAL,HIGH</code>. A developer's PR introduces a new base image with a Critical CVE. What happens?",
+    options: [
+      "The image is pushed to Artifact Registry with a warning annotation",
+      "The CI workflow fails — the image is never pushed and the PR cannot be merged until the CVE is resolved",
+      "Trivy creates a GitHub issue and continues the pipeline",
+      "The deploy step is skipped but the image is still pushed for manual review"
+    ],
+    correct: 1,
+    explanation: "<code>--exit-code 1</code> makes Trivy return a non-zero exit code when it finds CVEs at the specified severity. In GitHub Actions, a non-zero exit code fails the step, which fails the job, which blocks the PR from merging (assuming branch protection requires green CI). The image is never pushed. The developer must update the base image or add the CVE to an ignorelist with documented justification."
+  },
+  {
+    q: "What is the purpose of <code>automountServiceAccountToken: false</code> on a pod's ServiceAccount?",
+    options: [
+      "It disables TLS for the pod's outbound connections to the Kubernetes API",
+      "It prevents the Kubernetes API token from being auto-mounted at <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>, removing an attack vector for pods that don't need API access",
+      "It forces the pod to re-authenticate to the API server on every request",
+      "It revokes the ServiceAccount's RBAC permissions without deleting the account"
+    ],
+    correct: 1,
+    explanation: "By default, every pod gets a ServiceAccount token mounted automatically, even if the app never calls the Kubernetes API. If the pod is compromised, that token can be used to query the API — listing other pods, reading ConfigMaps, or (if RBAC is misconfigured) reading Secrets. Setting <code>automountServiceAccountToken: false</code> removes this token entirely for workloads that don't need it."
+  },
+  {
+    q: "The auditor asks: <em>&quot;Who read the PostgreSQL credentials secret last Tuesday at 11:42 PM?&quot;</em> Where do you find this information on GKE?",
+    options: [
+      "In the PostgreSQL pod logs — it logs all connection attempts",
+      "In Cloud Audit Logs — GKE logs every Kubernetes API call including <code>get secret</code> with a timestamp and the caller's identity",
+      "In Prometheus metrics — the <code>apiserver_request_total</code> metric tracks secret access",
+      "In the kubelet logs on the node that hosted the pod"
+    ],
+    correct: 1,
+    explanation: "GKE writes every Kubernetes API request to Cloud Audit Logs (<code>cloudaudit.googleapis.com/data_access</code>). Each entry includes the timestamp, the caller's email or service account, the resource path, and the HTTP method. You can query: <code>gcloud logging read 'protoPayload.resourceName=~&quot;.*secrets/postgresql.*&quot;'</code> to find exactly who accessed that Secret and when."
+  },
+  {
+    q: "What does <code>allowPrivilegeEscalation: false</code> in a security context prevent?",
+    options: [
+      "It prevents the container from running as a user with UID 0",
+      "It prevents the process inside the container from gaining more privileges than its parent — blocking <code>sudo</code>, setuid binaries, and capability grants",
+      "It prevents the pod from mounting hostPath volumes",
+      "It prevents other pods from attaching to this pod's process namespace"
+    ],
+    correct: 1,
+    explanation: "<code>allowPrivilegeEscalation: false</code> sets the <code>no_new_privs</code> flag on the Linux process. This prevents any mechanism — <code>sudo</code>, setuid executables, or capability-granting system calls — from giving the process more privileges than it started with. Even if the container runs as a non-root user, a setuid binary could otherwise elevate to root. This flag closes that path."
+  },
+  {
+    q: "You apply Pod Security Standards with <code>enforce=restricted</code> to the default namespace. An existing pod that runs as root is already running. What happens?",
+    options: [
+      "The running pod is immediately terminated and cannot restart",
+      "Nothing — existing running pods are not affected. The policy only applies to new pods created after the label is added",
+      "The pod is moved to a quarantine namespace automatically",
+      "The node is cordoned to prevent new pods from being scheduled"
+    ],
+    correct: 1,
+    explanation: "Pod Security Standards are enforced at admission time — when a pod is created or updated. Pods already running are not retroactively affected. However, if that pod is deleted and Kubernetes tries to recreate it (e.g. after a node failure), the new pod will be rejected. This means existing workloads must be fixed before they are next redeployed."
+  },
+  {
+    q: "Why is a NetworkPolicy that allows <code>frontend → backend</code> not sufficient on its own to protect the database?",
+    options: [
+      "NetworkPolicies only apply to pods with more than one replica",
+      "The frontend could still reach the database directly — you also need a policy that explicitly denies or never allows <code>frontend → postgresql</code>",
+      "The backend can relay requests from the frontend to the database regardless of policy",
+      "NetworkPolicies do not apply to StatefulSets like PostgreSQL"
+    ],
+    correct: 1,
+    explanation: "An allow rule for <code>frontend → backend</code> does not restrict where the frontend can go otherwise. Without a default-deny policy, the frontend can still open a direct connection to PostgreSQL on port 5432 — bypassing the application entirely. The correct model is: default-deny all, then explicitly allow each required path. The absence of an allow rule is the deny — you never need an explicit deny rule."
+  }
+];
+
+const LABEL = "Phase 10 — Security & Hardening";
+const NEXT_PHASE = "../phase-0-foundations/quiz.html";
+
+let current = 0, score = 0, answered = false;
+
+function render() {
+  const q = questions[current];
+  const keys = ["A","B","C","D"];
+  document.getElementById("progressBar").style.width = ((current / questions.length) * 100) + "%";
+  document.getElementById("questionCounter").textContent = (current + 1) + " / " + questions.length;
+  document.getElementById("quizCard").innerHTML =
+    '<div class="phase-label">' + LABEL + '</div>' +
+    '<div class="question">' + q.q + '</div>' +
+    '<div class="options" id="options">' +
+    q.options.map(function(opt, i) {
+      return '<div class="option" onclick="select(' + i + ')">' +
+        '<div class="option-key">' + keys[i] + '</div>' +
+        '<div class="option-text">' + opt + '</div></div>';
+    }).join('') + '</div>';
+  answered = false;
+}
+
+function select(i) {
+  if (answered) return;
+  answered = true;
+  var q = questions[current];
+  var opts = document.querySelectorAll(".option");
+  opts.forEach(function(el) { el.classList.add("disabled"); });
+  if (i === q.correct) { opts[i].classList.add("correct"); score++; }
+  else { opts[i].classList.add("wrong"); opts[q.correct].classList.add("correct"); }
+  opts.forEach(function(el, idx) { if (idx !== i && idx !== q.correct) el.classList.add("dimmed"); });
+  var exp = document.createElement("div");
+  exp.className = "explanation";
+  exp.innerHTML = q.explanation;
+  document.getElementById("options").after(exp);
+  var btn = document.createElement("button");
+  btn.className = "btn-next";
+  btn.textContent = current < questions.length - 1 ? "Next question \u2192" : "See results";
+  btn.onclick = function() { current++; if (current < questions.length) render(); else renderScore(); };
+  exp.after(btn);
+}
+
+function renderScore() {
+  var pct = Math.round((score / questions.length) * 100);
+  var msg = pct === 100 ? "Perfect — you could run a security audit yourself." :
+            pct >= 70  ? "Solid. Review NetworkPolicy egress rules and RBAC scoping." :
+                         "Security hardening has real consequences. Re-read the README and retry.";
+  document.getElementById("progressBar").style.width = "100%";
+  document.getElementById("questionCounter").textContent = "";
+  var breakdown = questions.map(function(q, i) {
+    return '<span class="score-tag ' + (i < score ? 'correct' : 'wrong') + '">' + (i + 1) + '</span>';
+  }).join('');
+  document.getElementById("quizCard").innerHTML =
+    '<div class="score-screen">' +
+    '<div class="score-circle"><div class="score-number">' + score + '</div><div class="score-total">/ ' + questions.length + '</div></div>' +
+    '<div class="score-title">' + pct + '% \u2014 ' + (pct >= 70 ? 'Nice work' : 'Keep going') + '</div>' +
+    '<div class="score-subtitle">' + msg + '</div>' +
+    '<div class="score-breakdown">' + breakdown + '</div>' +
+    '<button class="btn-restart" onclick="restart()">Retry</button>' +
+    '<a class="btn-back" href="' + NEXT_PHASE + '">Back to start \u2192</a>' +
+    '</div>';
+}
+
+function restart() { current = 0; score = 0; render(); }
+render();
+</script>
+</body>
+</html>

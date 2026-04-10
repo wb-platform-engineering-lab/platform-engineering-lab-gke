@@ -1,0 +1,34 @@
+# Helm values override — apply on top of phase-3-helm/charts/backend/values.yaml
+# Usage:
+#   helm upgrade coverline phase-3-helm/charts/backend/ \
+#     -f phase-10-security/security-context-values.yaml
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Writable directories the app actually needs
+# (Flask temp files, gunicorn socket, etc.)
+# Mount as emptyDir so the filesystem stays read-only everywhere else
+extraVolumes:
+  - name: tmp
+    emptyDir: {}
+  - name: app-cache
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: tmp
+    mountPath: /tmp
+  - name: app-cache
+    mountPath: /app/.cache

@@ -1,0 +1,66 @@
+# ---------------------------------------------------------------------------
+# CI/CD Service Account — scoped to what the pipeline actually needs
+# Replaces the cluster-admin binding that was the ISO 27001 critical finding
+# ---------------------------------------------------------------------------
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coverline-ci
+  namespace: default
+
+---
+# Role: only the permissions required to deploy a new image and check rollout
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: coverline-ci
+  namespace: default
+rules:
+  # Update Deployments (new image tag after CI build)
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "update", "patch"]
+
+  # Read pod status (to verify rollout health)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+  # Read ReplicaSets (kubectl rollout status)
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: coverline-ci
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: coverline-ci
+    namespace: default
+roleRef:
+  kind: Role
+  name: coverline-ci
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ---------------------------------------------------------------------------
+# Application service accounts — automount disabled
+# Pods do not need to call the Kubernetes API; the mounted token is unused
+# and becomes an attack vector if the pod is compromised.
+# ---------------------------------------------------------------------------
+
+# NOTE: If Vault Agent injection is enabled (Phase 7), leave
+# coverline-backend automounting ENABLED — Vault Agent needs the token
+# for Kubernetes auth. Disable it on the frontend only.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coverline-frontend
+  namespace: default
+automountServiceAccountToken: false

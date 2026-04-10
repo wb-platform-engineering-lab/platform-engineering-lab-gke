@@ -74,10 +74,6 @@ spec:
             templates:
               - templateName: coverline-success-rate
 
-      # Keep the stable ReplicaSet running during the canary
-      # This ensures instant rollback — no need to re-create pods
-      scaleDownDelaySeconds: 30
-
       # Anti-affinity: spread canary and stable pods across nodes
       antiAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
