@@ -404,6 +404,55 @@ An automatic rollback is silent by default. Configure Argo Rollouts notification
 ### 5. Keep the stable version pinned in Git
 The GitOps source of truth should always reflect the current stable image tag. After a successful rollout, update the image tag in Git — don't rely solely on `kubectl argo rollouts set image`, which bypasses Git and creates drift.
 
+### 6. Move the Rollout into the Helm chart
+This lab applies `rollout.yaml` as a standalone manifest outside of Helm. When ArgoCD syncs the Helm chart, it creates a separate Helm-managed Deployment alongside the Rollout — resulting in duplicate pods sharing the same selector.
+
+In production, replace the `Deployment` template in the Helm chart with a `Rollout`:
+
+**`phase-3-helm/charts/backend/templates/rollout.yaml`** (replace `deployment.yaml`):
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "backend.fullname" . }}
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "backend.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: backend
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 5000
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+  strategy:
+    canary:
+      steps:
+        - setWeight: 10
+        - pause: {duration: 2m}
+        - analysis:
+            templates:
+              - templateName: coverline-success-rate
+        - setWeight: 30
+        - pause: {duration: 2m}
+        - analysis:
+            templates:
+              - templateName: coverline-success-rate
+```
+
+With this in place, ArgoCD manages one object (the Rollout) and there is no Deployment conflict. The AnalysisTemplate can live in a separate `templates/analysis-template.yaml` in the same chart.
+
 ---
 
 [📝 Take the Phase 5b quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-5b-progressive-delivery/quiz.html)
