@@ -87,8 +87,10 @@ terraform apply
 This creates:
 - KMS key ring `vault-keyring` + crypto key `vault-unseal-key`
 - GCP service account `vault-server` with KMS encrypt/decrypt permissions
-- `e2-medium` Compute Engine VM (`vault-server`) in `us-central1-b`
-- Firewall rules: port 8200 from GKE subnet, SSH via IAP only
+- `e2-medium` Compute Engine VM (`vault-server`) in `us-central1-b` on the project VPC (`pd-standard` disk)
+- Firewall rules: port 8200 from GKE subnet, SSH + port 8200 via IAP only
+
+> **Note:** The VM uses `pd-standard` disk to avoid the SSD quota (`SSD_TOTAL_GB` limit: 250GB). It is placed on the project VPC (not `default`) to use the Cloud NAT provisioned in phase-1 for outbound internet access.
 
 Capture the VM IP for the next steps:
 ```bash
@@ -102,26 +104,64 @@ echo "Vault address: $VAULT_ADDR"
 
 ## Step 2 — Install Vault on the VM (Ansible)
 
+### How the connection works
+
+```
+Local machine
+    │
+    │  ansible-playbook (SSH over IAP)
+    │
+    ▼
+Google IAP (35.235.240.0/20)          ← no public IP on the VM
+    │
+    │  IAP TCP tunnel → port 22
+    │  ProxyCommand in ansible_ssh_common_args
+    │
+    ▼
+vault-server VM (10.128.0.x)          ← internal IP only
+    │
+    │  OS Login auth (GCP-managed SSH keys)
+    │  Key uploaded via: gcloud compute os-login ssh-keys add
+    │  User: <gcp-account>_<domain>_com
+    │
+    ▼
+Ansible tasks run as root (become: yes)
+    ├── Download Vault binary
+    ├── Write /etc/vault.d/vault.hcl  (from Jinja2 template)
+    ├── Write /etc/systemd/system/vault.service
+    └── systemctl enable --now vault
+```
+
 Install Ansible if not already installed:
 ```bash
 pip3 install ansible
+```
+
+Upload your SSH public key to OS Login (first time only):
+```bash
+gcloud compute os-login ssh-keys add --key-file=/Users/will/.ssh/vault.pub --project=platform-eng-lab-will
+export ANSIBLE_USER=$(gcloud compute os-login describe-profile --format='value(posixAccounts[0].username)')
 ```
 
 Run the install playbook — it installs the Vault binary, writes `vault.hcl`, and starts the systemd service:
 ```bash
 ansible-playbook \
   -i phase-7-vault/ansible/inventory/hosts.yml \
-  phase-7-vault/ansible/playbooks/vault-install.yml
+  phase-7-vault/ansible/playbooks/vault-install.yml \
+  -e "ansible_user=$ANSIBLE_USER" \
+  --private-key=/Users/will/.ssh/vault
 ```
 
 The playbook connects via IAP tunnel (no public IP required). It is idempotent — safe to re-run.
 
-Verify Vault is running:
+Verify Vault is running (SSH via IAP):
 ```bash
-curl http://$VAULT_IP:8200/v1/sys/health
+gcloud compute ssh vault-server --zone=us-central1-b --project=platform-eng-lab-will --tunnel-through-iap -- "curl -s http://localhost:8200/v1/sys/health"
 ```
 
 Expected response: `{"initialized":false,"sealed":true,...}` — not yet initialized, which is correct.
+
+> **Note:** You cannot curl `$VAULT_IP` directly from your laptop — the VM has no public IP. All access is via IAP tunnel.
 
 ---
 
@@ -156,8 +196,14 @@ vault-agent-injector-xxx-zzz            1/1     Running
 
 ## Step 4 — Initialize Vault
 
+The init script must reach Vault via the IAP tunnel. Open the tunnel in a **separate terminal** and leave it running:
 ```bash
-export VAULT_ADDR=http://${VAULT_IP}:8200
+gcloud compute start-iap-tunnel vault-server 8200 --local-host-port=localhost:8200 --zone=us-central1-b --project=platform-eng-lab-will
+```
+
+Then in your current terminal:
+```bash
+export VAULT_ADDR=http://localhost:8200
 bash phase-7-vault/vault-init.sh
 ```
 
@@ -181,8 +227,9 @@ echo -n "<RECOVERY_KEY>" | gcloud secrets create vault-recovery-key \
 
 ## Step 5 — Create Policies and Auth Roles
 
+Keep the IAP tunnel from Step 4 running, then:
 ```bash
-export VAULT_ADDR=http://${VAULT_IP}:8200
+export VAULT_ADDR=http://localhost:8200
 export VAULT_TOKEN="<ADMIN_TOKEN_FROM_STEP_4>"
 
 bash phase-7-vault/vault-policy.sh
@@ -198,15 +245,27 @@ This creates:
 
 ## Step 6 — Configure Dynamic PostgreSQL Credentials
 
+The Vault VM cannot resolve Kubernetes DNS (`*.svc.cluster.local`). Expose PostgreSQL via a NodePort so Vault can reach it over the VPC:
+
 ```bash
-export VAULT_ADDR=http://${VAULT_IP}:8200
+kubectl expose service postgresql --name=postgresql-nodeport --type=NodePort --port=5432
+NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+NODE_PORT=$(kubectl get svc postgresql-nodeport -o jsonpath='{.spec.ports[0].nodePort}')
+echo "PostgreSQL reachable at $NODE_IP:$NODE_PORT"
+```
+
+Then run the dynamic secrets script (IAP tunnel must still be running):
+```bash
+export VAULT_ADDR=http://localhost:8200
 export VAULT_TOKEN="<ADMIN_TOKEN>"
 
-PG_ADMIN_PASSWORD=$(kubectl get secret postgresql \
-  -o jsonpath='{.data.postgres-password}' | base64 --decode)
-
-PG_ADMIN_PASSWORD="$PG_ADMIN_PASSWORD" bash phase-7-vault/vault-dynamic-secrets.sh
+PG_ADMIN_PASSWORD=$(kubectl get secret postgresql -o jsonpath='{.data.postgres-password}' | base64 --decode)
+PG_HOST=$NODE_IP PG_PORT=$NODE_PORT PG_ADMIN_PASSWORD="$PG_ADMIN_PASSWORD" bash phase-7-vault/vault-dynamic-secrets.sh
 ```
+
+> **Why NodePort?** The Vault VM runs outside GKE — it can reach node IPs over the VPC but cannot resolve Kubernetes service DNS. The NodePort exposes PostgreSQL on the node's VPC IP. The firewall rule `allow-vault-to-pg-nodeport` (tcp:30000-32767, source tag `vault-server`) is created by Terraform.
+
+> **Note:** The NodePort service is only needed during Vault setup. Vault stores the connection URL in its config — the NodePort can be left in place or deleted after setup.
 
 Test — generate a credential on demand:
 ```bash

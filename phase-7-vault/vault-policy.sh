@@ -42,9 +42,7 @@ vault write auth/kubernetes/role/coverline-backend \
   policies=coverline-backend \
   ttl=1h
 
-# Create the ServiceAccount in Kubernetes
-kubectl create serviceaccount coverline-backend --namespace default \
-  --dry-run=client -o yaml | kubectl apply -f -
+kubectl create serviceaccount coverline-backend --namespace default 2>/dev/null || echo "ServiceAccount coverline-backend already exists"
 
 echo "Kubernetes role coverline-backend created"
 
@@ -94,8 +92,7 @@ vault write auth/kubernetes/role/vault-snapshot \
   policies=vault-snapshot \
   ttl=5m
 
-kubectl create serviceaccount vault-snapshot --namespace vault \
-  --dry-run=client -o yaml | kubectl apply -f -
+kubectl create serviceaccount vault-snapshot --namespace vault 2>/dev/null || echo "ServiceAccount vault-snapshot already exists"
 
 echo "Snapshot policy and role created."
 

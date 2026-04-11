@@ -115,19 +115,19 @@
         daemon_reload: true
 
     - name: Wait for Vault API to be available
-      ansible.builtin.uri:
-        url: "http://{{ ansible_host }}:8200/v1/sys/health"
-        status_code: [200, 429, 472, 473, 501, 503]
+      ansible.builtin.command:
+        cmd: curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8200/v1/sys/health
       register: vault_health
-      until: vault_health.status in [200, 429, 472, 473, 501, 503]
+      until: vault_health.stdout in ["200", "429", "472", "473", "501", "503"]
       retries: 12
       delay: 5
+      changed_when: false
 
     - name: Print Vault status
       ansible.builtin.debug:
         msg: |
-          ✓ Vault is running at http://{{ ansible_host }}:8200
-          Status code: {{ vault_health.status }}
+          Vault is running at http://{{ ansible_host }}:8200
+          HTTP status: {{ vault_health.stdout }}
           Next step: run vault-init.sh to initialize Vault
 
           export VAULT_ADDR=http://{{ ansible_host }}:8200

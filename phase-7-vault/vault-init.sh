@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VAULT_ADDR="http://localhost:8200"
+VAULT_ADDR="${VAULT_ADDR:-http://localhost:8200}"
 export VAULT_ADDR
 
 echo "=== Vault Init ==="
@@ -74,7 +74,7 @@ echo "GitHub JWT auth enabled at auth/jwt/github"
 echo "[7/8] Enabling audit logging..."
 
 # File audit log — persisted to /vault/logs/audit.log (PVC-backed in production; emptyDir in lab)
-vault audit enable file file_path=/vault/logs/audit.log
+vault audit enable file file_path=/var/log/vault/audit.log
 
 # Stdout audit log — picked up by Promtail and shipped to Loki automatically
 # Query in Grafana: {namespace="vault"} | json | type="response"

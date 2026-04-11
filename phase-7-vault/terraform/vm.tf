@@ -23,16 +23,17 @@ resource "google_compute_instance" "vault" {
     initialize_params {
       image = "debian-cloud/debian-12"
       size  = 20   # GB — OS + Vault binary + Raft data
-      type  = "pd-balanced"
+      type  = "pd-standard"
     }
   }
 
   network_interface {
-    network    = "default"
-    subnetwork = "default"
+    network    = "${local.project_id}-vpc"
+    subnetwork = "${local.project_id}-private-subnet"
 
     # No external IP — Vault is only reachable from within the VPC.
-    # Use IAP tunnel or bastion for admin access.
+    # Cloud NAT (provisioned in phase-1) provides outbound internet for apt/downloads.
+    # Use IAP tunnel for admin SSH access.
   }
 
   # Attach the vault-server service account for KMS auto-unseal access
@@ -63,7 +64,7 @@ resource "google_compute_instance" "vault" {
 # Allow GKE pods to reach Vault (for the Agent Injector and pod sidecars)
 resource "google_compute_firewall" "vault_from_gke" {
   name    = "allow-vault-from-gke"
-  network = "default"
+  network = "${local.project_id}-vpc"
   project = local.project_id
 
   allow {
@@ -75,15 +76,15 @@ resource "google_compute_firewall" "vault_from_gke" {
   target_tags   = ["vault-server"]
 }
 
-# Allow IAP SSH access for Ansible provisioning and admin operations
+# Allow IAP SSH and Vault API access for admin operations
 resource "google_compute_firewall" "vault_iap_ssh" {
   name    = "allow-vault-iap-ssh"
-  network = "default"
+  network = "${local.project_id}-vpc"
   project = local.project_id
 
   allow {
     protocol = "tcp"
-    ports    = ["22"]
+    ports    = ["22", "8200"]
   }
 
   # Google's IAP IP range — only IAP tunnels can reach this VM

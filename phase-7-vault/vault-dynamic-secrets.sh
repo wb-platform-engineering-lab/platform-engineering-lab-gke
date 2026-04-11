@@ -10,8 +10,8 @@ VAULT_ADDR="${VAULT_ADDR:-http://localhost:8200}"
 export VAULT_ADDR
 
 # PostgreSQL superuser credentials (used once by Vault to create dynamic roles)
-PG_HOST="postgresql.default.svc.cluster.local"
-PG_PORT="5432"
+PG_HOST="${PG_HOST:-postgresql.default.svc.cluster.local}"
+PG_PORT="${PG_PORT:-5432}"
 PG_DB="coverline"
 PG_ADMIN_USER="postgres"
 PG_ADMIN_PASSWORD="${PG_ADMIN_PASSWORD:-}"  # pass via env, never hardcode
