@@ -179,13 +179,47 @@ kubectl describe analysistemplate coverline-success-rate
 
 The template queries `kube_pod_status_ready{condition="true"}` from kube-state-metrics — a metric that is always present for any running pod, with no app instrumentation required. It checks that all canary pods are in a ready state. If any canary pod becomes unready (crash, OOM, failed readiness probe), the analysis fails and the rollback fires.
 
-> **Note:** In production with a properly instrumented app, replace this with an HTTP success rate query:
-> ```promql
-> sum(rate(http_requests_total{namespace="default",job="coverline-backend",status!~"5.."}[2m]))
-> /
-> sum(rate(http_requests_total{namespace="default",job="coverline-backend"}[2m]))
+> **Note:** In production with a properly instrumented app, combine multiple metrics in the AnalysisTemplate. Here is a complete example gating on both HTTP success rate and p99 latency:
+>
+> ```yaml
+> apiVersion: argoproj.io/v1alpha1
+> kind: AnalysisTemplate
+> metadata:
+>   name: coverline-success-rate
+>   namespace: default
+> spec:
+>   metrics:
+>     - name: success-rate
+>       interval: 30s
+>       failureLimit: 1
+>       provider:
+>         prometheus:
+>           address: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+>           query: |
+>             sum(rate(http_requests_total{namespace="default",job="coverline-backend",status!~"5.."}[2m]))
+>             /
+>             sum(rate(http_requests_total{namespace="default",job="coverline-backend"}[2m]))
+>       successCondition: result[0] >= 0.99
+>       failureCondition: result[0] < 0.99
+>
+>     - name: p99-latency
+>       interval: 30s
+>       failureLimit: 1
+>       provider:
+>         prometheus:
+>           address: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+>           query: |
+>             histogram_quantile(0.99,
+>               sum(rate(http_request_duration_seconds_bucket{namespace="default",job="coverline-backend"}[2m]))
+>               by (le)
+>             )
+>       successCondition: result[0] <= 0.5
+>       failureCondition: result[0] > 0.5
 > ```
-> This requires the app to expose a `/metrics` endpoint (e.g. via `prometheus-flask-exporter` for Python). The `kube_pod_container_status_ready` gate is a reliable baseline for any app regardless of instrumentation.
+>
+> This gates promotion on **both**: HTTP success rate ≥ 99% AND p99 latency ≤ 500ms. Either metric failing independently triggers a rollback — a release that returns 200 OK but adds 800ms to every request is caught just as a 5xx spike would be.
+>
+> Both metrics require the app to expose a `/metrics` endpoint (e.g. via `prometheus-flask-exporter` for Python). The `kube_pod_status_ready` gate used in this lab is a reliable baseline for any app regardless of instrumentation.
 
 ---
 
