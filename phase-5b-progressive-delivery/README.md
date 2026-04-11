@@ -333,12 +333,9 @@ kubectl get application coverline-backend -n argocd \
 
 ### Install the Argo Rollouts UI extension (optional)
 
-To get the full canary panel in ArgoCD showing step progress, weights, and AnalysisRun results, install the Rollouts extension:
+To get the full canary panel in ArgoCD showing step progress, weights, and AnalysisRun results, install the Rollouts UI extension. Installation instructions vary by ArgoCD version — refer to the official guide:
 
-```bash
-kubectl apply -n argocd -f \
-  https://raw.githubusercontent.com/argoproj-labs/argocd-extensions/main/extensions/rollout/install.yaml
-```
+> https://github.com/argoproj-labs/rollout-extension
 
 Then port-forward and open the UI:
 
