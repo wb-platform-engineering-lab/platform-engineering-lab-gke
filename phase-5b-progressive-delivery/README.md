@@ -195,10 +195,12 @@ Simulate shipping a new release by updating the image tag. This triggers the can
 
 ```bash
 kubectl argo rollouts set image coverline-backend \
-  backend=us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:v2-good
+  backend=us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:latest
 
 kubectl argo rollouts get rollout coverline-backend --watch
 ```
+
+> **Note:** This lab uses `:latest` since it is the only tag guaranteed to exist in the registry. Argo Rollouts still runs all canary steps and analysis regardless of whether the new image differs from stable — the progression logic is driven by the revision change, not image content.
 
 ### What you'll observe
 
