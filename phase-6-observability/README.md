@@ -12,6 +12,9 @@
 >
 > The decision: a full observability stack. Prometheus for metrics, Grafana for dashboards, Loki for logs. If it happens again, the team wakes up before the customer does.
 
+> **▶ [Watch the incident unfold →](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-6-observability/incident-animation.html)**
+> *(animated — 4-hour silent outage vs 9-minute paged response)*
+
 ---
 
 ## What was built
