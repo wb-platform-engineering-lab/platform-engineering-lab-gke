@@ -302,26 +302,51 @@ The AnalysisRun log shows the exact Prometheus query result — the same signal 
 
 ## Step 6 — ArgoCD integration
 
-With Argo Rollouts installed, ArgoCD automatically detects Rollout resources and integrates with them. The ArgoCD UI shows canary progress, weight percentages, and analysis status alongside the standard sync state.
-
-### Update the ArgoCD application to track the Rollout
-
-The existing ArgoCD Application in `phase-5-gitops/argocd-app-backend.yaml` already tracks the `default` namespace. No changes are needed — ArgoCD will display the Rollout status automatically.
+### Apply the ArgoCD applications
 
 ```bash
-# Verify ArgoCD sees the Rollout
-kubectl get application coverline-backend -n argocd -o jsonpath='{.status.health.status}'
+kubectl apply -f phase-5-gitops/argocd-app-backend.yaml
+kubectl apply -f phase-5-gitops/argocd-app-frontend.yaml
+kubectl get applications -n argocd
 ```
 
-### Enable the Argo Rollouts UI in ArgoCD (optional)
+Expected:
+```
+NAME                 SYNC STATUS   HEALTH STATUS
+coverline-backend    Synced        Healthy
+coverline-frontend   Synced        Healthy
+```
 
-ArgoCD's UI shows a dedicated rollout panel when the Rollouts controller is installed:
+### What ArgoCD shows out of the box
+
+ArgoCD recognises `Rollout` resources from the CRDs and reflects their health correctly — `Healthy`, `Progressing`, or `Degraded` — in the sync status. In the UI you will see the Rollout listed as a resource inside the application, and its health status updates in real time as the canary progresses.
+
+**What you will NOT see without the UI extension:** canary weight percentages, step-by-step progress, and AnalysisRun pass/fail details. The standard ArgoCD UI does not include a dedicated rollout panel by default.
+
+### Verify ArgoCD sees the Rollout
+
+```bash
+kubectl get application coverline-backend -n argocd \
+  -o jsonpath='{.status.health.status}'
+# Expected: Healthy
+```
+
+### Install the Argo Rollouts UI extension (optional)
+
+To get the full canary panel in ArgoCD showing step progress, weights, and AnalysisRun results, install the Rollouts extension:
+
+```bash
+kubectl apply -n argocd -f \
+  https://raw.githubusercontent.com/argoproj-labs/argocd-extensions/main/extensions/rollout/install.yaml
+```
+
+Then port-forward and open the UI:
 
 ```bash
 kubectl port-forward svc/argocd-server -n argocd 8080:443
 ```
 
-Open `https://localhost:8080` → select the `coverline-backend` application → the deployment panel shows canary steps and analysis status.
+Open `https://localhost:8080` → select `coverline-backend` → the Rollout panel now shows canary steps, weight percentages, and AnalysisRun status.
 
 ### GitOps flow with progressive delivery
 
