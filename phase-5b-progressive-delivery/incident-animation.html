@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CoverLine — Phase 5b · The Thursday Deploy</title>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;--purple:#bc8cff;--orange:#db6d28;--indigo:#7c6fef;--font:'JetBrains Mono','Fira Code','Courier New',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12px;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:999}
+#hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.logo{font-size:13px;font-weight:bold;color:var(--indigo)}
+.phase-badge{background:var(--bg3);border:1px solid var(--border);padding:3px 10px;border-radius:4px;font-size:10px;color:var(--muted)}
+#clock{font-size:11px;color:var(--muted)}
+
+#main{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;flex:1;overflow:hidden}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.panel.danger{border-color:var(--red);transition:border-color .5s}
+.panel.safe{border-color:var(--green);transition:border-color .5s}
+.ptitle{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px;display:flex;justify-content:space-between;align-items:center}
+.ptitle-label{color:var(--muted)}
+.ptitle-tag{font-size:9px;padding:2px 7px;border-radius:3px;font-weight:bold}
+.tag-bad{background:rgba(248,81,73,.15);color:var(--red);border:1px solid var(--red)}
+.tag-good{background:rgba(63,185,80,.15);color:var(--green);border:1px solid var(--green)}
+
+/* chart */
+.chart-wrap{position:relative;height:90px;margin-bottom:8px;background:var(--bg3);border-radius:4px;border:1px solid var(--border);overflow:hidden}
+.chart-label{position:absolute;left:6px;top:4px;font-size:9px;color:var(--muted)}
+.chart-val{position:absolute;right:6px;top:4px;font-size:11px;font-weight:bold;transition:color .5s}
+canvas{display:block;width:100%;height:100%}
+.threshold-line{position:absolute;left:0;right:0;border-top:1px dashed var(--yellow);font-size:8px;color:var(--yellow);padding-left:4px}
+
+/* rollout steps */
+.steps{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.step{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);opacity:.4;transition:opacity .4s,border-color .4s}
+.step.active{opacity:1;border-color:var(--blue)}
+.step.done{opacity:1;border-color:var(--green)}
+.step.failed{opacity:1;border-color:var(--red)}
+.step-icon{font-size:12px;min-width:16px;text-align:center}
+.step-text{font-size:10px;color:var(--muted)}
+.step.active .step-text{color:var(--text)}
+.step.done .step-text{color:var(--green)}
+.step.failed .step-text{color:var(--red)}
+.step-weight{margin-left:auto;font-size:10px;color:var(--muted)}
+
+/* analysis */
+.analysis-row{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:10px;color:var(--muted);opacity:0;transition:opacity .3s}
+.analysis-row.on{opacity:1}
+.analysis-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.analysis-dot.pass{background:var(--green)}
+.analysis-dot.fail{background:var(--red)}
+
+/* event log */
+.elog{font-size:10px;line-height:1.7;overflow:hidden;flex:1}
+.eline{color:var(--muted);opacity:0;transition:opacity .25s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eline.on{opacity:1}
+.eline.ok{color:var(--green)}.eline.warn{color:var(--yellow)}.eline.err{color:var(--red)}.eline.info{color:var(--blue)}.eline.dim{color:var(--muted)}
+
+/* members affected badge */
+.affected{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:4px;margin-bottom:6px;font-size:11px;opacity:0;transition:opacity .5s}
+.affected.on{opacity:1}
+.affected.bad{background:rgba(248,81,73,.12);border:1px solid var(--red);color:var(--red)}
+.affected.good{background:rgba(63,185,80,.12);border:1px solid var(--green);color:var(--green)}
+
+/* overlay */
+#overlay{position:fixed;inset:0;background:rgba(13,17,23,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .9s;z-index:200}
+#overlay.on{opacity:1;pointer-events:all}
+.ov-compare{display:flex;gap:48px;margin-bottom:24px}
+.ov-col{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:200px}
+.ov-col-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.ov-stat{font-size:28px;font-weight:bold}
+.ov-stat.bad{color:var(--red)}
+.ov-stat.good{color:var(--green)}
+.ov-stat-label{font-size:10px;color:var(--muted);text-align:center}
+.ov-divider{width:1px;background:var(--border);align-self:stretch}
+.ov-title{font-size:16px;color:var(--text);font-weight:bold;margin-bottom:6px}
+.ov-sub{color:var(--muted);font-size:11px;margin-bottom:20px;max-width:460px;text-align:center;line-height:1.6}
+.fix{font-size:11px;margin-bottom:6px;opacity:0;transform:translateY(5px);transition:opacity .5s,transform .5s}
+.fix.on{opacity:1;transform:none}
+.fix .ck{color:var(--green);margin-right:6px}
+button{background:transparent;border:1px solid var(--indigo);color:var(--indigo);padding:7px 22px;border-radius:4px;cursor:pointer;font-family:var(--font);font-size:12px;margin-top:16px}
+button:hover{background:rgba(124,111,239,.1)}
+
+#ftr{background:var(--bg2);border-top:1px solid var(--border);padding:4px 16px;display:flex;justify-content:space-between;flex-shrink:0}
+.fi{color:var(--muted);font-size:10px}.fi span{color:var(--text)}
+</style>
+</head>
+<body>
+<div id="hdr">
+  <div class="logo">◈ CoverLine · Phase 5b — Progressive Delivery</div>
+  <div class="phase-badge">1,000,000 members · Thursday 14:30</div>
+  <div id="clock">14:30:00</div>
+</div>
+<div id="main">
+
+  <!-- LEFT: without progressive delivery -->
+  <div class="panel" id="panel-bad">
+    <div class="ptitle">
+      <span class="ptitle-label">without argo rollouts</span>
+      <span class="ptitle-tag tag-bad" id="badge-bad">deploying</span>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-label">error rate %</div>
+      <div class="chart-val" id="chart-val-bad" style="color:var(--green)">0.2%</div>
+      <div class="threshold-line" style="bottom:40px" id="thresh-bad">— slo threshold 1%</div>
+      <canvas id="chart-bad"></canvas>
+    </div>
+    <div class="affected bad" id="affected-bad">⚠ 80,000 members affected · 18 min degraded service</div>
+    <div class="elog" id="elog-bad"></div>
+  </div>
+
+  <!-- RIGHT: with argo rollouts -->
+  <div class="panel" id="panel-good">
+    <div class="ptitle">
+      <span class="ptitle-label">with argo rollouts</span>
+      <span class="ptitle-tag tag-good" id="badge-good">canary 0%</span>
+    </div>
+    <div class="steps" id="steps">
+      <div class="step" id="s1"><span class="step-icon">→</span><span class="step-text">setWeight 10%</span><span class="step-weight" id="sw1"></span></div>
+      <div class="step" id="s2"><span class="step-icon">⏸</span><span class="step-text">pause 2 minutes</span><span class="step-weight" id="sw2"></span></div>
+      <div class="step" id="s3"><span class="step-icon">⚡</span><span class="step-text">analysis — kube_pod_status_ready</span><span class="step-weight" id="sw3"></span></div>
+      <div class="step" id="s4"><span class="step-icon">→</span><span class="step-text">setWeight 30%</span><span class="step-weight" id="sw4"></span></div>
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">analysisrun</div>
+    <div id="analysis-rows" style="margin-bottom:8px">
+      <div class="analysis-row" id="ar1"><div class="analysis-dot" id="ad1"></div><span id="at1">querying prometheus…</span></div>
+      <div class="analysis-row" id="ar2"><div class="analysis-dot" id="ad2"></div><span id="at2"></span></div>
+      <div class="analysis-row" id="ar3"><div class="analysis-dot" id="ad3"></div><span id="at3"></span></div>
+    </div>
+    <div class="affected good" id="affected-good">✓ 0 members affected · rollback fired automatically</div>
+    <div class="elog" id="elog-good"></div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="ov-title">THE SAME DEPLOY. TWO OUTCOMES.</div>
+  <div class="ov-sub">Argo Rollouts intercepted the bad release at 10% canary. The AnalysisRun detected unready pods and fired the rollback before the pause timer even expired.</div>
+  <div class="ov-compare">
+    <div class="ov-col">
+      <div class="ov-col-title">Without</div>
+      <div class="ov-stat bad">80,000</div>
+      <div class="ov-stat-label">members hit the broken version</div>
+      <div class="ov-stat bad" style="font-size:20px;margin-top:12px">18 min</div>
+      <div class="ov-stat-label">degraded service</div>
+    </div>
+    <div class="ov-divider"></div>
+    <div class="ov-col">
+      <div class="ov-col-title">With</div>
+      <div class="ov-stat good">0</div>
+      <div class="ov-stat-label">members hit the broken version</div>
+      <div class="ov-stat good" style="font-size:20px;margin-top:12px">&lt; 3 min</div>
+      <div class="ov-stat-label">canary caught and reverted</div>
+    </div>
+  </div>
+  <div class="fix" id="f1"><span class="ck">✓</span>10% canary weight — 90% of members always on stable</div>
+  <div class="fix" id="f2"><span class="ck">✓</span>AnalysisRun queries Prometheus every 30s — no human required</div>
+  <div class="fix" id="f3"><span class="ck">✓</span>Rollback fires in seconds, not 18 minutes</div>
+  <button onclick="replay()">↺ Replay</button>
+</div>
+
+<div id="ftr">
+  <div class="fi">env: <span>production</span></div>
+  <div class="fi">phase: <span>5b — progressive delivery</span></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let tids=[];
+function at(ms,fn){tids.push(setTimeout(fn,ms))}
+
+// Clock
+let clockBase=14*3600+30*60, clockStart=null, clockTid=null;
+function startClock(){
+  clockStart=Date.now();
+  function tick(){
+    const elapsed=Math.floor((Date.now()-clockStart)/100); // 10x speed
+    const t=clockBase+elapsed;
+    const h=Math.floor(t/3600)%24, m=Math.floor((t%3600)/60), s=t%60;
+    $('clock').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    clockTid=setTimeout(tick,100);
+  }
+  tick();
+}
+
+// Bad chart data (error rate over time)
+let badPoints=[], goodPoints=[], animFrame=null;
+const BAD_W=300, BAD_H=90;
+
+function drawChart(canvasId, points, color){
+  const c=$(canvasId), ctx=c.getContext('2d');
+  c.width=c.offsetWidth||300; c.height=BAD_H;
+  ctx.clearRect(0,0,c.width,c.height);
+  if(points.length<2) return;
+  const max=Math.max(15, ...points)*1.1;
+  ctx.beginPath();
+  ctx.strokeStyle=color; ctx.lineWidth=1.5;
+  points.forEach((v,i)=>{
+    const x=i/(points.length-1)*c.width;
+    const y=c.height-(v/max)*c.height*0.85-4;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  // fill
+  ctx.lineTo(c.width, c.height); ctx.lineTo(0,c.height); ctx.closePath();
+  ctx.fillStyle=color.replace(')',', 0.12)').replace('rgb','rgba').replace('#','rgba(').replace(/^rgba\(([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i,(_,r,g,b)=>`rgba(${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)}`);
+  // simpler fill
+  ctx.save(); ctx.globalAlpha=0.12; ctx.fillStyle=color; ctx.fill(); ctx.restore();
+}
+
+function addBadLog(text, cls=''){
+  const el=document.createElement('div');
+  el.className='eline '+cls; el.textContent=text;
+  $('elog-bad').appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('on'));
+}
+function addGoodLog(text, cls=''){
+  const el=document.createElement('div');
+  el.className='eline '+cls; el.textContent=text;
+  $('elog-good').appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('on'));
+}
+
+function setStep(id, state){
+  const el=$(id); el.className='step '+state;
+  const icons={active:'▶',done:'✔',failed:'✖'};
+  if(icons[state]) el.querySelector('.step-icon').textContent=icons[state];
+}
+
+function init(){
+  // seed initial flat error rate
+  for(let i=0;i<20;i++) badPoints.push(0.2+Math.random()*0.1);
+  for(let i=0;i<20;i++) goodPoints.push(0.2+Math.random()*0.1);
+  drawChart('chart-bad', badPoints, '#3fb950');
+  $('chart-val-bad').textContent='0.2%';
+
+  startClock();
+
+  // === LEFT PANEL (no progressive delivery) ===
+
+  // 14:30 — deploy kicks off, 100% rollout
+  at(800, ()=>addBadLog('[14:30:01] deploy coverline-backend:v2-bad → 100%','info'));
+  at(1400,()=>addBadLog('[14:30:08] rolling update: 0/2 → 1/2 → 2/2 pods','dim'));
+  at(2000,()=>addBadLog('[14:30:22] rollout complete — all pods running','ok'));
+  at(2000,()=>{ $('badge-bad').textContent='deployed 100%'; });
+
+  // 14:32 — error rate starts climbing
+  at(2800,()=>addBadLog('[14:32:04] error rate: 0.4% ↑','warn'));
+  at(3400,()=>addBadLog('[14:33:11] error rate: 1.8% ↑↑','warn'));
+  at(4000,()=>addBadLog('[14:35:22] error rate: 4.3% ↑↑↑','err'));
+  at(4600,()=>addBadLog('[14:38:07] error rate: 8.1% ↑↑↑↑','err'));
+  at(5200,()=>addBadLog('[14:41:55] error rate: 12.4% — SLO BREACHED','err'));
+  at(5200,()=>{ $('panel-bad').classList.add('danger'); $('badge-bad').textContent='⚠ SLO breach'; $('chart-val-bad').style.color='var(--red)'; });
+
+  // chart animates up
+  let badTick=0;
+  function growBad(){
+    badTick++;
+    const v=badTick<8 ? 0.2+Math.random()*0.2 :
+             badTick<16 ? 1+badTick*0.4+Math.random() :
+             12+Math.random()*1.5;
+    badPoints.push(v);
+    if(badPoints.length>60) badPoints.shift();
+    drawChart('chart-bad', badPoints, badTick>8?'#f85149':'#3fb950');
+    $('chart-val-bad').textContent=(v<1?v.toFixed(1):v.toFixed(1))+'%';
+    if(badTick<24) at(350, growBad);
+  }
+  at(2600, growBad);
+
+  // 14:48 — Karim notices on Grafana
+  at(5800,()=>addBadLog('[14:48:12] karim: "error rate at 12.4% on grafana 🔥"','err'));
+  at(6300,()=>addBadLog('[14:50:01] team paged — investigating','warn'));
+  at(6800,()=>addBadLog('[14:58:33] root cause: claims endpoint fails >5 dependents','warn'));
+  at(7300,()=>addBadLog('[15:06:44] manual rollback initiated','info'));
+  at(7900,()=>addBadLog('[15:07:12] rollback complete — 18 min of degraded service','ok'));
+  at(7900,()=>{ $('affected-bad').classList.add('on'); $('panel-bad').classList.remove('danger'); });
+
+  // === RIGHT PANEL (with Argo Rollouts) ===
+
+  // Step 1: canary at 10%
+  at(800, ()=>{
+    setStep('s1','active'); $('sw1').textContent='→ 10%';
+    $('badge-good').textContent='canary 10%';
+    addGoodLog('[14:30:01] canary revision:2 → 10% weight','info');
+    addGoodLog('[14:30:02] stable: 2 pods · canary: 1 pod','dim');
+  });
+
+  // Step 2: pause
+  at(2200,()=>{
+    setStep('s1','done'); $('sw1').textContent='✔';
+    setStep('s2','active'); $('sw2').textContent='⏱ 2m';
+    addGoodLog('[14:30:22] canary pod running — pause step started','dim');
+  });
+
+  // Step 3: analysis fires
+  at(3200,()=>{
+    setStep('s2','done'); $('sw2').textContent='✔';
+    setStep('s3','active');
+    addGoodLog('[14:32:22] analysisrun started — querying prometheus','info');
+    $('ar1').classList.add('on');
+  });
+
+  // analysis check 1 — pod unready detected
+  at(3900,()=>{
+    $('ad1').classList.add('fail');
+    $('at1').textContent='check 1: pod coverline-backend-xxx → NotReady';
+    addGoodLog('[14:32:52] kube_pod_status_ready = 0 — canary pod unready','err');
+  });
+
+  // analysis check 2
+  at(4500,()=>{
+    $('ar2').classList.add('on');
+    $('ad2').classList.add('fail');
+    $('at2').textContent='check 2: pod still NotReady — failureLimit(1) exceeded';
+    addGoodLog('[14:33:22] failure limit exceeded — rollback triggered','err');
+  });
+
+  // rollback fires
+  at(5100,()=>{
+    setStep('s3','failed'); $('sw3').textContent='✖';
+    setStep('s4','active'); // never reached
+    $('badge-good').textContent='⟳ rolling back';
+    $('panel-good').style.borderColor='var(--yellow)';
+    addGoodLog('[14:33:23] argo rollouts: abort — shifting weight to stable','warn');
+  });
+
+  at(5800,()=>{
+    $('panel-good').classList.add('safe');
+    $('badge-good').textContent='✔ stable';
+    setStep('s4','done'); $('sw4').textContent='↩ aborted';
+    $('ar3').classList.add('on');
+    $('ad3').classList.add('pass');
+    $('at3').textContent='stable: 2/2 pods healthy — rollback complete';
+    addGoodLog('[14:33:31] rollback complete — 0% canary traffic','ok');
+    addGoodLog('[14:33:31] stable revision serving 100% traffic','ok');
+    $('affected-good').classList.add('on');
+  });
+
+  // overlay
+  at(9500,()=>{
+    $('overlay').classList.add('on');
+    at(500, ()=>$('f1').classList.add('on'));
+    at(1000,()=>$('f2').classList.add('on'));
+    at(1500,()=>$('f3').classList.add('on'));
+  });
+}
+
+function replay(){
+  tids.forEach(clearTimeout); tids=[];
+  clearTimeout(clockTid);
+  $('overlay').classList.remove('on');
+  ['f1','f2','f3'].forEach(id=>$(id).classList.remove('on'));
+  $('elog-bad').innerHTML=''; $('elog-good').innerHTML='';
+  $('badge-bad').textContent='deploying'; $('badge-bad').className='ptitle-tag tag-bad';
+  $('badge-good').textContent='canary 0%';
+  $('chart-val-bad').style.color='var(--green)'; $('chart-val-bad').textContent='0.2%';
+  $('panel-bad').className='panel'; $('panel-good').className='panel';
+  $('panel-good').style.borderColor='';
+  $('affected-bad').classList.remove('on'); $('affected-good').classList.remove('on');
+  ['s1','s2','s3','s4'].forEach(id=>{
+    const el=$(id); el.className='step';
+    el.querySelector('.step-icon').textContent=el.id==='s2'?'⏸':el.id==='s3'?'⚡':'→';
+    el.querySelector('.step-weight').textContent='';
+  });
+  ['ar1','ar2','ar3'].forEach(id=>$(id).classList.remove('on'));
+  ['ad1','ad2','ad3'].forEach(id=>{$(id).className='analysis-dot';});
+  $('at1').textContent='querying prometheus…'; $('at2').textContent=''; $('at3').textContent='';
+  badPoints=[]; goodPoints=[];
+  clockBase=14*3600+30*60; clockStart=null;
+  init();
+}
+window.addEventListener('load',init);
+</script>
+</body>
+</html>
