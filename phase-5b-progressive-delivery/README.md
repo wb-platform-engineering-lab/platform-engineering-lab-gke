@@ -333,9 +333,35 @@ kubectl get application coverline-backend -n argocd \
 
 ### Install the Argo Rollouts UI extension (optional)
 
-To get the full canary panel in ArgoCD showing step progress, weights, and AnalysisRun results, install the Rollouts UI extension. Installation instructions vary by ArgoCD version — refer to the official guide:
+To get the full canary panel in ArgoCD showing step progress, weights, and AnalysisRun results, patch the `argocd-server` Deployment to add an init container that downloads the extension at startup:
 
-> https://github.com/argoproj-labs/rollout-extension
+```bash
+kubectl patch deployment argocd-server -n argocd --type json -p '[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/initContainers/-",
+    "value": {
+      "name": "rollout-extension",
+      "image": "quay.io/argoprojlabs/argocd-extension-installer:v0.0.8",
+      "env": [{"name": "EXTENSION_URL", "value": "https://github.com/argoproj-labs/rollout-extension/releases/download/v0.3.7/extension.tar"}],
+      "volumeMounts": [{"name": "extensions", "mountPath": "/tmp/extensions/"}],
+      "securityContext": {"runAsUser": 1000, "allowPrivilegeEscalation": false}
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/volumes/-",
+    "value": {"name": "extensions", "emptyDir": {}}
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/volumeMounts/-",
+    "value": {"name": "extensions", "mountPath": "/tmp/extensions/"}
+  }
+]'
+
+kubectl rollout status deployment argocd-server -n argocd
+```
 
 Then port-forward and open the UI:
 
