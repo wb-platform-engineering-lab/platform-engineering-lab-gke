@@ -105,7 +105,11 @@ helm install promtail grafana/promtail \
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 ```
 
-Open `http://localhost:3000` — login: `admin` / `admin123`
+Open `http://localhost:3000` — login: `admin` / get password with:
+```bash
+kubectl get secret kube-prometheus-stack-grafana -n monitoring \
+  -o jsonpath="{.data.admin-password}" | base64 -d
+```
 
 ### Prometheus
 
@@ -133,8 +137,10 @@ Open `https://localhost:8080` — login: `admin` / password from above.
 
 1. Open Grafana → **Connections → Data sources → Add data source**
 2. Select **Loki** (Core plugin)
-3. URL: `http://loki-gateway.monitoring.svc.cluster.local`
+3. URL: `http://loki.monitoring.svc.cluster.local:3100`
 4. Click **Save & test**
+
+> **Note:** Use port 3100 on the `loki` service directly, not the gateway. The gateway (port 80) may require auth headers depending on your Loki configuration.
 
 ---
 
@@ -158,10 +164,10 @@ Run them in **Grafana → Explore → Loki**.
 ### 2. Logs from a specific pod — zoom in on the CoverLine backend
 
 ```logql
-{namespace="default", app="coverline-backend"} | json
+{namespace="default", app="backend"} != "GET /health"
 ```
 
-**When to use:** The backend is returning errors — view structured JSON logs to pinpoint the exact cause (DB connection, Redis timeout, Python exception).
+**When to use:** The backend is generating errors — filter out noisy health check traffic and see only meaningful log lines. Promtail attaches `app="backend"` (not `app_kubernetes_io_name`) based on the pod label.
 
 ---
 
