@@ -331,45 +331,21 @@ kubectl get application coverline-backend -n argocd \
 # Expected: Healthy
 ```
 
-### Install the Argo Rollouts UI extension (optional)
+### View rollout progress
 
-To get the full canary panel in ArgoCD showing step progress, weights, and AnalysisRun results, patch the `argocd-server` Deployment to add an init container that downloads the extension at startup:
+For this lab, the CLI gives more detail than the ArgoCD UI:
 
 ```bash
-kubectl patch deployment argocd-server -n argocd --type json -p '[
-  {
-    "op": "add",
-    "path": "/spec/template/spec/initContainers/-",
-    "value": {
-      "name": "rollout-extension",
-      "image": "quay.io/argoprojlabs/argocd-extension-installer:v0.0.8",
-      "env": [{"name": "EXTENSION_URL", "value": "https://github.com/argoproj-labs/rollout-extension/releases/download/v0.3.7/extension.tar"}],
-      "volumeMounts": [{"name": "extensions", "mountPath": "/tmp/extensions/"}],
-      "securityContext": {"runAsUser": 1000, "allowPrivilegeEscalation": false}
-    }
-  },
-  {
-    "op": "add",
-    "path": "/spec/template/spec/volumes/-",
-    "value": {"name": "extensions", "emptyDir": {}}
-  },
-  {
-    "op": "add",
-    "path": "/spec/template/spec/containers/0/volumeMounts/-",
-    "value": {"name": "extensions", "mountPath": "/tmp/extensions/"}
-  }
-]'
-
-kubectl rollout status deployment argocd-server -n argocd
+kubectl argo rollouts get rollout coverline-backend --watch
 ```
 
-Then port-forward and open the UI:
+This shows live step progress, canary weights, and AnalysisRun pass/fail in real time — everything you need to observe the canary.
+
+The ArgoCD UI (port-forward below) shows the Rollout resource health status (`Healthy` / `Progressing` / `Degraded`) but not the detailed canary panel. The full panel requires the Argo Rollouts UI extension — see https://github.com/argoproj-labs/rollout-extension for installation instructions.
 
 ```bash
 kubectl port-forward svc/argocd-server -n argocd 8080:443
 ```
-
-Open `https://localhost:8080` → select `coverline-backend` → the Rollout panel now shows canary steps, weight percentages, and AnalysisRun status.
 
 ### GitOps flow with progressive delivery
 
