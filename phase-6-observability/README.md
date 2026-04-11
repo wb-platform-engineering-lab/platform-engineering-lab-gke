@@ -261,6 +261,27 @@ sum by (pod) (
 
 ---
 
+## LogQL Top 10 Cheat Sheet
+
+Quick-reference for the most useful queries during an incident. Run in **Grafana → Explore → Loki**.
+
+| # | What | Query |
+|---|------|-------|
+| 1 | All errors in namespace | `{namespace="default"} \|= "ERROR"` |
+| 2 | Backend logs, no health noise | `{namespace="default", app="backend"} != "GET /health"` |
+| 3 | Error rate per pod (graph) | `sum by (pod) (rate({namespace="default"} \|= "ERROR" [5m]))` |
+| 4 | Log volume per pod | `sum by (pod) (count_over_time({namespace="default"}[5m]))` |
+| 5 | HTTP 5xx errors | `{namespace="default"} \| json \| status >= 500` |
+| 6 | OOMKill / memory pressure | `{namespace="default"} \|= "OOMKilled"` |
+| 7 | Slow PostgreSQL queries >500ms | `{namespace="default", app="postgresql"} \|= "duration" \| regexp \`duration: (?P<ms>\d+\.\d+) ms\` \| ms > 500` |
+| 8 | Redis connection errors | `{namespace="default"} \|= "redis" \|= "connection refused"` |
+| 9 | Scheduling / eviction events | `{namespace="kube-system"} \|= "FailedScheduling"` |
+| 10 | Logs in a time window (post-mortem) | Set time range in Grafana + `{namespace="default", app="backend"}` |
+
+> **Tip:** In Grafana Explore, set the time range to the incident window before running query 10 — this is the first thing to do in a post-mortem to reconstruct the timeline.
+
+---
+
 ## Troubleshooting
 
 ### loki-chunks-cache-0 stuck in Pending
@@ -311,7 +332,62 @@ This lab uses local filesystem for Loki — logs disappear if the pod restarts. 
 In this lab, Prometheus can scrape any pod in the cluster. In production, NetworkPolicies should restrict access: only Prometheus can contact service `/metrics` endpoints, and only Grafana can query Prometheus. This prevents a compromised pod from exfiltrating sensitive metrics.
 
 ### 6. Never expose Grafana without strong authentication
-This lab accesses Grafana via port-forward with `admin/admin123`. In production, Grafana should be exposed via an Ingress with TLS and SSO authentication (Google OAuth, Okta) — never with a shared password. Dashboards containing business metrics (claims rate, revenue) are sensitive data.
+This lab accesses Grafana via port-forward with a generated password. In production, Grafana should be exposed via an Ingress with TLS and SSO authentication (Google OAuth, Okta) — never with a shared password. Dashboards containing business metrics (claims rate, revenue) are sensitive data.
+
+### 7. Instrument the application with prometheus-flask-exporter
+This lab measures infrastructure metrics only (CPU, memory, restarts). In production, instrument the Flask backend to expose HTTP-level metrics — request rate, latency, and error rate per endpoint:
+
+```python
+# requirements.txt
+prometheus-flask-exporter
+
+# app.py
+from prometheus_flask_exporter import PrometheusMetrics
+metrics = PrometheusMetrics(app)
+```
+
+This unlocks PromQL queries like:
+```promql
+# p99 latency per endpoint
+histogram_quantile(0.99,
+  sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le, endpoint)
+)
+
+# Error rate per endpoint
+sum(rate(flask_http_request_total{status=~"5.."}[5m])) by (endpoint)
+/
+sum(rate(flask_http_request_total[5m])) by (endpoint)
+```
+
+### 8. Use recording rules for expensive PromQL queries
+Queries that aggregate across many pods run on every dashboard refresh and can overload Prometheus. Pre-compute them with recording rules:
+
+```yaml
+- record: job:flask_http_requests_total:rate5m
+  expr: sum(rate(flask_http_request_total[5m])) by (job, status)
+```
+
+Dashboard panels then query the pre-computed metric instead of re-aggregating on every load.
+
+### 9. Set up Loki log-based alerting (Loki Ruler)
+This lab alerts on Prometheus metrics only. In production, configure Loki's Ruler to fire alerts directly from log patterns — useful for errors that don't surface as metrics:
+
+```yaml
+groups:
+  - name: coverline-log-alerts
+    rules:
+      - alert: BackendDBError
+        expr: |
+          sum(count_over_time({app="backend"} |= "DB init failed" [5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend cannot reach the database"
+```
+
+### 10. Set resource limits on the monitoring stack itself
+Prometheus and Loki can consume significant memory in production. Set explicit resource requests and limits in the Helm values — without them, a metrics cardinality explosion (too many unique label combinations) can OOMKill Prometheus and take down your observability stack at the worst possible moment.
 
 ---
 
