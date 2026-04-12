@@ -214,6 +214,7 @@ The claims service image is built on `python:3.11` which includes packages the a
 trivy image \
   us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:latest \
   --severity CRITICAL,HIGH \
+  --ignore-unfixed \
   --exit-code 1
 ```
 
@@ -233,9 +234,11 @@ The scan runs automatically in GitHub Actions after the image is built. Check `.
     trivy image \
       --severity CRITICAL,HIGH \
       --exit-code 1 \
-      --ignorefile phase-3-helm/app/backend/.trivyignore \
+      --ignore-unfixed \
       ${{ env.REGISTRY }}/backend:${{ github.sha }}
 ```
+
+`--ignore-unfixed` skips CVEs that have no upstream fix available — these cannot be resolved by updating packages. The scan only fails CI when a CRITICAL or HIGH CVE *has* a fix, meaning we could and should upgrade.
 
 If the scan finds Critical or High CVEs, the workflow fails and the image is never pushed to Artifact Registry. The broken image can never reach the cluster.
 
