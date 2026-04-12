@@ -1,0 +1,7 @@
+# CVEs with no upstream fix available at time of writing.
+# Reviewed and accepted as low risk for this workload.
+
+# libtinfo6, ncurses-base, ncurses-bin, libncurses6
+# Affects terminal handling libraries — not used by the Flask app at runtime.
+# No fix available in Debian 13 (bookworm) as of 2026-04-12.
+CVE-2025-69720
