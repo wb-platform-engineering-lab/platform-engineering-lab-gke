@@ -11,7 +11,7 @@
 # Prerequisites:
 #   - kubectl configured (gcloud container clusters get-credentials ...)
 #   - helm installed
-#   - For phase 7+: vault-server-key.json in the repo root
+#   - For phase 7: vault-server-key.json in the repo root
 
 set -euo pipefail
 
@@ -207,18 +207,31 @@ case $PHASE in
     install_postgresql_redis
     install_argocd
     install_observability
-    install_cert_manager
-    install_vault
+
+    echo ""
+    echo "[phase 8] Configuring backend — disabling Vault injection, setting env vars directly..."
+    # Disable Vault agent injection (no Vault server in phase 8)
+    kubectl patch deployment coverline-backend --type=json \
+      -p='[{"op":"add","path":"/spec/template/metadata/annotations/vault.hashicorp.com~1agent-inject","value":"false"}]'
+    # Inject DB and Redis env vars directly
+    kubectl set env deployment/coverline-backend \
+      DB_HOST=postgresql \
+      DB_NAME=coverline \
+      DB_USER=coverline \
+      DB_PASSWORD=coverline123 \
+      REDIS_HOST=redis-master
+    kubectl rollout status deployment/coverline-backend --timeout=3m
+
     echo ""
     echo "[phase 8] HPA, PDB and Cluster Autoscaler require no additional installs."
     echo "  Apply manifests manually:"
     echo "    kubectl apply -f phase-8-advanced-k8s/hpa.yaml"
     echo "    kubectl apply -f phase-8-advanced-k8s/pdb.yaml"
-    echo "  Verify metrics-server (required for HPA):"
-    echo "    kubectl get deployment metrics-server -n kube-system"
+    echo "  Verify metrics API (required for HPA):"
+    echo "    kubectl get apiservice v1beta1.metrics.k8s.io"
     echo "  Run load test:"
     echo "    brew install k6  # if not already installed"
-    echo "    kubectl port-forward svc/coverline 5000:5000 &"
+    echo "    kubectl port-forward svc/coverline-backend 5000:5000 &"
     echo "    k6 run phase-8-advanced-k8s/load-test.js"
     echo ""
     echo "Phase 8 — done."

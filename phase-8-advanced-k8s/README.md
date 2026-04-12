@@ -45,12 +45,28 @@ gcloud container clusters get-credentials platform-eng-lab-will-gke \
 bash bootstrap.sh --phase 8
 ```
 
-Verify metrics-server is running (required for HPA):
+The bootstrap script installs PostgreSQL, Redis, ArgoCD, and the observability stack. It also patches the backend deployment to disable Vault injection and sets DB/Redis env vars directly — Vault is not used in this phase.
+
+Verify the metrics API is available (required for HPA):
 ```bash
-kubectl get deployment metrics-server -n kube-system
+kubectl get apiservice v1beta1.metrics.k8s.io
+kubectl top pods
 ```
 
-> **Note:** GKE includes metrics-server by default. If `kubectl top pods` returns an error, wait 2 minutes after cluster creation.
+> **Note:** GKE exposes metrics through the aggregated API (`v1beta1.metrics.k8s.io`), not a standalone metrics-server deployment. If `kubectl top pods` returns an error, wait 2 minutes after cluster creation.
+
+---
+
+## Screenshots
+
+### HPA scaling events
+![HPA Scaling](screenshots/hpa-scaling.png)
+
+### Cluster state — HPA, PDB, and nodes after load test
+![Cluster State](screenshots/cluster-state.png)
+
+### k6 load test results
+![k6 Results](screenshots/k6-results.png)
 
 ---
 
@@ -201,7 +217,7 @@ brew install k6
 ### Run the load test
 
 ```bash
-kubectl port-forward svc/coverline 5000:5000 &
+kubectl port-forward svc/coverline-backend 5000:5000 &
 k6 run phase-8-advanced-k8s/load-test.js
 ```
 
