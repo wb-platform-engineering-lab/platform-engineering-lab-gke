@@ -34,7 +34,10 @@ jobs:
           workload_identity_provider: projects/253419630104/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: github-ci@platform-eng-lab-will.iam.gserviceaccount.com
 
+      # Phase 7 only — retrieve secrets from Vault via JWT auth (no static secrets in CI).
+      # Skip this step when Vault is not running (phases 8, 10).
       - name: Authenticate to Vault and retrieve secrets
+        if: ${{ vars.VAULT_ENABLED == 'true' }}
         uses: hashicorp/vault-action@v3
         with:
           url: ${{ env.VAULT_ADDR }}

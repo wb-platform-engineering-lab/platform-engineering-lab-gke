@@ -35,13 +35,15 @@
 
 ## Prerequisites
 
-Cluster running with Phase 5 (ArgoCD + CoverLine apps deployed):
+Cluster running with bootstrap:
 ```bash
 cd phase-1-terraform && terraform apply
 gcloud container clusters get-credentials platform-eng-lab-will-gke \
   --region us-central1 --project platform-eng-lab-will
-bash bootstrap.sh --phase 5
+bash bootstrap.sh --phase 10
 ```
+
+The bootstrap installs PostgreSQL, Redis, ArgoCD, and the observability stack. It also removes any lingering Vault webhook, disables Vault injection on the backend deployment, and sets DB/Redis env vars directly.
 
 Verify the apps are running:
 ```bash
@@ -146,6 +148,20 @@ kubectl exec -it deploy/coverline-backend -- \
 ### The problem
 
 The claims service runs as `root` inside the container. If the app is exploited (e.g. via a deserialization vulnerability), the attacker immediately has root access inside the pod — and potentially the node.
+
+### Build the updated image first
+
+The security context sets `runAsUser: 1000`. The original Dockerfile installed Python packages with `pip install --user` into `/root/.local` — a directory that uid=1000 cannot access (mode 700). The updated Dockerfile installs packages system-wide and creates the `appuser` (uid=1000) explicitly.
+
+Trigger a CI build by pushing any change to a feature branch. CI builds and pushes the new image automatically. Once the CD pipeline runs and updates `values.yaml` with the new image tag, you're ready to apply the security context.
+
+Alternatively, build and push manually:
+```bash
+docker build --platform linux/amd64 -t us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:secure \
+  phase-3-helm/app/backend/
+docker push us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:secure
+kubectl set image deployment/coverline-backend backend=us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:secure
+```
 
 ### Apply security context to the backend Helm chart
 

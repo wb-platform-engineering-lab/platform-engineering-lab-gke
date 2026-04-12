@@ -2,6 +2,14 @@
 # Usage:
 #   helm upgrade coverline phase-3-helm/charts/backend/ \
 #     -f phase-10-security/security-context-values.yaml
+#
+# IMPORTANT: requires the updated Docker image (non-root user, system-wide pip install).
+# Build it by pushing a change to a feature branch to trigger CI, then update
+# image.tag in values.yaml before running this upgrade.
+
+# Disable Vault agent injection — no Vault server in phase 10
+vault:
+  enabled: false
 
 podSecurityContext:
   runAsNonRoot: true

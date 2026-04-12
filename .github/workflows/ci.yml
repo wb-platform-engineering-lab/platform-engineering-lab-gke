@@ -44,6 +44,15 @@ jobs:
             ${{ env.REGISTRY }}/backend:${{ github.sha }}
             ${{ env.REGISTRY }}/backend:dev
 
+      - name: Scan backend image for CVEs
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/backend:${{ github.sha }}
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+          cache-dir: .trivy-cache
+
       - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:

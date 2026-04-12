@@ -236,8 +236,42 @@ case $PHASE in
     echo ""
     echo "Phase 8 — done."
     ;;
+  10)
+    install_postgresql_redis
+    install_argocd
+    install_observability
+
+    echo ""
+    echo "[phase 10] Configuring backend — disabling Vault injection, setting env vars directly..."
+    # Remove lingering Vault webhook if present (installed in a previous phase 7 run)
+    kubectl delete mutatingwebhookconfiguration vault-agent-injector-cfg 2>/dev/null || true
+    # Disable Vault agent injection (no Vault server in phase 10)
+    kubectl patch deployment coverline-backend --type=json \
+      -p='[{"op":"add","path":"/spec/template/metadata/annotations/vault.hashicorp.com~1agent-inject","value":"false"}]'
+    # Inject DB and Redis env vars directly
+    kubectl set env deployment/coverline-backend \
+      DB_HOST=postgresql \
+      DB_NAME=coverline \
+      DB_USER=coverline \
+      DB_PASSWORD=coverline123 \
+      REDIS_HOST=redis-master
+    kubectl rollout status deployment/coverline-backend --timeout=3m
+
+    echo ""
+    echo "[phase 10] Apply security manifests manually:"
+    echo "    kubectl apply -f phase-10-security/rbac.yaml"
+    echo "    kubectl apply -f phase-10-security/network-policies.yaml"
+    echo ""
+    echo "[phase 10] Pod security (Step 3) requires the updated Docker image."
+    echo "  Build it first by pushing a change to a feature branch (triggers CI)."
+    echo "  Then apply:"
+    echo "    helm upgrade coverline phase-3-helm/charts/backend/ \\"
+    echo "      -f phase-10-security/security-context-values.yaml"
+    echo ""
+    echo "Phase 10 — done."
+    ;;
   *)
-    echo "Unknown phase: $PHASE. Supported: 3, 4, 5, 5b, 6, 7, 8"
+    echo "Unknown phase: $PHASE. Supported: 3, 4, 5, 5b, 6, 7, 8, 10"
     exit 1
     ;;
 esac
