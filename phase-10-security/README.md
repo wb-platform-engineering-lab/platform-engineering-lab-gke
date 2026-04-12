@@ -224,13 +224,17 @@ trivy image \
 The scan runs automatically in GitHub Actions after the image is built. Check `.github/workflows/ci.yml` for the Trivy step:
 
 ```yaml
-- name: Scan image for CVEs
-  uses: aquasecurity/trivy-action@master
-  with:
-    image-ref: ${{ env.REGISTRY }}/backend:${{ github.sha }}
-    format: table
-    exit-code: 1
-    severity: CRITICAL,HIGH
+- name: Install Trivy
+  run: |
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+- name: Scan backend image for CVEs
+  run: |
+    trivy image \
+      --severity CRITICAL,HIGH \
+      --exit-code 1 \
+      --ignorefile phase-3-helm/app/backend/.trivyignore \
+      ${{ env.REGISTRY }}/backend:${{ github.sha }}
 ```
 
 If the scan finds Critical or High CVEs, the workflow fails and the image is never pushed to Artifact Registry. The broken image can never reach the cluster.
