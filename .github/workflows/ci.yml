@@ -73,3 +73,4 @@ jobs:
           echo "- **SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Backend:** \`${{ env.REGISTRY }}/backend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Frontend:** \`${{ env.REGISTRY }}/frontend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+
