@@ -149,13 +149,44 @@ kubectl exec -it deploy/coverline-backend -- \
 
 The claims service runs as `root` inside the container. If the app is exploited (e.g. via a deserialization vulnerability), the attacker immediately has root access inside the pod — and potentially the node.
 
-### Build the updated image first
+### Issue 1: The Dockerfile must be updated before applying the security context
 
-The security context sets `runAsUser: 1000`. The original Dockerfile installed Python packages with `pip install --user` into `/root/.local` — a directory that uid=1000 cannot access (mode 700). The updated Dockerfile installs packages system-wide and creates the `appuser` (uid=1000) explicitly.
+The security context sets `runAsUser: 1000`. If you apply it against the original image, the app crashes immediately:
 
-Trigger a CI build by pushing any change to a feature branch. CI builds and pushes the new image automatically. Once the CD pipeline runs and updates `values.yaml` with the new image tag, you're ready to apply the security context.
+```
+ModuleNotFoundError: No module named 'psycopg2'
+```
 
-Alternatively, build and push manually:
+**Why:** The original Dockerfile used `pip install --user`, which installs packages into `/root/.local`. The `/root` directory has mode `700` — readable only by root. When the container runs as uid=1000, Python cannot access the packages at all, even if `PYTHONPATH` is set to point there.
+
+**Fix:** Rewrite the Dockerfile to use a multi-stage build that installs packages system-wide (into `/usr/local/lib/python3.12/site-packages`), and explicitly creates a non-root user:
+
+```dockerfile
+FROM python:3.12-slim AS builder
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+FROM python:3.12-slim
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+RUN groupadd -g 1000 appuser && useradd -u 1000 -g appuser -s /sbin/nologin -M appuser
+WORKDIR /app
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin/flask /usr/local/bin/flask
+COPY app.py .
+RUN chown appuser:appuser /app
+ENV PYTHONDONTWRITEBYTECODE=1
+USER appuser
+EXPOSE 5000
+CMD ["python", "app.py"]
+```
+
+Key points:
+- The builder stage installs packages as root into `/usr/local/lib` (system-wide)
+- Only the relevant site-packages and the flask binary are copied into the final image — not `/root/.local`
+- `PYTHONDONTWRITEBYTECODE=1` prevents Python from writing `.pyc` files, which would fail with a read-only root filesystem
+
+Trigger a CI build by pushing any change to a feature branch, or build manually:
 ```bash
 docker build --platform linux/amd64 -t us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:secure \
   phase-3-helm/app/backend/
@@ -163,7 +194,26 @@ docker push us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:s
 kubectl set image deployment/coverline-backend backend=us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:secure
 ```
 
+### Issue 2: Disable the Vault webhook before applying the security context
+
+If Phase 7 (Vault) was previously run, the Vault MutatingWebhookConfiguration may still be registered in the cluster. When Helm applies the security context, it recreates pods — and the webhook intercepts every new pod to inject a Vault sidecar. If Vault is not running, the admission request fails and the pod is never created:
+
+```
+Error creating: admission webhook "vault.hashicorp.com" denied the request
+```
+
+**Fix:** Delete the webhook configuration before upgrading:
+```bash
+kubectl delete mutatingwebhookconfiguration vault-agent-injector-cfg 2>/dev/null || true
+```
+
+The bootstrap script (`bash bootstrap.sh --phase 10`) does this automatically.
+
+Also ensure the Helm values override has `vault.enabled: false` so the chart does not re-add Vault annotations on the next upgrade. This is already set in `security-context-values.yaml`.
+
 ### Apply security context to the backend Helm chart
+
+Once the new image is built and the Vault webhook is removed:
 
 ```bash
 helm upgrade coverline phase-3-helm/charts/backend/ \
@@ -181,13 +231,15 @@ securityContext:
     drop: ["ALL"]
 ```
 
+The Helm chart template (`phase-3-helm/charts/backend/templates/deployment.yaml`) was updated to support these values via `podSecurityContext`, `securityContext`, `extraVolumes`, and `extraVolumeMounts`. Two `emptyDir` volumes are mounted at `/tmp` and `/app/.cache` to give the app writable scratch space without relaxing the read-only root filesystem.
+
 Verify:
 ```bash
 kubectl exec -it deploy/coverline-backend -- id
-# Expected: uid=1000 (not 0)
+# Expected: uid=1000(appuser)
 
 kubectl exec -it deploy/coverline-backend -- touch /test 2>&1
-# Expected: touch: /test: Read-only file system
+# Expected: touch: cannot touch '/test': Read-only file system
 ```
 
 ### Apply Pod Security Standards at the namespace level
@@ -206,7 +258,7 @@ kubectl label namespace default \
 
 ### The problem
 
-The claims service image is built on `python:3.11` which includes packages the app never uses — and some of those packages have known CVEs. Shipping a known-vulnerable image to production is an ISO 27001 finding.
+The claims service image includes OS packages the app never uses — and some have known CVEs. Shipping a known-vulnerable image to production is an ISO 27001 finding.
 
 ### Scan the current image
 
@@ -214,38 +266,67 @@ The claims service image is built on `python:3.11` which includes packages the a
 trivy image \
   us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:latest \
   --severity CRITICAL,HIGH \
+  --ignore-unfixed \
   --exit-code 1
 ```
 
-`--exit-code 1` makes Trivy return a non-zero exit code if any Critical or High CVEs are found — which blocks the CI pipeline if added as a build step.
+`--exit-code 1` makes Trivy return a non-zero exit code if any patchable Critical or High CVEs are found — which blocks the CI pipeline.
+
+### What the initial scan found and how we fixed it
+
+The first scan of the original `python:3.12-slim` image returned **9 HIGH CVEs**. Here is what each group needed:
+
+| Package group | CVEs | Fix |
+|---|---|---|
+| `libexpat1` | HIGH | Fixed by `apt-get upgrade` in the Dockerfile |
+| `libgnutls30`, `libgnutls-openssl27` | HIGH | Fixed by `apt-get upgrade` |
+| `perl-base` | HIGH | Fixed by `apt-get upgrade` |
+| `libsystemd0`, `libudev1` | HIGH — CVE-2026-29111 | No fix available in Debian 13 |
+| `libtinfo6`, `ncurses-*` | HIGH — CVE-2025-69720 | No fix available in Debian 13 |
+
+**Fix for the patchable CVEs:** Add `apt-get upgrade` to the Dockerfile runtime stage. This pulls in all available OS security patches at build time, resolving the 7 CVEs that had fixes:
+
+```dockerfile
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+```
+
+**Fix for the no-fix CVEs:** The remaining 2 CVEs (`CVE-2026-29111` for systemd IPC, `CVE-2025-69720` for ncurses terminal handling) have no upstream fix in Debian 13. These packages are included in the base image but are never used by the Flask app at runtime.
+
+Rather than maintaining a manual ignore list, use `--ignore-unfixed` in the Trivy command. This flag tells Trivy to skip any CVE that has no available fix — the only kind we could realistically act on. The scan then only fails CI for CVEs we *can* patch.
 
 ### Add scanning to the CI pipeline
 
-The scan runs automatically in GitHub Actions after the image is built. Check `.github/workflows/ci.yml` for the Trivy step:
+The scan runs automatically in GitHub Actions after the image is built. Check `.github/workflows/ci.yml` for the Trivy steps:
 
 ```yaml
-- name: Scan image for CVEs
-  uses: aquasecurity/trivy-action@master
-  with:
-    image-ref: ${{ env.REGISTRY }}/backend:${{ github.sha }}
-    format: table
-    exit-code: 1
-    severity: CRITICAL,HIGH
+- name: Install Trivy
+  run: |
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+- name: Scan backend image for CVEs
+  run: |
+    trivy image \
+      --severity CRITICAL,HIGH \
+      --exit-code 1 \
+      --ignore-unfixed \
+      ${{ env.REGISTRY }}/backend:${{ github.sha }}
 ```
 
-If the scan finds Critical or High CVEs, the workflow fails and the image is never pushed to Artifact Registry. The broken image can never reach the cluster.
+> **Why not use the `aquasecurity/trivy-action`?** The official GitHub Action does not reliably pass the ignore file path when scanning images from private registries using credential helpers (as GCP Artifact Registry requires). Running Trivy directly as a shell command gives identical behavior to a local scan and avoids the authentication complexity.
 
-### Scan the base image and find a safer alternative
+If the scan finds a patchable Critical or High CVE, the workflow fails — the image is never tagged `:latest` and can never reach the cluster via ArgoCD.
+
+### Choosing the right base image
 
 ```bash
-# Scan the current base image
-trivy image python:3.11 --severity CRITICAL,HIGH | head -30
+# python:3.12 (full) — large attack surface, many packages
+trivy image python:3.12 --severity CRITICAL,HIGH | head -30
 
-# Scan the slim variant — significantly smaller attack surface
-trivy image python:3.11-slim --severity CRITICAL,HIGH | head -30
+# python:3.12-slim — fewer packages, much smaller CVE surface
+trivy image python:3.12-slim --severity CRITICAL,HIGH | head -30
 ```
 
-The `slim` variant removes build tools, compilers, and most system packages — reducing the CVE surface substantially.
+The `slim` variant removes build tools, compilers, and most system packages. Combined with `apt-get upgrade` at build time, it reduces the patchable CVE count to zero.
 
 ---
 
@@ -336,6 +417,40 @@ Take screenshots for the README:
 
 ## Troubleshooting
 
+### Pod crashes with `ModuleNotFoundError` after applying security context
+
+**Cause:** The image was built with `pip install --user`, which installs packages into `/root/.local`. The `/root` directory has mode `700` — inaccessible to any user other than root. When `runAsUser: 1000` is enforced, Python cannot find the packages.
+
+**Fix:** Rebuild the image using a multi-stage Dockerfile that installs packages system-wide (`pip install --no-cache-dir` without `--user`). See the updated `phase-3-helm/app/backend/Dockerfile`. Verify the fix by checking where packages land:
+```bash
+# Should show /usr/local/lib/python3.12/site-packages — not /root/.local
+docker run --rm <image> python -c "import psycopg2; print(psycopg2.__file__)"
+```
+
+### Pod stuck at `Init:0/1` or admission webhook error after helm upgrade
+
+**Cause:** The Vault MutatingWebhookConfiguration from Phase 7 is still registered. Every new pod creation is intercepted by the Vault webhook, which tries to inject a sidecar. If Vault is not running, the admission request fails and the pod is never created.
+
+```
+Error creating: admission webhook "vault.hashicorp.com" denied the request
+```
+
+**Fix:**
+```bash
+kubectl delete mutatingwebhookconfiguration vault-agent-injector-cfg 2>/dev/null || true
+```
+
+Also ensure `security-context-values.yaml` sets `vault.enabled: false` so the Helm chart does not re-add Vault annotations on the next upgrade.
+
+### Trivy scan fails in CI but passes locally
+
+**Cause:** The exit code behavior differs depending on which flags are passed. Running trivy locally without `--exit-code 1` always exits 0 regardless of findings. In CI, `--exit-code 1` causes a non-zero exit when unfixed CVEs are present — unless `--ignore-unfixed` is also set.
+
+**Fix:** Always use `--ignore-unfixed` together with `--exit-code 1`. This ensures CI only fails for CVEs that actually have a patch available:
+```bash
+trivy image --severity CRITICAL,HIGH --exit-code 1 --ignore-unfixed <image>
+```
+
 ### NetworkPolicy blocked a service that should be allowed
 
 **Cause:** Missing allow rule — NetworkPolicies are additive, a missing rule means deny.
@@ -359,19 +474,6 @@ kubectl describe pod <pod-name> | grep -A5 "Warning\|Error"
 ```
 
 Common fixes: set `runAsNonRoot: true`, `allowPrivilegeEscalation: false`, drop all capabilities.
-
-### Trivy scan times out in CI
-
-**Cause:** Pulling a large image over the network in GitHub Actions.
-
-**Fix:** Cache the Trivy vulnerability database between runs:
-```yaml
-- uses: actions/cache@v3
-  with:
-    path: ~/.cache/trivy
-    key: trivy-${{ github.run_id }}
-    restore-keys: trivy-
-```
 
 ### `kubectl auth can-i` returns unexpected results
 
