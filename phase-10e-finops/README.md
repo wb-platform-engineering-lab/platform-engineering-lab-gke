@@ -72,13 +72,16 @@ The key flags here disable the bundled Prometheus and direct Kubecost at the `ku
 
 ```bash
 helm install kubecost kubecost/cost-analyzer \
+  --version 2.8.5 \
   --namespace kubecost \
+  --create-namespace \
+  --set global.clusterId="platform-eng-lab-will-gke" \
   --set kubecostToken="" \
   --set prometheus.enabled=false \
   --set prometheus.fqdn="http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090" \
   --set grafana.enabled=false \
-  --set persistentVolume.enabled=true \
-  --set persistentVolume.size=10Gi
+  --set persistentVolume.enabled=false \
+  --set prometheus.server.persistentVolume.enabled=false
 ```
 
 ### Verify the pods are running
