@@ -86,7 +86,7 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 10b | CKS Exam Preparation + **CKS** | 1,000,000 | 5–7 days + 4–6 wks cert | ⬜ Not started |
 | 10c | Backup & Disaster Recovery (Velero, pg_dump, DR runbook) | 1,000,000 | 3–4 days | ⬜ Not started |
 | 10d | Chaos Engineering (LitmusChaos) | 1,000,000 | 3–4 days | ⬜ Not started |
-| 10e | FinOps & Cost Visibility (Kubecost) | 1,000,000 | 2–3 days | ⬜ Not started |
+| 10e | FinOps & Cost Visibility (Kubecost) | 1,000,000 | 2–3 days | ✅ Complete |
 | 11 | Capstone Project (+ Backstage IDP) | 2,000,000+ | 7–10 days | ⬜ Not started |
 | 12 | GenAI & Agentic Workflows (Claude API, Airflow + LLM) | 3,000,000+ | 4–6 days | ⬜ Not started |
 | | **Total lab work** | | **~80–107 days** | |
