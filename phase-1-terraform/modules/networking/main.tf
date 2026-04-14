@@ -1,11 +1,11 @@
 resource "google_compute_network" "vpc" {
-  name                    = "${var.project_id}-vpc"
+  name                    = var.vpc_name
   auto_create_subnetworks = false
 }
 
 resource "google_compute_subnetwork" "private" {
-  name          = "${var.project_id}-private-subnet"
-  ip_cidr_range = "10.0.0.0/20"
+  name          = var.subnetwork_name
+  ip_cidr_range = var.subnetwork_cidr
   region        = var.region
   network       = google_compute_network.vpc.id
 
@@ -13,17 +13,17 @@ resource "google_compute_subnetwork" "private" {
 
   secondary_ip_range {
     range_name    = "pods"
-    ip_cidr_range = "10.1.0.0/16"
+    ip_cidr_range = var.pods_ip_cidr_range
   }
 
   secondary_ip_range {
     range_name    = "services"
-    ip_cidr_range = "10.2.0.0/20"
+    ip_cidr_range = var.services_ip_cidr_range
   }
 }
 
 resource "google_compute_firewall" "allow_internal" {
-  name    = "${var.project_id}-allow-internal"
+  name    = var.allow_internal_firewall_name
   network = google_compute_network.vpc.name
 
   allow {
@@ -42,13 +42,13 @@ resource "google_compute_firewall" "allow_internal" {
 }
 
 resource "google_compute_router" "router" {
-  name    = "${var.project_id}-router"
+  name    = var.router_name
   region  = var.region
   network = google_compute_network.vpc.id
 }
 
 resource "google_compute_router_nat" "nat" {
-  name                               = "${var.project_id}-nat"
+  name                               = var.nat_name
   router                             = google_compute_router.router.name
   region                             = var.region
   nat_ip_allocate_option             = "AUTO_ONLY"

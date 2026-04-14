@@ -1,0 +1,47 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: coverline-platform
+  namespace: argocd
+spec:
+  generators:
+    - matrix:
+        generators:
+          # Generator 1: one entry per registered cluster
+          - clusters:
+              selector:
+                matchLabels:
+                  argocd.argoproj.io/secret-type: cluster
+              values:
+                env: "{{name}}"  # 'staging' or 'prod' — or 'in-cluster' for dev
+          # Generator 2: one entry per service directory in the Helm charts path
+          - git:
+              repoURL: https://github.com/wb-platform-engineering-lab/platform-engineering-lab-gke.git
+              revision: HEAD
+              directories:
+                - path: phase-3-helm/charts/*
+  template:
+    metadata:
+      name: "coverline-{{path.basename}}-{{values.env}}"
+      labels:
+        environment: "{{values.env}}"
+        service: "{{path.basename}}"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/wb-platform-engineering-lab/platform-engineering-lab-gke.git
+        targetRevision: HEAD
+        path: "{{path}}"
+        helm:
+          valueFiles:
+            - values.yaml
+            - "values-{{values.env}}.yaml"
+      destination:
+        server: "{{server}}"
+        namespace: coverline
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

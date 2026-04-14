@@ -1,5 +1,5 @@
 resource "google_container_cluster" "primary" {
-  name     = "${var.project_id}-gke"
+  name     = var.cluster_name
   location = var.region
 
   network    = var.network
@@ -36,7 +36,7 @@ resource "google_container_cluster" "primary" {
 }
 
 resource "google_container_node_pool" "primary_nodes" {
-  name     = "${var.project_id}-node-pool"
+  name     = "${var.cluster_name}-node-pool"
   location = var.region
   cluster  = google_container_cluster.primary.name
 
@@ -59,8 +59,8 @@ resource "google_container_node_pool" "primary_nodes" {
     }
   }
 
-  autoscaling {
-    min_node_count = 1
-    max_node_count = 5  # increased for Phase 8 load test (open enrollment simulation)
-  }
+autoscaling {
+  min_node_count = var.min_node_count
+  max_node_count = var.max_node_count
+}
 }

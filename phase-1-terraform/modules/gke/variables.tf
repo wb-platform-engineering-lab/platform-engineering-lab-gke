@@ -29,3 +29,23 @@ variable "machine_type" {
   type        = string
   default     = "e2-standard-2"
 }
+
+variable "environment" {
+  description = "Deployment environment: dev, staging, or prod"
+  type        = string
+}
+
+variable "cluster_name" {
+  description = "GKE cluster name"
+  type        = string
+}
+
+variable "min_node_count" {
+  type    = number
+  default = 1
+}
+
+variable "max_node_count" {
+  type    = number
+  default = 3
+}
