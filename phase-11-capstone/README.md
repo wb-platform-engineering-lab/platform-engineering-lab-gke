@@ -1162,6 +1162,230 @@ Click `coverline-backend` and confirm the TechDocs tab renders the Phase 3 READM
 
 ---
 
+## Pipeline Architecture
+
+Five GitHub Actions workflows run in this repository. Each has a distinct trigger and responsibility. This section explains what each one does, when it runs, and how they interact.
+
+---
+
+### Overview — which pipeline runs when
+
+```mermaid
+flowchart TD
+    A([Push to feature branch]) -->|paths: phase-3-helm/app/**| CI
+    A -->|paths: Terraform / Helm / YAML / workflows| LINT
+
+    B([Push to main]) -->|paths: phase-3-helm/app/**| CD
+    B -->|paths: phase-3-helm/app/** + workflows| PP_CI
+
+    C([workflow_dispatch\nimage_sha + target_env]) --> PP_PROMOTE
+
+    D([Schedule: 8 PM UTC daily\nor manual trigger]) --> DESTROY
+
+    CI["☁️ ci.yml\nBuild & Push\n(feature branches)"]
+    LINT["🔍 lint.yml\nTFLint · Hadolint · Yamllint"]
+    CD["📦 cd.yml\nBuild · Push · Update values.yaml"]
+    PP_CI["🚀 platform-pipeline.yml\nBuild · Trivy scan · Push · Deploy dev"]
+    PP_PROMOTE["🔐 platform-pipeline.yml\nPromote to staging / prod\n(manual approval gate)"]
+    DESTROY["💥 auto-destroy.yml\nTerraform destroy\n(cost control)"]
+```
+
+---
+
+### 1 — `lint.yml` — Static analysis on every change
+
+**Trigger:** push to `main` or any pull request touching Terraform, Helm charts, workflows, or YAML files.
+
+```mermaid
+flowchart LR
+    push([Push / PR]) --> TF & HD & YL
+
+    TF["tflint --recursive\nphase-1-terraform/\n\nChecks: unused vars,\nmissing required attrs,\nGoogle provider rules"]
+
+    HD["hadolint\nbackend Dockerfile\nfrontend Dockerfile\n\nChecks: best practices,\nunpinned packages,\nmissing USER instruction"]
+
+    YL["yamllint\n.github/workflows/\nphase-2-kubernetes/\nphase-5-gitops/\n\nChecks: indentation,\nline length, trailing\nspaces, blank lines"]
+
+    TF --> pass(["✅ All jobs must pass\nbefore merging"])
+    HD --> pass
+    YL --> pass
+```
+
+**Config files:**
+- `.tflint.hcl` — Google ruleset plugin, `call_module_type = none`
+- `.hadolint.yaml` — ignores DL3005 and DL3008 (intentional patterns)
+- `.yamllint.yml` — line length 150, allows `on:` as truthy, disables document-start
+
+---
+
+### 2 — `ci.yml` — Build and push on feature branches
+
+**Trigger:** push to any branch except `main`, touching `phase-3-helm/app/**`.
+
+```mermaid
+flowchart LR
+    push([Feature branch push]) --> auth[Authenticate to GCP\nWorkload Identity]
+    auth --> build_b[Build backend image\nlinux/amd64]
+    build_b --> scan_b[Trivy scan — backend\nCRITICAL + HIGH\nexit-code 1\nignore-unfixed]
+    scan_b -->|CVEs found| fail(["❌ Fail — fix before\nmerging to main"])
+    scan_b -->|Clean| build_f[Build frontend image\nlinux/amd64]
+    build_f --> push_r[Push both images\nto Artifact Registry\n:SHA + :dev tags]
+    push_r --> summary[Job summary]
+```
+
+> **Note:** The scan happens after the push in `ci.yml` — images reach the registry even if the scan fails. The `platform-pipeline.yml` (which runs on main) scans before pushing and is the authoritative gate.
+
+---
+
+### 3 — `cd.yml` — Build, push, and update values on main
+
+**Trigger:** push to `main` touching `phase-3-helm/app/**`.
+
+```mermaid
+flowchart LR
+    push([Merge to main]) --> auth[Authenticate to GCP\nWorkload Identity]
+    auth --> vault{VAULT_ENABLED\n== true?}
+    vault -->|Yes| vs[Retrieve secrets\nfrom Vault via JWT auth]
+    vault -->|No| build_b
+    vs --> build_b[Build + push backend\n:SHA + :latest]
+    build_b --> build_f[Build + push frontend\n:SHA + :latest]
+    build_f --> update[Update values.yaml\nimage.tag = SHA\nfor backend + frontend]
+    update --> commit["git commit\n'ci: update image tags to SHA'\ngit push"]
+    commit --> argocd([ArgoCD detects\nvalues.yaml change\n→ syncs cluster])
+```
+
+> `cd.yml` has no Trivy scan — it is the legacy pipeline from Phase 4/5. `platform-pipeline.yml` is the Phase 11 replacement with scan + multi-environment promotion. Both currently coexist; `cd.yml` will be deprecated once the Phase 11 pipeline is the primary delivery path.
+
+---
+
+### 4 — `platform-pipeline.yml` — The Phase 11 promotion pipeline
+
+This is the primary pipeline introduced in the capstone. It covers the full path from code change to production with scan gates and approval controls.
+
+**Trigger:**
+- Push to `main` (or `feature/**`) touching `phase-3-helm/app/**` → runs CI + auto-deploys to dev
+- `workflow_dispatch` with `image_sha` + `target_env` → promotes to staging or prod
+
+```mermaid
+flowchart TD
+    A([Push to main or feature/**]) --> CI
+
+    subgraph CI ["🔨 ci job (every push)"]
+        direction LR
+        c1[Authenticate to GCP] --> c2[Build backend image]
+        c2 --> c3[Trivy scan — backend\nCRITICAL + HIGH\nexit-code 1\nignore-unfixed]
+        c3 -->|CVEs| c_fail(["❌ Pipeline fails\nImage NOT pushed"])
+        c3 -->|Clean| c4[Build frontend image]
+        c4 --> c5[Trivy scan — frontend]
+        c5 -->|CVEs| c_fail
+        c5 -->|Clean| c6[Push both images\nto Artifact Registry\n— main branch only]
+    end
+
+    CI -->|main branch only\nneeds: ci| DEV
+
+    subgraph DEV ["📦 deploy-dev job (main only)"]
+        direction LR
+        d1[Update values-dev.yaml\nimage.tag = SHA] --> d2["git commit + push\n'chore(dev): deploy image SHA'"]
+        d2 --> d3([ArgoCD auto-syncs\ndev cluster\nwithin ~2 min])
+    end
+
+    DEV -.->|"gh workflow run\n-f image_sha=SHA\n-f target_env=stag"| STAG
+
+    subgraph STAG ["🔐 promote job — staging"]
+        direction LR
+        s0["⏸ GitHub pauses here\nRequests approval from\nconfigured reviewer"] --> s1
+        s1[Update values-stag.yaml\nimage.tag = SHA] --> s2["git commit + push\n'chore(stag): promote image SHA'"]
+        s2 --> s3([ArgoCD auto-syncs\nstaging cluster])
+    end
+
+    STAG -.->|"gh workflow run\n-f image_sha=SHA\n-f target_env=prod"| PROD
+
+    subgraph PROD ["🔐🔐 promote job — prod"]
+        direction LR
+        p0["⏸ GitHub pauses here\nRequests approval from\n2 reviewers"] --> p1
+        p1[Update values-prod.yaml\nimage.tag = SHA] --> p2["git commit + push\n'chore(prod): promote image SHA'"]
+        p2 --> p3([ArgoCD auto-syncs\nprod cluster])
+    end
+```
+
+**Approval gates** (GitHub Environments):
+
+| Environment | Required approvers | Branch restriction |
+|---|---|---|
+| `stag` | 1 (tech lead) | `main` only |
+| `prod` | 2 (tech lead + CTO / SRE lead) | `main` only |
+
+The `promote` job is gated by `environment: ${{ inputs.target_env }}`. GitHub pauses the job and sends review requests before executing any steps. The pipeline cannot proceed until the required approvers click **Approve** in the GitHub UI.
+
+**How ArgoCD closes the loop:**
+
+```mermaid
+sequenceDiagram
+    participant GHA as GitHub Actions
+    participant Git as Git (main branch)
+    participant ArgoCD
+    participant Cluster as GKE Cluster
+
+    GHA->>Git: commit values-dev.yaml (image.tag = abc1234)
+    ArgoCD->>Git: polls every 3 min — detects drift
+    ArgoCD->>Cluster: kubectl apply Helm chart with new tag
+    Cluster->>Cluster: rolling update — new pods come up
+    ArgoCD->>ArgoCD: marks Application as Synced + Healthy
+```
+
+---
+
+### 5 — `auto-destroy.yml` — Nightly cost control
+
+**Trigger:** cron `0 20 * * *` (8 PM UTC daily) or manual `workflow_dispatch` with confirmation input.
+
+```mermaid
+flowchart LR
+    cron([8 PM UTC / manual]) --> check_flag{AUTO_DESTROY_ENABLED\n== false?}
+    check_flag -->|Yes| skip([Skip — do nothing])
+    check_flag -->|No| manual_check{Manual trigger?\nConfirm == DESTROY?}
+    manual_check -->|No match| abort(["❌ Abort"])
+    manual_check -->|Match / scheduled| init[terraform init]
+    init --> state[Count resources\nin Terraform state]
+    state --> destroy_check{resources > 0?}
+    destroy_check -->|Yes| destroy[terraform destroy\n-auto-approve]
+    destroy_check -->|No| noop([Nothing to destroy])
+    destroy --> summary[Write job summary]
+```
+
+**Safety controls:**
+- Set repository variable `AUTO_DESTROY_ENABLED = false` to pause nightly destruction (e.g. during a demo day)
+- Manual runs require typing `DESTROY` in the confirmation input — prevents accidental triggers from the GitHub UI
+
+---
+
+### Pipeline interaction summary
+
+```
+Code change
+    │
+    ├─► lint.yml         — static analysis, blocks bad Terraform / Dockerfiles / YAML
+    │
+    ├─► ci.yml           — feature branch: build + Trivy gate (scan after push*)
+    │
+    └─► platform-pipeline.yml
+            │
+            ├─► ci job   — build + Trivy gate (scan before push ✓) + push on main
+            │
+            ├─► deploy-dev  — auto: updates values-dev.yaml → ArgoCD syncs dev
+            │
+            ├─► promote stag  — manual (1 approver): updates values-stag.yaml → ArgoCD syncs staging
+            │
+            └─► promote prod  — manual (2 approvers): updates values-prod.yaml → ArgoCD syncs prod
+
+Nightly
+    └─► auto-destroy.yml — terraform destroy to eliminate idle GCP costs
+```
+
+*`ci.yml` pushes before scanning — this is a known gap. `platform-pipeline.yml` is the authoritative delivery pipeline and scans before pushing.
+
+---
+
 ## Troubleshooting
 
 ### ArgoCD ApplicationSet not generating Applications
