@@ -1,0 +1,7 @@
+ignore:
+  # apt-get upgrade is intentional in the runtime stage — keeps OS packages
+  # patched at image build time without pinning to a specific base image digest.
+  - DL3005
+  # Builder stage installs tool packages (gcc, libpq-dev) where version pinning
+  # adds no reproducibility benefit since we pin the Python package versions.
+  - DL3008
