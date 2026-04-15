@@ -1,5 +1,5 @@
 const express = require("express");
-const fetch = require("node-fetch");
+// Built-in fetch is available globally in Node 18+ — no package needed.
 
 const app = express();
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:5000";
