@@ -1,15 +1,7 @@
-replicaCount: 2
+replicaCount: 3
 
 image:
-  repository: us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/frontend
-  tag: "b677aa685dc8df38d7a8e3346ae87c320705b4b9"
-  pullPolicy: IfNotPresent
-
-service:
-  type: ClusterIP
-  port: 3000
-
-backendUrl: "http://coverline-backend:5000"
+  tag: ""  # Updated by platform-pipeline promote job
 
 resources:
   requests:

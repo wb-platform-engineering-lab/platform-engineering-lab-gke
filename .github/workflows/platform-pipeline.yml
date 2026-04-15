@@ -5,17 +5,20 @@ on:
     branches:
       - main
       - "feature/**"
+    paths:
+      - "phase-3-helm/app/**"
+      - ".github/workflows/platform-pipeline.yml"
   workflow_dispatch:
     inputs:
       image_sha:
         description: "Image SHA to promote (e.g. abc1234)"
         required: true
       target_env:
-        description: "Target environment: staging or prod"
+        description: "Target environment"
         required: true
         type: choice
         options:
-          - staging
+          - stag
           - prod
 
 env:
@@ -24,7 +27,7 @@ env:
   REGION: us-central1
 
 jobs:
-  # ── CI: runs on every push to any branch ─────────────────────────────────
+  # ── CI: runs on every push ────────────────────────────────────────────────
   ci:
     name: Build and Scan
     runs-on: ubuntu-latest
@@ -40,8 +43,8 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          workload_identity_provider: projects/253419630104/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-ci@platform-eng-lab-will.iam.gserviceaccount.com
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
@@ -56,10 +59,13 @@ jobs:
             -t ${{ env.REGISTRY }}/backend:${{ steps.meta.outputs.sha }} \
             phase-3-helm/app/backend/
 
-      - name: Scan backend image for CVEs
+      - name: Install Trivy
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
             | sh -s -- -b /usr/local/bin
+
+      - name: Scan backend image for CVEs
+        run: |
           trivy image \
             --severity CRITICAL,HIGH \
             --exit-code 1 \
@@ -101,30 +107,35 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
       - name: Update dev image tag
         run: |
           SHA=${{ needs.ci.outputs.image_sha }}
-          # Patch the image tag in each chart's dev values file
           for chart in backend frontend; do
-            VALUES="phase-3-helm/charts/${chart}/values-dev.yaml"
-            # Use yq to update the tag field
-            yq eval ".image.tag = \"${SHA}\"" -i "$VALUES"
+            yq eval ".image.tag = \"${SHA}\"" -i \
+              "phase-3-helm/charts/${chart}/values-dev.yaml"
           done
 
-      - name: Commit and push values change
+      - name: Commit and push
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add phase-3-helm/charts/*/values-dev.yaml
-          git commit -m "chore(dev): deploy image sha ${{ needs.ci.outputs.image_sha }}"
+          git diff --cached --quiet || \
+            git commit -m "chore(dev): deploy image ${{ needs.ci.outputs.image_sha }}"
           git push
 
-  # ── Manual promotion: staging or prod ────────────────────────────────────
+  # ── Manual promotion: stag or prod ───────────────────────────────────────
   promote:
     name: Promote to ${{ github.event.inputs.target_env }}
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
-    environment: ${{ github.event.inputs.target_env }}  # triggers protection rules
+    environment: ${{ github.event.inputs.target_env }}
     permissions:
       contents: write
       id-token: write
@@ -134,20 +145,27 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
       - name: Update ${{ github.event.inputs.target_env }} image tag
         run: |
           SHA=${{ github.event.inputs.image_sha }}
           ENV=${{ github.event.inputs.target_env }}
           for chart in backend frontend; do
-            VALUES="phase-3-helm/charts/${chart}/values-${ENV}.yaml"
-            yq eval ".image.tag = \"${SHA}\"" -i "$VALUES"
+            yq eval ".image.tag = \"${SHA}\"" -i \
+              "phase-3-helm/charts/${chart}/values-${ENV}.yaml"
           done
 
-      - name: Commit and push values change
+      - name: Commit and push
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           ENV=${{ github.event.inputs.target_env }}
           git add phase-3-helm/charts/*/values-${ENV}.yaml
-          git commit -m "chore(${ENV}): promote image sha ${{ github.event.inputs.image_sha }}"
+          git diff --cached --quiet || \
+            git commit -m "chore(${ENV}): promote image ${{ github.event.inputs.image_sha }}"
           git push

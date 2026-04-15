@@ -1,0 +1,7 @@
+replicaCount: 1
+
+image:
+  tag: ""  # Updated automatically by platform-pipeline deploy-dev job
+
+vault:
+  enabled: false
