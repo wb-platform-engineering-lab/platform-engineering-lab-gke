@@ -5,6 +5,10 @@ resource "google_container_cluster" "primary" {
   network    = var.network
   subnetwork = var.subnetwork
 
+  resource_labels = {
+    environment = var.environment
+  }
+
   # Remove the default node pool — we manage our own
   remove_default_node_pool = true
   initial_node_count       = 1
