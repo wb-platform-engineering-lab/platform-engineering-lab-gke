@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/frontend
-  tag: "8c7796224458ef8d6f3a4d9f150aa31f47d7e9ec"
+  tag: "3dbd00bce263d8ebe89196e190daa4de0e8b28dd"
   pullPolicy: IfNotPresent
 
 service:
