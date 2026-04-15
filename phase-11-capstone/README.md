@@ -20,7 +20,7 @@
 
 | Component | What it does |
 |-----------|-------------|
-| **Multi-environment Terraform** | `dev` / `staging` / `prod` workspaces from one configuration — environment-specific values via var files |
+| **Multi-environment Terraform** | `dev` / `staging` / `prod` as separate environment directories sharing common modules — isolated state per environment in GCS |
 | **ArgoCD ApplicationSets** | One manifest that automatically creates one ArgoCD Application per service per environment from Git |
 | **Full GitOps promotion pipeline** | Feature branch → CI (build + Trivy scan) → dev auto-deploy → staging manual gate → prod with second approver |
 | **Backstage IDP** | Internal Developer Portal — service catalog, self-service scaffolding, and TechDocs pulled from this repo |
@@ -33,13 +33,14 @@
 
 Phases 1 through 10 must be complete. The capstone layer sits on top of everything built so far — it does not replace any of it.
 
-Start with a clean cluster before running the capstone bootstrap:
+Start with a clean dev cluster before running the capstone bootstrap:
 
 ```bash
-cd phase-1-terraform && terraform apply -var="environment=dev"
-gcloud container clusters get-credentials platform-eng-lab-will-gke-dev \
+cd phase-1-terraform/envs/dev
+terraform init && terraform apply -var-file=dev.tfvars
+gcloud container clusters get-credentials platform-eng-lab-will-dev-gke \
   --region us-central1 --project platform-eng-lab-will
-bash bootstrap.sh --phase 11
+cd ../../.. && bash bootstrap.sh --phase 11
 ```
 
 Verify everything is running before proceeding:
@@ -63,123 +64,106 @@ npm install -g @backstage/create-app
 
 ### The problem
 
-The Terraform in `phase-1-terraform` was written for a single cluster. To add staging and prod, engineers have been copying the directory and changing values by hand. When a variable changes in dev it is easy to forget to apply it in the other two environments. State files live locally. There is no audit trail of who changed infrastructure and when.
+The Terraform in `phase-1-terraform` was written for a single cluster. Adding staging and prod by copying the directory and changing values by hand creates drift — a variable update in one environment is easy to miss in the others. State files living locally means no audit trail of who changed infrastructure and when.
 
-### Refactor to Terraform workspaces
+### Approach: environment directories with shared modules and GCS remote state
 
-The cleanest approach for this lab is Terraform workspaces backed by a shared GCS bucket for state, with per-environment var files for overrides.
+Rather than Terraform workspaces (which share the same root module with a workspace-scoped state), we use **separate directories per environment** under `phase-1-terraform/envs/`. Each directory has its own `backend.tf` pointing to a shared GCS bucket with a different prefix, its own `*.tfvars`, and calls the same shared modules in `phase-1-terraform/modules/`.
 
-First, create the state bucket (one-time):
+This gives stronger isolation — a `terraform apply` in `envs/dev/` cannot accidentally affect staging state — and makes it easy to diff environments by comparing their var files.
 
-```bash
-gsutil mb -p platform-eng-lab-will -l us-central1 gs://platform-eng-lab-will-tf-state
-gsutil versioning set on gs://platform-eng-lab-will-tf-state
+**Directory structure:**
+
+```
+phase-1-terraform/
+├── modules/
+│   ├── gke/
+│   ├── networking/
+│   └── bigquery/
+└── envs/
+    ├── dev/
+    │   ├── backend.tf        # GCS state: bucket=platform-eng-lab-will-tfstate, prefix=dev/terraform/state
+    │   ├── providers.tf
+    │   ├── main.tf           # Module calls with naming_prefix = project_id-environment
+    │   ├── variables.tf
+    │   └── dev.tfvars
+    ├── staging/
+    │   ├── backend.tf        # prefix=staging/terraform/state
+    │   └── staging.tfvars
+    └── prod/
+        ├── backend.tf        # prefix=prod/terraform/state
+        └── prod.tfvars
 ```
 
-Update `phase-1-terraform/main.tf` to use remote state:
+Create the shared state bucket (one-time):
+
+```bash
+gsutil mb -p platform-eng-lab-will -l us-central1 gs://platform-eng-lab-will-tfstate
+gsutil versioning set on gs://platform-eng-lab-will-tfstate
+```
+
+Each environment's `backend.tf` points at a separate prefix in the same bucket:
 
 ```hcl
 terraform {
   backend "gcs" {
-    bucket = "platform-eng-lab-will-tf-state"
-    prefix = "terraform/state"
-  }
-
-  required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
+    bucket = "platform-eng-lab-will-tfstate"
+    prefix = "dev/terraform/state"   # staging/ or prod/ for other environments
   }
 }
 ```
 
-Create a var file for each environment. `phase-1-terraform/envs/dev.tfvars`:
+Each environment's `main.tf` calls the shared modules with a naming prefix that includes the environment, so all resources are namespaced:
 
 ```hcl
-environment    = "dev"
-node_count     = 1
-machine_type   = "e2-standard-2"
-cluster_name   = "platform-eng-lab-will-gke-dev"
-min_node_count = 1
-max_node_count = 3
-```
-
-`phase-1-terraform/envs/staging.tfvars`:
-
-```hcl
-environment    = "staging"
-node_count     = 2
-machine_type   = "e2-standard-4"
-cluster_name   = "platform-eng-lab-will-gke-staging"
-min_node_count = 1
-max_node_count = 5
-```
-
-`phase-1-terraform/envs/prod.tfvars`:
-
-```hcl
-environment    = "prod"
-node_count     = 3
-machine_type   = "e2-standard-4"
-cluster_name   = "platform-eng-lab-will-gke-prod"
-min_node_count = 2
-max_node_count = 10
-```
-
-Add the corresponding variables to `phase-1-terraform/variables.tf`:
-
-```hcl
-variable "environment" {
-  description = "Deployment environment: dev, staging, or prod"
-  type        = string
+locals {
+  naming_prefix = "${var.project_id}-${var.environment}"
 }
 
-variable "node_count" {
-  description = "Initial node count for the node pool"
-  type        = number
-  default     = 1
+module "networking" {
+  source          = "../../modules/networking"
+  vpc_name        = "${local.naming_prefix}-vpc"
+  subnetwork_name = "${local.naming_prefix}-subnet"
+  subnetwork_cidr = var.subnetwork_cidr
+  # ...
 }
 
-variable "machine_type" {
-  description = "GCE machine type for cluster nodes"
-  type        = string
-  default     = "e2-standard-2"
-}
-
-variable "cluster_name" {
-  description = "GKE cluster name"
-  type        = string
-}
-
-variable "min_node_count" {
-  type    = number
-  default = 1
-}
-
-variable "max_node_count" {
-  type    = number
-  default = 3
+module "gke" {
+  source       = "../../modules/gke"
+  cluster_name = "${local.naming_prefix}-gke"
+  environment  = var.environment
+  # ...
 }
 ```
 
-Use the workspace commands to provision each environment independently:
+The var files set environment-specific sizes. Dev is minimal; staging and prod scale up:
+
+| Variable | dev | staging | prod |
+|---|---|---|---|
+| `machine_type` | `e2-medium` | `e2-standard-2` | `e2-medium` |
+| `min_node_count` | 1 | 1 | 1 |
+| `max_node_count` | 1 | 2 | 2 |
+| `subnetwork_cidr` | `10.10.0.0/16` | `10.40.0.0/16` | `10.70.0.0/16` |
+
+Non-overlapping CIDRs are important if you ever peer the VPCs or run a shared VPN.
+
+Provision each environment independently:
 
 ```bash
-# Create and switch to the dev workspace
-terraform -chdir=phase-1-terraform workspace new dev
-terraform -chdir=phase-1-terraform workspace select dev
-terraform -chdir=phase-1-terraform apply -var-file=envs/dev.tfvars
+# Dev
+cd phase-1-terraform/envs/dev
+terraform init
+terraform apply -var-file=dev.tfvars
 
-# Create and switch to staging
-terraform -chdir=phase-1-terraform workspace new staging
-terraform -chdir=phase-1-terraform workspace select staging
-terraform -chdir=phase-1-terraform apply -var-file=envs/staging.tfvars
+# Staging
+cd ../staging
+terraform init
+terraform apply -var-file=staging.tfvars
 
-# Create and switch to prod
-terraform -chdir=phase-1-terraform workspace new prod
-terraform -chdir=phase-1-terraform workspace select prod
-terraform -chdir=phase-1-terraform apply -var-file=envs/prod.tfvars
+# Prod
+cd ../prod
+terraform init
+terraform apply -var-file=prod.tfvars
 ```
 
 Verify all three clusters exist:
@@ -191,23 +175,23 @@ gcloud container clusters list --project=platform-eng-lab-will
 Expected output:
 
 ```
-NAME                              LOCATION     STATUS
-platform-eng-lab-will-gke-dev     us-central1  RUNNING
-platform-eng-lab-will-gke-staging us-central1  RUNNING
-platform-eng-lab-will-gke-prod    us-central1  RUNNING
+NAME                                   LOCATION     STATUS
+platform-eng-lab-will-dev-gke          us-central1  RUNNING
+platform-eng-lab-will-stag-gke         us-central1  RUNNING
+platform-eng-lab-will-prod-gke         us-central1  RUNNING
 ```
 
 Fetch credentials for all three:
 
 ```bash
-for env in dev staging prod; do
-  gcloud container clusters get-credentials "platform-eng-lab-will-gke-${env}" \
+for env in dev stag prod; do
+  gcloud container clusters get-credentials "platform-eng-lab-will-${env}-gke" \
     --region us-central1 \
     --project platform-eng-lab-will
 done
 ```
 
-Verify the kubectl contexts were created:
+Verify the kubectl contexts:
 
 ```bash
 kubectl config get-contexts | grep platform-eng-lab-will
