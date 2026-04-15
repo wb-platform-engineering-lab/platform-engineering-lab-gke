@@ -1,6 +1,7 @@
 FROM python:3.12-slim AS builder
 WORKDIR /app
 # Build deps for psycopg2 (non-binary) — compiles against the system's OpenSSL
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libc-dev libpq-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -9,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 FROM python:3.12-slim
 # Upgrade OS packages to pick up all available security patches
+# hadolint ignore=DL3005
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 # Create non-root user matching securityContext runAsUser: 1000
 RUN groupadd -g 1000 appuser && useradd -u 1000 -g appuser -s /sbin/nologin -M appuser
