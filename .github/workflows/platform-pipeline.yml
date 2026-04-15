@@ -1,0 +1,153 @@
+name: Platform Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+  workflow_dispatch:
+    inputs:
+      image_sha:
+        description: "Image SHA to promote (e.g. abc1234)"
+        required: true
+      target_env:
+        description: "Target environment: staging or prod"
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+
+env:
+  REGISTRY: us-central1-docker.pkg.dev/platform-eng-lab-will/coverline
+  PROJECT: platform-eng-lab-will
+  REGION: us-central1
+
+jobs:
+  # ── CI: runs on every push to any branch ─────────────────────────────────
+  ci:
+    name: Build and Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      image_sha: ${{ steps.meta.outputs.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Set image SHA output
+        id: meta
+        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build backend image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/backend:${{ steps.meta.outputs.sha }} \
+            phase-3-helm/app/backend/
+
+      - name: Scan backend image for CVEs
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin
+          trivy image \
+            --severity CRITICAL,HIGH \
+            --exit-code 1 \
+            --ignore-unfixed \
+            ${{ env.REGISTRY }}/backend:${{ steps.meta.outputs.sha }}
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/frontend:${{ steps.meta.outputs.sha }} \
+            phase-3-helm/app/frontend/
+
+      - name: Scan frontend image for CVEs
+        run: |
+          trivy image \
+            --severity CRITICAL,HIGH \
+            --exit-code 1 \
+            --ignore-unfixed \
+            ${{ env.REGISTRY }}/frontend:${{ steps.meta.outputs.sha }}
+
+      - name: Push images (main branch only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker push ${{ env.REGISTRY }}/backend:${{ steps.meta.outputs.sha }}
+          docker push ${{ env.REGISTRY }}/frontend:${{ steps.meta.outputs.sha }}
+
+  # ── CD: auto-deploys to dev on every merge to main ───────────────────────
+  deploy-dev:
+    name: Deploy to dev
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update dev image tag
+        run: |
+          SHA=${{ needs.ci.outputs.image_sha }}
+          # Patch the image tag in each chart's dev values file
+          for chart in backend frontend; do
+            VALUES="phase-3-helm/charts/${chart}/values-dev.yaml"
+            # Use yq to update the tag field
+            yq eval ".image.tag = \"${SHA}\"" -i "$VALUES"
+          done
+
+      - name: Commit and push values change
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add phase-3-helm/charts/*/values-dev.yaml
+          git commit -m "chore(dev): deploy image sha ${{ needs.ci.outputs.image_sha }}"
+          git push
+
+  # ── Manual promotion: staging or prod ────────────────────────────────────
+  promote:
+    name: Promote to ${{ github.event.inputs.target_env }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment: ${{ github.event.inputs.target_env }}  # triggers protection rules
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update ${{ github.event.inputs.target_env }} image tag
+        run: |
+          SHA=${{ github.event.inputs.image_sha }}
+          ENV=${{ github.event.inputs.target_env }}
+          for chart in backend frontend; do
+            VALUES="phase-3-helm/charts/${chart}/values-${ENV}.yaml"
+            yq eval ".image.tag = \"${SHA}\"" -i "$VALUES"
+          done
+
+      - name: Commit and push values change
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          ENV=${{ github.event.inputs.target_env }}
+          git add phase-3-helm/charts/*/values-${ENV}.yaml
+          git commit -m "chore(${ENV}): promote image sha ${{ github.event.inputs.image_sha }}"
+          git push
