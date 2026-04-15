@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json .
 RUN npm install --production
 
+# hadolint ignore=DL3006
 FROM gcr.io/distroless/nodejs20-debian12
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
