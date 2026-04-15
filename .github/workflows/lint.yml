@@ -43,13 +43,13 @@ jobs:
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: phase-3-helm/app/backend/Dockerfile
-          config: .hadolint.yaml
+          ignore: DL3005 DL3008
 
       - name: Run Hadolint on frontend Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: phase-3-helm/app/frontend/Dockerfile
-          config: .hadolint.yaml
+          ignore: DL3005 DL3008
 
   yamllint:
     name: Yamllint — YAML files
