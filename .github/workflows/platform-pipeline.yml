@@ -128,8 +128,11 @@ jobs:
           git add phase-3-helm/charts/*/values-dev.yaml
           git diff --cached --quiet || \
             git commit -m "chore(dev): deploy image ${{ needs.ci.outputs.image_sha }}"
-          git pull --rebase origin main
-          git push
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            echo "Push attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
 
   # ── Manual promotion: stag or prod ───────────────────────────────────────
   promote:
