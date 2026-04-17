@@ -35,6 +35,12 @@ backstage:
       rules:
         - allow: [Component, System, API, Resource, Location]
 
+    # Required by the notifications plugin bundled in the official image
+    notifications:
+      processors: {}
+
+    events: {}
+
   extraEnvVarsSecrets:
     - backstage-github-token
 
