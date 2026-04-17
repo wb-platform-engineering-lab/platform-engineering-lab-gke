@@ -64,6 +64,9 @@ kubeconfig
 vault-token
 .vault-token
 
+# Personal / drafts
+linkedin.md
+
 # OS
 .DS_Store
 Thumbs.db
