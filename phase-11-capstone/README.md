@@ -379,6 +379,44 @@ flowchart LR
     M --> A6["coverline-frontend-prod"]
 ```
 
+In detail — what each generated Application points to:
+
+```mermaid
+flowchart TD
+    subgraph GEN["ApplicationSet generators"]
+        G1["Generator 1 — Clusters\nargocd.argoproj.io/secret-type=cluster\n\ndev-gke   → server: https://dev-endpoint\nstaging-gke → server: https://stag-endpoint\nprod-gke  → server: https://prod-endpoint"]
+        G2["Generator 2 — Git directories\nphase-3-helm/charts/*\n\nphase-3-helm/charts/backend\nphase-3-helm/charts/frontend"]
+    end
+
+    subgraph TMPL["Template (resolved per combination)"]
+        direction LR
+        NAME["name:\ncoverline-{{path.basename}}-{{values.env}}"]
+        SRC["source:\npath: {{path}}\nvalues.yaml\n+ values-{{values.env}}.yaml"]
+        DEST["destination:\nserver: {{server}}\nnamespace: coverline"]
+    end
+
+    subgraph APPS["Generated Applications"]
+        direction TB
+        subgraph DEV["Dev GKE cluster"]
+            D1["coverline-backend-dev\nvalues.yaml + values-dev.yaml"]
+            D2["coverline-frontend-dev\nvalues.yaml + values-dev.yaml"]
+        end
+        subgraph STAG["Staging GKE cluster"]
+            S1["coverline-backend-staging\nvalues.yaml + values-stag.yaml"]
+            S2["coverline-frontend-staging\nvalues.yaml + values-stag.yaml"]
+        end
+        subgraph PROD["Prod GKE cluster"]
+            P1["coverline-backend-prod\nvalues.yaml + values-prod.yaml"]
+            P2["coverline-frontend-prod\nvalues.yaml + values-prod.yaml"]
+        end
+    end
+
+    G1 & G2 --> TMPL
+    TMPL -->|"autoSync\nselfHeal\nprune"| DEV
+    TMPL -->|"autoSync\nselfHeal\nprune"| STAG
+    TMPL -->|"autoSync\nselfHeal\nprune"| PROD
+```
+
 Each Application resolves Helm values in two layers:
 1. `values.yaml` — base config (image, port, replica defaults)
 2. `values-{{env}}.yaml` — environment override (replica count, resource limits, image tag)
