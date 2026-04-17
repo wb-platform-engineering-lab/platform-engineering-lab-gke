@@ -1,0 +1,47 @@
+backstage:
+  image:
+    registry: ghcr.io
+    repository: backstage/backstage
+    tag: latest
+
+  appConfig:
+    app:
+      title: CoverLine Developer Portal
+      baseUrl: http://localhost:7007
+
+    backend:
+      baseUrl: http://localhost:7007
+      listen:
+        port: 7007
+
+    integrations:
+      github:
+        - host: github.com
+          token: ${GITHUB_TOKEN}
+
+    catalog:
+      providers:
+        githubOrg:
+          default:
+            id: production
+            orgUrl: https://github.com/wb-platform-engineering-lab
+            schedule:
+              frequency: { minutes: 30 }
+              timeout: { minutes: 3 }
+      locations:
+        - type: url
+          target: https://github.com/wb-platform-engineering-lab/platform-engineering-lab-gke/blob/main/catalog-info.yaml
+
+      rules:
+        - allow: [Component, System, API, Resource, Location]
+
+  extraEnvVarsSecrets:
+    - backstage-github-token
+
+postgresql:
+  enabled: true
+  auth:
+    password: backstage-local-dev-only
+
+ingress:
+  enabled: false

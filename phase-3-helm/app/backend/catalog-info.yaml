@@ -1,0 +1,29 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: coverline-backend
+  description: CoverLine claims processing API
+  annotations:
+    github.com/project-slug: wb-platform-engineering-lab/platform-engineering-lab-gke
+    backstage.io/techdocs-ref: dir:.
+    prometheus.io/alert: coverline-backend-error-rate
+  tags:
+    - python
+    - flask
+    - api
+    - claims
+  links:
+    - url: https://github.com/wb-platform-engineering-lab/platform-engineering-lab-gke/blob/main/phase-3-helm/app/backend/
+      title: Source Code
+    - url: https://grafana.coverline.internal/d/platform-overview
+      title: Grafana Dashboard
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-team
+  system: coverline-platform
+  providesApis:
+    - coverline-claims-api
+  dependsOn:
+    - resource:default/postgresql
+    - resource:default/redis

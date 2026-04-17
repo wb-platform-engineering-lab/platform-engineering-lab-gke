@@ -1,0 +1,49 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: coverline-platform
+  description: CoverLine's core insurance processing platform
+spec:
+  owner: platform-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: coverline-claims-api
+  description: REST API for submitting and querying health insurance claims
+  annotations:
+    github.com/project-slug: wb-platform-engineering-lab/platform-engineering-lab-gke
+spec:
+  type: openapi
+  lifecycle: production
+  owner: platform-team
+  system: coverline-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: CoverLine Claims API
+      version: 1.0.0
+    paths:
+      /health:
+        get:
+          summary: Health check
+          responses:
+            "200":
+              description: OK
+      /claims:
+        post:
+          summary: Submit a claim
+          responses:
+            "201":
+              description: Claim created
+---
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: coverline-components
+  description: All CoverLine service catalog entries
+spec:
+  targets:
+    - ./phase-3-helm/app/backend/catalog-info.yaml
+    - ./phase-3-helm/app/frontend/catalog-info.yaml
