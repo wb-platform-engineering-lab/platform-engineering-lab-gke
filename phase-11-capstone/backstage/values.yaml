@@ -2,7 +2,7 @@ backstage:
   image:
     registry: ghcr.io
     repository: backstage/backstage
-    tag: latest
+    tag: "1.30.2"
 
   appConfig:
     app:
@@ -20,26 +20,31 @@ backstage:
           token: ${GITHUB_TOKEN}
 
     catalog:
-      providers:
-        githubOrg:
-          default:
-            id: production
-            orgUrl: https://github.com/wb-platform-engineering-lab
-            schedule:
-              frequency: { minutes: 30 }
-              timeout: { minutes: 3 }
       locations:
         - type: url
           target: https://github.com/wb-platform-engineering-lab/platform-engineering-lab-gke/blob/main/catalog-info.yaml
-
       rules:
         - allow: [Component, System, API, Resource, Location]
 
-    # Required by the notifications plugin bundled in the official image
-    notifications:
-      processors: {}
+    techdocs:
+      builder: external
+      generator:
+        runIn: local
+      publisher:
+        type: local
 
-    events: {}
+    kubernetes:
+      serviceLocatorMethod:
+        type: multiTenant
+      clusterLocatorMethods:
+        - type: config
+          clusters:
+            - name: gke-dev
+              url: https://35.222.47.178
+              authProvider: serviceAccount
+              skipTLSVerify: false
+              # caData and serviceAccountToken injected at install time via --set
+              serviceAccountToken: ${K8S_SA_TOKEN}
 
   extraEnvVarsSecrets:
     - backstage-github-token
