@@ -100,3 +100,4 @@ def create_claim():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+# capstone verification Fri Apr 17 16:42:01 CEST 2026
