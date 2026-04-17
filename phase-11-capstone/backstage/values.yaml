@@ -26,6 +26,15 @@ backstage:
       rules:
         - allow: [Component, System, API, Resource, Location]
 
+    auth:
+      environment: development
+      providers:
+        guest:
+          dangerouslyAllowOutsideDevelopment: true
+
+    permission:
+      enabled: false
+
     techdocs:
       builder: external
       generator:
