@@ -1,5 +1,5 @@
 replicaCount: 1
 image:
-  tag: "e15f6c1" # Updated automatically by platform-pipeline deploy-dev job
+  tag: "5a1da0b" # Updated automatically by platform-pipeline deploy-dev job
 vault:
   enabled: false
