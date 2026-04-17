@@ -205,6 +205,48 @@ kubectl config get-contexts | grep platform-eng-lab-will
 
 With three environments and multiple services, the ArgoCD Application manifest approach from Phase 5 no longer scales. Adding a new service means writing four new Application manifests — one per environment plus one for the top-level app-of-apps. Adding a new environment means touching every service. This is the exact kind of manual overhead the capstone exists to eliminate.
 
+**Phase 5 approach — does not scale:**
+
+```mermaid
+flowchart LR
+    subgraph Manifests["Git: ArgoCD Application manifests (Phase 5)"]
+        M1["app-backend-dev.yaml"]
+        M2["app-frontend-dev.yaml"]
+        M3["app-backend-staging.yaml"]
+        M4["app-frontend-staging.yaml"]
+        M5["app-backend-prod.yaml"]
+        M6["app-frontend-prod.yaml"]
+        M7["app-of-apps.yaml"]
+    end
+
+    subgraph Problem["Add a new service (e.g. claims-api)"]
+        N1["app-claims-api-dev.yaml ✏️"]
+        N2["app-claims-api-staging.yaml ✏️"]
+        N3["app-claims-api-prod.yaml ✏️"]
+        N4["app-of-apps.yaml ✏️  (update)"]
+    end
+
+    Manifests --> Problem
+    style Problem fill:#fee2e2,stroke:#ef4444
+```
+
+**Phase 11 approach — one manifest, any number of services or environments:**
+
+```mermaid
+flowchart LR
+    subgraph Single["Git: one manifest"]
+        AS["applicationset.yaml"]
+    end
+
+    subgraph Add["Add a new service (e.g. claims-api)"]
+        DIR["phase-3-helm/charts/claims-api/ ✏️\n(add the Helm chart directory)"]
+        AUTO["ArgoCD auto-generates:\nclaims-api-dev\nclaims-api-staging\nclaims-api-prod"]
+    end
+
+    Single --> DIR --> AUTO
+    style AUTO fill:#dcfce7,stroke:#22c55e
+```
+
 ### Replace per-service Applications with a single ApplicationSet
 
 An ApplicationSet uses a generator to produce one ArgoCD Application per combination of cluster and service. The Git generator reads a directory structure. The cluster generator reads ArgoCD's registered clusters. We will use the Matrix generator to combine both.
@@ -320,6 +362,53 @@ coverline-frontend-staging        Synced        Healthy
 coverline-frontend-prod           Synced        Healthy
 ```
 
+### How the Matrix generator works
+
+```mermaid
+flowchart TD
+    subgraph Git["GitHub Repo (HEAD / main)"]
+        subgraph Charts["phase-3-helm/charts/"]
+            B["backend/\nvalues.yaml\nvalues-dev.yaml\nvalues-stag.yaml\nvalues-prod.yaml"]
+            F["frontend/\nvalues.yaml\nvalues-dev.yaml\nvalues-stag.yaml\nvalues-prod.yaml"]
+        end
+    end
+
+    subgraph ArgoCD["ArgoCD (dev cluster)"]
+        AS["ApplicationSet\ncoverline-platform"]
+        G1["Generator 1 — Clusters\nlabel: argocd.argoproj.io/secret-type=cluster\n→ dev · staging · prod"]
+        G2["Generator 2 — Git Directories\nphase-3-helm/charts/*\n→ backend · frontend"]
+        AS --> G1
+        AS --> G2
+    end
+
+    subgraph Matrix["Matrix product: 3 clusters × 2 services = 6 Applications"]
+        A1["coverline-backend-dev"]
+        A2["coverline-frontend-dev"]
+        A3["coverline-backend-staging"]
+        A4["coverline-frontend-staging"]
+        A5["coverline-backend-prod"]
+        A6["coverline-frontend-prod"]
+    end
+
+    subgraph Clusters["Target Clusters"]
+        DEV["Dev GKE\nns: coverline\nvalues-dev.yaml"]
+        STAG["Staging GKE\nns: coverline\nvalues-stag.yaml"]
+        PROD["Prod GKE\nns: coverline\nvalues-prod.yaml"]
+    end
+
+    Git -->|"watches HEAD"| AS
+    G1 & G2 --> Matrix
+    A1 & A2 -->|"autoSync + selfHeal"| DEV
+    A3 & A4 -->|"autoSync + selfHeal"| STAG
+    A5 & A6 -->|"autoSync + selfHeal"| PROD
+```
+
+Each Application resolves Helm values in two layers:
+1. `values.yaml` — base config (image, port, replica defaults)
+2. `values-{{env}}.yaml` — environment override (replica count, resource limits, image tag)
+
+Any push to `main` that changes a chart or values file triggers ArgoCD's automated sync to the matching cluster — no manual `helm upgrade` needed.
+
 ### Per-environment Helm values
 
 For the ApplicationSet `values-{{values.env}}.yaml` override to work, each chart needs an environment-specific values file alongside `values.yaml`. For example, `phase-3-helm/charts/backend/values-prod.yaml`:
@@ -362,25 +451,62 @@ image:
 
 ### Pipeline architecture
 
+**Phase 4 approach — manual deploys, no promotion gates:**
+
+```mermaid
+flowchart LR
+    subgraph Old["Phase 4 — ci.yml + cd.yml (no promotion)"]
+        PR["Push to main"] --> Build["Build image"]
+        Build --> Push["Push :latest to registry"]
+        Push --> Deploy["helm upgrade\n(manual or cd.yml)"]
+        Deploy --> DEV2["Dev cluster\n✏️ engineer runs command"]
+    end
+    style DEV2 fill:#fee2e2,stroke:#ef4444
+    style Old fill:#fef9c3,stroke:#ca8a04
 ```
-Feature branch pushed
-    └── CI: build image + Trivy scan
-            └── Image pushed to Artifact Registry with :sha tag
 
-Merge to main
-    └── CD: update dev values-dev.yaml with new image SHA
-            └── ArgoCD detects values-dev.yaml change → auto-syncs dev cluster
+**Phase 11 approach — scan-gated CI, GitOps promotion with approval gates:**
 
-Staging promotion (manual)
-    └── workflow_dispatch: update values-staging.yaml with SHA
-            └── ArgoCD detects change → syncs staging cluster
-                    └── GitHub environment rule: requires 1 approver
+```mermaid
+flowchart TD
+    subgraph CI["CI — every push (feature/* and main)"]
+        PUSH["git push"] --> BUILD["Build backend + frontend images"]
+        BUILD --> SCAN["Trivy scan\nCRITICAL/HIGH → fail"]
+        SCAN -->|pass| REG["Push :sha to\nArtifact Registry"]
+    end
 
-Prod promotion (manual + second approver)
-    └── workflow_dispatch: update values-prod.yaml with SHA
-            └── ArgoCD detects change → syncs prod cluster
-                    └── GitHub environment rule: requires 2 approvers
+    subgraph CD_DEV["CD — merge to main (auto)"]
+        REG --> PATCH_DEV["Patch values-dev.yaml\nimage.tag = sha"]
+        PATCH_DEV --> COMMIT["git commit + push\n(ci: update image tags)"]
+        COMMIT --> ARGO_DEV["ArgoCD detects change\nauto-syncs dev cluster"]
+    end
+
+    subgraph CD_STAG["Promote to staging (workflow_dispatch)"]
+        WD1["workflow_dispatch\nimage_sha + target=staging"] --> APPROVE1{"GitHub Environment\n1 approver required"}
+        APPROVE1 -->|approved| PATCH_STAG["Patch values-stag.yaml\nimage.tag = sha"]
+        PATCH_STAG --> ARGO_STAG["ArgoCD auto-syncs\nstaging cluster"]
+    end
+
+    subgraph CD_PROD["Promote to prod (workflow_dispatch)"]
+        WD2["workflow_dispatch\nimage_sha + target=prod"] --> APPROVE2{"GitHub Environment\n2 approvers required"}
+        APPROVE2 -->|approved| PATCH_PROD["Patch values-prod.yaml\nimage.tag = sha"]
+        PATCH_PROD --> ARGO_PROD["ArgoCD auto-syncs\nprod cluster"]
+    end
+
+    REG -.->|"same SHA travels\nthrough all envs"| WD1
+    ARGO_STAG -.->|"verified in staging"| WD2
+
+    style SCAN fill:#dcfce7,stroke:#22c55e
+    style APPROVE1 fill:#dbeafe,stroke:#3b82f6
+    style APPROVE2 fill:#dbeafe,stroke:#3b82f6
 ```
+
+| Stage | Trigger | Gate | GitOps mechanism |
+|---|---|---|---|
+| CI | Every push | Trivy scan must pass | Image only pushed if clean |
+| Dev deploy | Merge to `main` | None (automatic) | `cd.yml` patches `values-dev.yaml` → ArgoCD syncs |
+| Staging promotion | `workflow_dispatch` | 1 approver | `platform-pipeline.yml` patches `values-stag.yaml` → ArgoCD syncs |
+| Prod promotion | `workflow_dispatch` | 2 approvers | `platform-pipeline.yml` patches `values-prod.yaml` → ArgoCD syncs |
 
 ### GitHub Actions workflow
 
