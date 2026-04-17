@@ -365,42 +365,18 @@ coverline-frontend-prod           Synced        Healthy
 ### How the Matrix generator works
 
 ```mermaid
-flowchart TD
-    subgraph Git["GitHub Repo (HEAD / main)"]
-        subgraph Charts["phase-3-helm/charts/"]
-            B["backend/\nvalues.yaml\nvalues-dev.yaml\nvalues-stag.yaml\nvalues-prod.yaml"]
-            F["frontend/\nvalues.yaml\nvalues-dev.yaml\nvalues-stag.yaml\nvalues-prod.yaml"]
-        end
-    end
-
-    subgraph ArgoCD["ArgoCD (dev cluster)"]
-        AS["ApplicationSet\ncoverline-platform"]
-        G1["Generator 1 — Clusters\nlabel: argocd.argoproj.io/secret-type=cluster\n→ dev · staging · prod"]
-        G2["Generator 2 — Git Directories\nphase-3-helm/charts/*\n→ backend · frontend"]
-        AS --> G1
-        AS --> G2
-    end
-
-    subgraph Matrix["Matrix product: 3 clusters × 2 services = 6 Applications"]
-        A1["coverline-backend-dev"]
-        A2["coverline-frontend-dev"]
-        A3["coverline-backend-staging"]
-        A4["coverline-frontend-staging"]
-        A5["coverline-backend-prod"]
-        A6["coverline-frontend-prod"]
-    end
-
-    subgraph Clusters["Target Clusters"]
-        DEV["Dev GKE\nns: coverline\nvalues-dev.yaml"]
-        STAG["Staging GKE\nns: coverline\nvalues-stag.yaml"]
-        PROD["Prod GKE\nns: coverline\nvalues-prod.yaml"]
-    end
-
-    Git -->|"watches HEAD"| AS
-    G1 & G2 --> Matrix
-    A1 & A2 -->|"autoSync + selfHeal"| DEV
-    A3 & A4 -->|"autoSync + selfHeal"| STAG
-    A5 & A6 -->|"autoSync + selfHeal"| PROD
+flowchart LR
+    C["Clusters\ndev\nstaging\nprod"]
+    S["Services\nbackend\nfrontend"]
+    M{{"Matrix\n×"}}
+    C --> M
+    S --> M
+    M --> A1["coverline-backend-dev"]
+    M --> A2["coverline-frontend-dev"]
+    M --> A3["coverline-backend-staging"]
+    M --> A4["coverline-frontend-staging"]
+    M --> A5["coverline-backend-prod"]
+    M --> A6["coverline-frontend-prod"]
 ```
 
 Each Application resolves Helm values in two layers:

@@ -77,6 +77,7 @@ install_postgresql_redis() {
     --set auth.enabled=false \
     --set master.persistence.size=1Gi \
     --set global.storageClass=standard \
+    --set replica.replicaCount=1 \
     --wait --timeout 10m
 
   echo "[phase 3] Installing CoverLine apps..."
