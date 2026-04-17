@@ -5,7 +5,7 @@
 locals {
   vault_vm_zone   = "us-central1-b"
   vault_vm_name   = "vault-server"
-  gke_subnet_cidr = "10.0.0.0/14"  # GKE cluster subnet — adjust to match your VPC
+  gke_subnet_cidr = "10.0.0.0/14" # GKE cluster subnet — adjust to match your VPC
 }
 
 # --------------------------------------------------------------------------
@@ -13,7 +13,7 @@ locals {
 # --------------------------------------------------------------------------
 resource "google_compute_instance" "vault" {
   name         = local.vault_vm_name
-  machine_type = "e2-medium"   # 1 vCPU, 4GB RAM — cheapest viable for Vault
+  machine_type = "e2-medium" # 1 vCPU, 4GB RAM — cheapest viable for Vault
   zone         = local.vault_vm_zone
   project      = local.project_id
 
@@ -22,7 +22,7 @@ resource "google_compute_instance" "vault" {
   boot_disk {
     initialize_params {
       image = "debian-cloud/debian-12"
-      size  = 20   # GB — OS + Vault binary + Raft data
+      size  = 20 # GB — OS + Vault binary + Raft data
       type  = "pd-standard"
     }
   }

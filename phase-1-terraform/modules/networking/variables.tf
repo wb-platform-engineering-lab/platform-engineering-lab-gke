@@ -25,7 +25,7 @@ variable "pods_ip_cidr_range" {
 }
 
 variable "services_ip_cidr_range" {
-  description = "Services IP CIDR range"  
+  description = "Services IP CIDR range"
   type        = string
 }
 

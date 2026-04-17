@@ -3,9 +3,9 @@ repos:
   - repo: https://github.com/antonbabenko/pre-commit-terraform
     rev: v1.96.1
     hooks:
-      - id: tflint
-        args:
-          - --args=--chdir=phase-1-terraform
+      - id: terraform_fmt
+      - id: terraform_validate
+      - id: terraform_tflint
 
   # Dockerfile linting
   - repo: https://github.com/hadolint/hadolint

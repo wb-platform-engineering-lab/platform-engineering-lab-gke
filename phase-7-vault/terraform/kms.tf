@@ -1,6 +1,5 @@
 locals {
   project_id = "platform-eng-lab-will"
-  vault_sa   = "vault-server@platform-eng-lab-will.iam.gserviceaccount.com"
 }
 
 # KMS key ring for Vault auto-unseal

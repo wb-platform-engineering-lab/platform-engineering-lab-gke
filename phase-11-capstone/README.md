@@ -265,8 +265,8 @@ argocd login \
       -o jsonpath='{.data.password}' | base64 -d)"
 
 argocd cluster add \
-  gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-staging \
-  --name staging
+  gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-stag \
+  --name stag
 
 argocd cluster add \
   gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-prod \
@@ -282,9 +282,9 @@ argocd cluster list
 Expected:
 
 ```
-SERVER                                                       NAME      STATUS
+SERVER                                                       NAME       STATUS
 https://kubernetes.default.svc                               in-cluster  Successful
-https://<staging-api-endpoint>                               staging     Successful
+https://<stag-api-endpoint>                                  stag        Successful
 https://<prod-api-endpoint>                                  prod        Successful
 ```
 
@@ -355,11 +355,11 @@ kubectl get applications -n argocd -w
 Within two minutes you should see ArgoCD create one Application per service per environment. For example:
 
 ```
-NAME                              SYNC STATUS   HEALTH STATUS
-coverline-backend-staging         Synced        Healthy
-coverline-backend-prod            Synced        Healthy
-coverline-frontend-staging        Synced        Healthy
-coverline-frontend-prod           Synced        Healthy
+NAME                           SYNC STATUS   HEALTH STATUS
+coverline-backend-stag         Synced        Healthy
+coverline-backend-prod         Synced        Healthy
+coverline-frontend-stag        Synced        Healthy
+coverline-frontend-prod        Synced        Healthy
 ```
 
 ### How the Matrix generator works
@@ -442,7 +442,7 @@ image:
   tag: ""  # Will be overridden by the CI/CD pipeline with the exact image SHA
 ```
 
-And `phase-3-helm/charts/backend/values-staging.yaml`:
+And `phase-3-helm/charts/backend/values-stag.yaml`:
 
 ```yaml
 replicaCount: 2
@@ -517,10 +517,10 @@ flowchart TD
 
 | Stage | Trigger | Gate | GitOps mechanism |
 |---|---|---|---|
-| CI | Every push | Trivy scan must pass | Image only pushed if clean |
-| Dev deploy | Merge to `main` | None (automatic) | `cd.yml` patches `values-dev.yaml` → ArgoCD syncs |
-| Staging promotion | `workflow_dispatch` | 1 approver | `platform-pipeline.yml` patches `values-stag.yaml` → ArgoCD syncs |
-| Prod promotion | `workflow_dispatch` | 2 approvers | `platform-pipeline.yml` patches `values-prod.yaml` → ArgoCD syncs |
+| CI | Every push to `phase-3-helm/app/**` | Trivy scan must pass | Image only pushed if clean |
+| Dev deploy | Merge to `main` | None (automatic) | `platform-pipeline.yml` patches `values-dev.yaml` → ArgoCD syncs |
+| Stag promotion | `workflow_dispatch` with `target_env=stag` | 1 approver | `platform-pipeline.yml` patches `values-stag.yaml` → ArgoCD syncs |
+| Prod promotion | `workflow_dispatch` with `target_env=prod` | 1 approver | `platform-pipeline.yml` patches `values-prod.yaml` → ArgoCD syncs |
 
 ### GitHub Actions workflow
 
@@ -534,17 +534,20 @@ on:
     branches:
       - main
       - "feature/**"
+    paths:
+      - "phase-3-helm/app/**"
+      - ".github/workflows/platform-pipeline.yml"
   workflow_dispatch:
     inputs:
       image_sha:
         description: "Image SHA to promote (e.g. abc1234)"
         required: true
       target_env:
-        description: "Target environment: staging or prod"
+        description: "Target environment"
         required: true
         type: choice
         options:
-          - staging
+          - stag
           - prod
 
 env:
@@ -553,7 +556,7 @@ env:
   REGION: us-central1
 
 jobs:
-  # ── CI: runs on every push to any branch ─────────────────────────────────
+  # ── CI: runs on every push ────────────────────────────────────────────────
   ci:
     name: Build and Scan
     runs-on: ubuntu-latest
@@ -569,8 +572,8 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          workload_identity_provider: projects/253419630104/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-ci@platform-eng-lab-will.iam.gserviceaccount.com
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
@@ -585,10 +588,13 @@ jobs:
             -t ${{ env.REGISTRY }}/backend:${{ steps.meta.outputs.sha }} \
             phase-3-helm/app/backend/
 
-      - name: Scan backend image for CVEs
+      - name: Install Trivy
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
             | sh -s -- -b /usr/local/bin
+
+      - name: Scan backend image for CVEs
+        run: |
           trivy image \
             --severity CRITICAL,HIGH \
             --exit-code 1 \
@@ -630,30 +636,39 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
       - name: Update dev image tag
         run: |
           SHA=${{ needs.ci.outputs.image_sha }}
-          # Patch the image tag in each chart's dev values file
           for chart in backend frontend; do
-            VALUES="phase-3-helm/charts/${chart}/values-dev.yaml"
-            # Use yq to update the tag field
-            yq eval ".image.tag = \"${SHA}\"" -i "$VALUES"
+            yq eval ".image.tag = \"${SHA}\"" -i \
+              "phase-3-helm/charts/${chart}/values-dev.yaml"
           done
 
-      - name: Commit and push values change
+      - name: Commit and push
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add phase-3-helm/charts/*/values-dev.yaml
-          git commit -m "chore(dev): deploy image sha ${{ needs.ci.outputs.image_sha }}"
-          git push
+          git diff --cached --quiet || \
+            git commit -m "chore(dev): deploy image ${{ needs.ci.outputs.image_sha }}"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            echo "Push attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
 
-  # ── Manual promotion: staging or prod ────────────────────────────────────
+  # ── Manual promotion: stag or prod ───────────────────────────────────────
   promote:
     name: Promote to ${{ github.event.inputs.target_env }}
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
-    environment: ${{ github.event.inputs.target_env }}  # triggers protection rules
+    environment: ${{ github.event.inputs.target_env }}
     permissions:
       contents: write
       id-token: write
@@ -663,22 +678,30 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
       - name: Update ${{ github.event.inputs.target_env }} image tag
         run: |
           SHA=${{ github.event.inputs.image_sha }}
           ENV=${{ github.event.inputs.target_env }}
           for chart in backend frontend; do
-            VALUES="phase-3-helm/charts/${chart}/values-${ENV}.yaml"
-            yq eval ".image.tag = \"${SHA}\"" -i "$VALUES"
+            yq eval ".image.tag = \"${SHA}\"" -i \
+              "phase-3-helm/charts/${chart}/values-${ENV}.yaml"
           done
 
-      - name: Commit and push values change
+      - name: Commit and push
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           ENV=${{ github.event.inputs.target_env }}
           git add phase-3-helm/charts/*/values-${ENV}.yaml
-          git commit -m "chore(${ENV}): promote image sha ${{ github.event.inputs.image_sha }}"
+          git diff --cached --quiet || \
+            git commit -m "chore(${ENV}): promote image ${{ github.event.inputs.image_sha }}"
+          git pull --rebase origin main
           git push
 ```
 
@@ -688,13 +711,13 @@ Set up approval requirements in the GitHub repository settings. These rules gate
 
 Navigate to **Settings → Environments** in the GitHub repository.
 
-For the `staging` environment:
+For the `stag` environment:
 - Required reviewers: 1 (e.g. a tech lead)
 - Deployment branches: `main` only
 - Wait timer: none
 
 For the `prod` environment:
-- Required reviewers: 2 (e.g. tech lead + CTO or SRE lead)
+- Required reviewers: 1 (tech lead or SRE lead)
 - Deployment branches: `main` only
 - Wait timer: optional 5-minute delay to allow cancellation
 
@@ -704,13 +727,14 @@ To trigger a promotion after a successful dev deploy:
 
 ```bash
 # Get the SHA from the last dev deploy commit
-SHA=$(git log --oneline | grep "chore(dev)" | head -1 | grep -oP '(?<=sha )\w+')
+# Commit message format: "chore(dev): deploy image <sha>"
+SHA=$(git log --pretty=format:"%s" | grep "chore(dev): deploy image" | head -1 | awk '{print $NF}')
 echo "Promoting SHA: $SHA"
 
-# Trigger the workflow — GitHub will request approvals from configured reviewers
+# Trigger the workflow — GitHub will request approval from the configured reviewer
 gh workflow run platform-pipeline.yml \
   -f image_sha="$SHA" \
-  -f target_env=staging
+  -f target_env=stag
 ```
 
 ---
@@ -743,7 +767,7 @@ backstage:
   image:
     registry: ghcr.io
     repository: backstage/backstage
-    tag: latest
+    tag: "1.30.2"
 
   appConfig:
     app:
@@ -761,28 +785,43 @@ backstage:
           token: ${GITHUB_TOKEN}
 
     catalog:
-      providers:
-        github:
-          coverlineOrg:
-            organization: wb-platform-engineering-lab
-            catalogPath: /catalog-info.yaml
-            filters:
-              branch: main
-            schedule:
-              frequency: { minutes: 30 }
-              timeout: { minutes: 3 }
-
+      locations:
+        - type: url
+          target: https://github.com/wb-platform-engineering-lab/platform-engineering-lab-gke/blob/main/catalog-info.yaml
       rules:
         - allow: [Component, System, API, Resource, Location]
+
+    auth:
+      environment: development
+      providers:
+        guest:
+          dangerouslyAllowOutsideDevelopment: true
+
+    permission:
+      enabled: false
 
     techdocs:
       builder: external
       generator:
         runIn: local
       publisher:
-        type: googleGcs
-        googleGcs:
-          bucketName: platform-eng-lab-will-techdocs
+        type: local
+
+    kubernetes:
+      serviceLocatorMethod:
+        type: multiTenant
+      clusterLocatorMethods:
+        - type: config
+          clusters:
+            - name: gke-dev
+              url: https://<dev-cluster-api-endpoint>
+              authProvider: serviceAccount
+              skipTLSVerify: false
+              serviceAccountToken: ${K8S_SA_TOKEN}
+              # caData injected at install time via --set
+
+  extraEnvVarsSecrets:
+    - backstage-github-token
 
 postgresql:
   enabled: true
@@ -793,14 +832,31 @@ ingress:
   enabled: false
 ```
 
-Install Backstage:
+> **Note:** Pin to `1.30.2` rather than `latest`. The `latest` tag ships with a broken notifications frontend binding that causes a `NotImplementedError` on startup. `1.30.2` is the last stable release validated with this config.
+
+Create a Kubernetes secret for the GitHub token and the cluster service account token (both are injected as environment variables by `extraEnvVarsSecrets`):
 
 ```bash
-helm install backstage backstage/backstage \
+# Obtain the SA token for the Kubernetes plugin
+K8S_TOKEN=$(kubectl create token backstage-sa -n backstage --duration=8760h)
+K8S_CA=$(kubectl config view --raw --minify \
+  --output jsonpath='{.clusters[0].cluster.certificate-authority-data}')
+
+kubectl create secret generic backstage-github-token \
+  --namespace backstage \
+  --from-literal=GITHUB_TOKEN="$(gh auth token)" \
+  --from-literal=K8S_SA_TOKEN="${K8S_TOKEN}"
+```
+
+Install Backstage (pass the PostgreSQL password and CA data as `--set` flags so they never land in the values file):
+
+```bash
+PGPASS="backstage-local-dev-only"
+helm upgrade --install backstage backstage/backstage \
   --namespace backstage \
   --values phase-11-capstone/backstage/values.yaml \
-  --set backstage.extraEnvVars[0].name=GITHUB_TOKEN \
-  --set backstage.extraEnvVars[0].value="$(vault kv get -field=github_token secret/coverline/backstage)"
+  --set postgresql.auth.password="${PGPASS}" \
+  --set "backstage.appConfig.kubernetes.clusterLocatorMethods[0].clusters[0].caData=${K8S_CA}"
 ```
 
 Access the Backstage UI:
@@ -931,6 +987,25 @@ kubectl logs -n backstage deploy/backstage | grep -i "catalog\|discovered\|impor
 ### The problem
 
 There are currently separate dashboards per service, per phase, and per concern. When an incident happens, the on-call engineer opens four browser tabs and tries to correlate timelines manually. The capstone replaces this with a single dashboard that covers the entire platform at a glance.
+
+### Backend instrumentation prerequisite
+
+The app-level panels (request rate, error rate, latency, SLO) rely on the backend exposing a `/metrics` endpoint. This requires two changes to the backend:
+
+1. Add `prometheus-flask-exporter` to `phase-3-helm/app/backend/requirements.txt`:
+   ```
+   prometheus-flask-exporter==0.23.1
+   ```
+
+2. Initialise the exporter in `app.py`:
+   ```python
+   from prometheus_flask_exporter import PrometheusMetrics
+   metrics = PrometheusMetrics(app, default_labels={"service": "coverline-backend"})
+   ```
+
+3. The backend Helm chart's Service must expose a **named port** so the ServiceMonitor can reference it by name. In `phase-3-helm/charts/backend/templates/service.yaml`, the port entry must include `name: http`. The ServiceMonitor at `phase-3-helm/charts/backend/templates/servicemonitor.yaml` references `port: http` — this name must match exactly.
+
+Without the named port, Prometheus will silently fail to scrape the backend and all app-level panels will show "No data".
 
 ### Create the platform overview dashboard
 
@@ -1221,7 +1296,21 @@ Apply it:
 kubectl apply -f phase-11-capstone/argocd/security-baseline-appset.yaml -n argocd
 ```
 
-This generates one ArgoCD Application per cluster (dev, staging, prod) that continuously reconciles the Phase 10 security manifests. If someone deletes a NetworkPolicy directly with kubectl, ArgoCD restores it within 3 minutes because `selfHeal: true` is set.
+This generates one ArgoCD Application per cluster (dev, stag, prod) that continuously reconciles the Phase 10 security manifests. If someone deletes a NetworkPolicy directly with kubectl, ArgoCD restores it within 3 minutes because `selfHeal: true` is set.
+
+### Exclude non-manifest files with `.argocdignore`
+
+The `phase-10-security/` directory contains files that are not Kubernetes manifests — `README.md`, `quiz.html`, `screenshots/`, and `security-context-values.yaml`. ArgoCD will error if it tries to apply these as resources. Add a `.argocdignore` file to the directory to tell ArgoCD's manifest generator to skip them:
+
+```
+# phase-10-security/.argocdignore
+README.md
+quiz.html
+screenshots/
+security-context-values.yaml
+```
+
+Without this file, the security-baseline Applications will enter an error state during manifest generation and never sync.
 
 Verify the security Applications were generated:
 
@@ -1232,9 +1321,9 @@ kubectl get applications -n argocd | grep security
 Expected:
 
 ```
-security-baseline-dev       Synced   Healthy
-security-baseline-staging   Synced   Healthy
-security-baseline-prod      Synced   Healthy
+security-baseline-dev    Synced   Healthy
+security-baseline-stag   Synced   Healthy
+security-baseline-prod   Synced   Healthy
 ```
 
 ### Verify NetworkPolicies exist on all clusters
@@ -1242,7 +1331,7 @@ security-baseline-prod      Synced   Healthy
 ```bash
 for ctx in \
   gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-dev \
-  gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-staging \
+  gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-stag \
   gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-prod; do
   echo "=== $ctx ==="
   kubectl --context="$ctx" get networkpolicy
@@ -1257,7 +1346,7 @@ Attempt to create a privileged pod in each environment (should be rejected):
 
 ```bash
 for ctx in \
-  gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-staging \
+  gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-stag \
   gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-prod; do
   echo "=== Testing $ctx ==="
   kubectl --context="$ctx" apply -f - <<EOF
@@ -1315,16 +1404,16 @@ The backend pod should cycle within 2–3 minutes of the merge.
 ### 3. Trigger staging promotion — manual approval required
 
 ```bash
-SHA=$(git log --oneline | grep "chore(dev)" | head -1 | grep -oP '(?<=sha )\w+')
+SHA=$(git log --pretty=format:"%s" | grep "chore(dev): deploy image" | head -1 | awk '{print $NF}')
 gh workflow run platform-pipeline.yml \
   -f image_sha="$SHA" \
-  -f target_env=staging
+  -f target_env=stag
 ```
 
 GitHub will pause the workflow and request approval from the configured reviewer. After approval:
 
 ```bash
-kubectl --context=gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-staging \
+kubectl --context=gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-stag \
   rollout status deploy/coverline-backend
 ```
 
@@ -1345,12 +1434,12 @@ Open `http://localhost:3000` and navigate to the **CoverLine Platform Overview**
 
 ```bash
 # RBAC: confirm CI service account has only scoped permissions in staging
-kubectl --context=gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-staging \
+kubectl --context=gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-stag \
   auth can-i get secrets --as=system:serviceaccount:default:coverline-ci
 # Expected: no
 
 # NetworkPolicies: confirm default-deny exists in staging
-kubectl --context=gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-staging \
+kubectl --context=gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-gke-stag \
   get networkpolicy default-deny-all
 
 # NetworkPolicies: confirm frontend cannot reach PostgreSQL in prod
