@@ -1,0 +1,155 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-overview-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  platform-overview.json: |
+    {
+      "title": "CoverLine Platform Overview",
+      "uid": "platform-overview",
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Request Rate (req/s) — all services",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus" },
+              "expr": "sum(rate(flask_http_request_total[2m])) by (service)",
+              "legendFormat": "{{service}}"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Error Rate (5xx / total) — all services",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus" },
+              "expr": "sum(rate(flask_http_request_total{status=~\"5..\"}[2m])) by (service) / sum(rate(flask_http_request_total[2m])) by (service)",
+              "legendFormat": "{{service}} error rate"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "P95 Latency (ms) — backend",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus" },
+              "expr": "histogram_quantile(0.95, sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le, service)) * 1000",
+              "legendFormat": "{{service}} p95"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Node CPU Utilisation (%)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus" },
+              "expr": "100 - (avg by(node) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+              "legendFormat": "{{node}}"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "Node Memory Utilisation (%)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus" },
+              "expr": "(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100",
+              "legendFormat": "{{instance}}"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "title": "PostgreSQL Active Connections",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus" },
+              "expr": "pg_stat_activity_count",
+              "legendFormat": "active connections"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "SLO — 99.9% Availability (30-day window)",
+          "type": "stat",
+          "gridPos": { "x": 0, "y": 24, "w": 8, "h": 6 },
+          "options": {
+            "colorMode": "background",
+            "thresholds": {
+              "steps": [
+                { "color": "red",    "value": 0 },
+                { "color": "yellow", "value": 0.995 },
+                { "color": "green",  "value": 0.999 }
+              ]
+            }
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus" },
+              "expr": "1 - (sum(increase(flask_http_request_total{status=~\"5..\"}[30d])) / sum(increase(flask_http_request_total[30d])))",
+              "legendFormat": "Availability"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "title": "SLO Burn Rate (1-hour window)",
+          "description": "Burn rate > 14.4 means you will exhaust the 30-day error budget within 1 hour.",
+          "type": "stat",
+          "gridPos": { "x": 8, "y": 24, "w": 8, "h": 6 },
+          "options": {
+            "colorMode": "background",
+            "thresholds": {
+              "steps": [
+                { "color": "green",  "value": 0 },
+                { "color": "yellow", "value": 1 },
+                { "color": "red",    "value": 14.4 }
+              ]
+            }
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus" },
+              "expr": "(sum(rate(flask_http_request_total{status=~\"5..\"}[1h])) / sum(rate(flask_http_request_total[1h]))) / 0.001",
+              "legendFormat": "Burn rate"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "title": "Error Budget Remaining (30-day, minutes)",
+          "type": "stat",
+          "gridPos": { "x": 16, "y": 24, "w": 8, "h": 6 },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus" },
+              "expr": "(0.001 - (sum(increase(flask_http_request_total{status=~\"5..\"}[30d])) / sum(increase(flask_http_request_total[30d])))) * 30 * 24 * 60",
+              "legendFormat": "Budget remaining (min)"
+            }
+          ]
+        }
+      ]
+    }
