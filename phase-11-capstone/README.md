@@ -1090,6 +1090,80 @@ kubectl logs -n monitoring deploy/kube-prometheus-stack-grafana -c grafana-sc-da
 
 You should see a log line confirming `platform-overview.json` was imported. Open Grafana at `http://localhost:3000` (after port-forwarding) and navigate to **Dashboards → CoverLine Platform Overview**.
 
+### Panel reference — PromQL formulas explained
+
+#### Request Rate (req/s) — all services
+```promql
+sum(rate(flask_http_request_total[2m])) by (service)
+```
+`flask_http_request_total` is a counter incremented by `prometheus-flask-exporter` on every HTTP request. `rate(...[2m])` computes the per-second increase averaged over a 2-minute window. `sum(...) by (service)` aggregates across all pods of each service so you get one line per service, not one line per pod.
+
+#### Error Rate (5xx / total) — all services
+```promql
+sum(rate(flask_http_request_total{status=~"5.."}[2m])) by (service)
+  /
+sum(rate(flask_http_request_total[2m])) by (service)
+```
+The label filter `{status=~"5.."}` selects only 5xx responses using a regex match. Dividing the 5xx rate by the total rate gives a ratio between 0 and 1. A value of 0.01 means 1% of requests are failing. A value close to 1 (as seen when the database is unreachable) means almost all requests are failing.
+
+#### P95 Latency (ms) — backend
+```promql
+histogram_quantile(0.95,
+  sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le, service)
+) * 1000
+```
+`flask_http_request_duration_seconds_bucket` is a histogram: each `le` (less-than-or-equal) label represents a bucket boundary in seconds. `histogram_quantile(0.95, ...)` interpolates the 95th percentile from those buckets — i.e. 95% of requests complete faster than this value. Multiplying by 1000 converts seconds to milliseconds.
+
+#### Node CPU Utilisation (%)
+```promql
+100 - (avg by(node) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+```
+`node_cpu_seconds_total{mode="idle"}` counts CPU-seconds spent idle per core. `rate(...[5m])` gives the fraction of time spent idle (0–1). Subtracting from 100 gives the utilisation percentage. `avg by(node)` averages across all cores on each node so you get one line per node.
+
+#### Node Memory Utilisation (%)
+```promql
+(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100
+```
+`node_memory_MemAvailable_bytes` is the kernel's estimate of memory available for new allocations (including reclaimable cache). Dividing by `MemTotal_bytes` gives the available fraction; subtracting from 1 gives the used fraction; multiplying by 100 gives a percentage. This is more accurate than `MemFree` because it accounts for the page cache.
+
+#### PostgreSQL Active Connections
+```promql
+pg_stat_activity_count
+```
+Exported directly by `postgres-exporter` from `pg_stat_activity`. Each row in that view represents one open connection. The panel shows how close you are to `max_connections` (default 100 in the lab). A spike here often precedes connection-pool exhaustion errors in the backend.
+
+#### SLO — 99.9% Availability (30-day window)
+```promql
+1 - (
+  sum(increase(flask_http_request_total{status=~"5.."}[30d]))
+  /
+  sum(increase(flask_http_request_total[30d]))
+)
+```
+`increase(...[30d])` gives the total count over the last 30 days (rather than a per-second rate). The ratio is the error fraction; subtracting from 1 gives availability. The thresholds are set to green ≥ 0.999 (99.9%), yellow ≥ 0.995 (99.5%), red below that. When the database is down and the backend returns all 5xx, this drops to ~0 and the panel turns red.
+
+#### SLO Burn Rate (1-hour window)
+```promql
+(
+  sum(rate(flask_http_request_total{status=~"5.."}[1h]))
+  /
+  sum(rate(flask_http_request_total[1h]))
+) / 0.001
+```
+The burn rate tells you how fast you are consuming your error budget relative to the rate that would exactly exhaust it in 30 days. An error budget of 0.1% means your allowed error rate is 0.001. Dividing the actual error rate by 0.001 gives the burn rate multiple. A burn rate of 1 means you will exhaust the budget in exactly 30 days. A burn rate of **14.4** means you will exhaust it in 1 hour (`30 days / 14.4 ≈ 2 days`, but at 1-hour window that is the canonical multiwindow threshold from the Google SRE Workbook). The panel turns red above 14.4.
+
+#### Error Budget Remaining (30-day, minutes)
+```promql
+(
+  0.001
+  -
+  sum(increase(flask_http_request_total{status=~"5.."}[30d]))
+  /
+  sum(increase(flask_http_request_total[30d]))
+) * 30 * 24 * 60
+```
+`0.001` is the total error budget (0.1% of requests). Subtracting the consumed fraction gives the remaining budget as a fraction. Multiplying by `30 * 24 * 60 = 43200` converts it to minutes of downtime you can still afford in the current 30-day window. A deeply negative value (e.g. -19 373) means the budget is exhausted and you have been in breach of the SLO for an equivalent number of minutes.
+
 ---
 
 ## Step 6 — Security Baseline as Code
