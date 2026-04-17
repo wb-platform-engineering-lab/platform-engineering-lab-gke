@@ -1,7 +1,7 @@
 FROM node:20-slim AS builder
 WORKDIR /app
-COPY package.json .
-RUN npm install --production
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 FROM node:20-slim
 # Upgrade OS packages to pick up all available security patches (e.g. libssl3)
