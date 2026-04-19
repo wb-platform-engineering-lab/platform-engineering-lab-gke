@@ -73,13 +73,13 @@ with DAG(
     )
 
     DBT_DIR = "/opt/airflow/dags/repo/phase-9-data-platform/dbt"
-    DBT_BIN = "/home/airflow/.local/bin/dbt"
 
     run_dbt = BashOperator(
         task_id="dbt_run",
         bash_command=(
-            f"{DBT_BIN} run --project-dir {DBT_DIR} --profiles-dir {DBT_DIR} --target prod && "
-            f"{DBT_BIN} test --project-dir {DBT_DIR} --profiles-dir {DBT_DIR} --target prod"
+            'pip install "dbt-bigquery>=1.8,<1.9" --quiet && '
+            f'python3 -c "import sys; sys.argv=[\'dbt\',\'run\',\'--project-dir\',\'{DBT_DIR}\',\'--profiles-dir\',\'{DBT_DIR}\',\'--target\',\'prod\']; from dbt.cli.main import cli; sys.exit(cli())" && '
+            f'python3 -c "import sys; sys.argv=[\'dbt\',\'test\',\'--project-dir\',\'{DBT_DIR}\',\'--profiles-dir\',\'{DBT_DIR}\',\'--target\',\'prod\']; from dbt.cli.main import cli; sys.exit(cli())"'
         ),
     )
 
