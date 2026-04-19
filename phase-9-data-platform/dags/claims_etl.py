@@ -77,9 +77,10 @@ with DAG(
     run_dbt = BashOperator(
         task_id="dbt_run",
         bash_command=(
-            'pip install "dbt-bigquery>=1.8,<1.9" --quiet && '
-            f'python3 -c "import sys; sys.argv=[\'dbt\',\'run\',\'--project-dir\',\'{DBT_DIR}\',\'--profiles-dir\',\'{DBT_DIR}\',\'--target\',\'prod\']; from dbt.cli.main import cli; sys.exit(cli())" && '
-            f'python3 -c "import sys; sys.argv=[\'dbt\',\'test\',\'--project-dir\',\'{DBT_DIR}\',\'--profiles-dir\',\'{DBT_DIR}\',\'--target\',\'prod\']; from dbt.cli.main import cli; sys.exit(cli())"'
+            "python3 -m venv /tmp/dbt_venv && "
+            '/tmp/dbt_venv/bin/pip install "dbt-bigquery>=1.8,<1.9" --quiet && '
+            f"/tmp/dbt_venv/bin/dbt run --project-dir {DBT_DIR} --profiles-dir {DBT_DIR} --target prod && "
+            f"/tmp/dbt_venv/bin/dbt test --project-dir {DBT_DIR} --profiles-dir {DBT_DIR} --target prod"
         ),
     )
 
