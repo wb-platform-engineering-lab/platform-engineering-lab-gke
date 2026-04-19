@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: claims_clean
+    description: De-duplicated and validated claims
+    columns:
+      - name: claim_id
+        description: Unique claim identifier
+        tests:
+          - unique
+          - not_null
+      - name: member_id
+        tests:
+          - not_null
+      - name: claim_amount
+        tests:
+          - not_null
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['pending', 'approved', 'rejected', 'under_review']
+
+  - name: fraud_signals
+    description: Per-member fraud risk signals (rolling 30-day window)
+    columns:
+      - name: member_id
+        tests:
+          - unique
+          - not_null

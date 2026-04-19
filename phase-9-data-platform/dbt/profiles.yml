@@ -1,0 +1,11 @@
+coverline:
+  target: prod
+  outputs:
+    prod:
+      type: bigquery
+      method: oauth
+      project: platform-eng-lab-will
+      dataset: analytics
+      location: US
+      threads: 4
+      timeout_seconds: 300

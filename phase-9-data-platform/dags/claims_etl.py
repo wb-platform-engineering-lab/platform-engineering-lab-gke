@@ -75,7 +75,8 @@ with DAG(
     run_dbt = BashOperator(
         task_id="dbt_run",
         bash_command=(
-            "cd /opt/airflow/dags/../dbt && "
+            "pip install dbt-bigquery --quiet && "
+            "cd /opt/airflow/dags/repo/phase-9-data-platform/dbt && "
             "dbt run --profiles-dir . --target prod && "
             "dbt test --profiles-dir . --target prod"
         ),
