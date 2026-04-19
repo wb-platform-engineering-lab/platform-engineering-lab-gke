@@ -44,34 +44,60 @@ gcloud config set project platform-eng-lab-will
 
 ---
 
+## Repository structure
+
+```
+phase-1-terraform/
+├── envs/
+│   ├── dev/          ← deploy here for the lab (e2-standard-2, spot, max 1 node)
+│   ├── staging/      ← staging config (e2-standard-2, max 3 nodes)
+│   └── prod/         ← production config (e2-standard-4, on-demand, max 5 nodes)
+└── modules/
+    ├── gke/          ← GKE cluster + node pool
+    └── networking/   ← VPC, subnet, Cloud NAT, firewall
+```
+
+Each environment has its own `backend.tf` (isolated remote state) and `.tfvars` (separate sizing and CIDR ranges). Deploying dev cannot affect prod state.
+
+---
+
 ## Deploy
 
-```bash
-cd phase-1-terraform
+All commands run from the environment directory, not the root.
 
-# Fill in your project ID and region
-cp terraform.tfvars.example terraform.tfvars
+```bash
+cd phase-1-terraform/envs/dev
 
 terraform init
-terraform plan
-terraform apply
+terraform plan -var-file=dev.tfvars
+terraform apply -var-file=dev.tfvars
 ```
 
 Connect kubectl after apply:
 
 ```bash
-gcloud container clusters get-credentials platform-eng-lab-will-gke \
+gcloud container clusters get-credentials platform-eng-lab-will-dev-gke \
   --region us-central1 --project platform-eng-lab-will
 
 kubectl get nodes
 ```
+
+### Environment differences
+
+| | dev | staging | prod |
+|---|---|---|---|
+| Machine type | `e2-standard-2` | `e2-standard-2` | `e2-standard-4` |
+| Spot instances | yes | yes | no |
+| Max nodes | 1 | 3 | 5 |
+| Cluster name | `*-dev-gke` | `*-staging-gke` | `*-prod-gke` |
 
 ---
 
 ## Teardown
 
 ```bash
-terraform destroy
+cd phase-1-terraform/envs/dev
+terraform destroy -var-file=dev.tfvars
 ```
 
 > **Cost reminder:** A running GKE cluster costs ~$5–20/day. Always destroy when done.
@@ -220,8 +246,8 @@ echo 'export PATH=$PATH:/opt/homebrew/share/google-cloud-sdk/bin' >> ~/.zshrc
 
 **Fix:**
 ```bash
-cd phase-1-terraform && terraform apply -auto-approve
-gcloud container clusters get-credentials platform-eng-lab-will-gke \
+cd phase-1-terraform/envs/dev && terraform apply -auto-approve -var-file=dev.tfvars
+gcloud container clusters get-credentials platform-eng-lab-will-dev-gke \
   --region us-central1 --project platform-eng-lab-will
 ```
 
