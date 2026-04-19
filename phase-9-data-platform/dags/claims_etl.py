@@ -78,7 +78,6 @@ with DAG(
     run_dbt = BashOperator(
         task_id="dbt_run",
         bash_command=(
-            f"pip install dbt-bigquery --quiet && "
             f"{DBT_BIN} run --project-dir {DBT_DIR} --profiles-dir {DBT_DIR} --target prod && "
             f"{DBT_BIN} test --project-dir {DBT_DIR} --profiles-dir {DBT_DIR} --target prod"
         ),
