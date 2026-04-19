@@ -175,111 +175,106 @@ secondary_ip_range {
 
 ---
 
-## Troubleshooting
+## Production Considerations
 
-### `could not find default credentials`
+### 1. One GCP project per environment
 
-**Symptom:** `terraform init` fails with `dialing: google: could not find default credentials`.
+This lab runs everything in a single project. In production, each environment — dev, staging, prod — should be a separate GCP project. This gives you:
 
-**Cause:** Terraform uses Application Default Credentials (ADC), which are separate from `gcloud auth login`.
+- **Blast radius isolation:** a misconfigured `terraform destroy` in dev cannot touch prod resources.
+- **Separate IAM boundaries:** developers can have broad access in dev with no access to prod.
+- **Independent billing:** cost attribution per environment is clean and auditable.
 
-**Fix:**
-```bash
-gcloud auth application-default login
-```
+The `envs/` structure in this repo is already designed for this — each environment's `backend.tf` points to a different GCS bucket and each `.tfvars` can target a different `project_id`.
 
 ---
 
-### `Quota 'SSD_TOTAL_GB' exceeded`
+### 2. Version and publish Terraform modules
 
-**Symptom:** `terraform apply` fails during GKE node pool creation.
-
-**Cause:** GKE defaults to `pd-ssd` for node disks. Free tier accounts have a 250GB SSD quota per region.
-
-**Fix:** Set `disk_type = "pd-standard"` on the node pool:
+This lab references modules locally (`../../modules/gke`). In production, modules should be versioned and pinned:
 
 ```hcl
-node_config {
-  disk_type    = "pd-standard"
-  disk_size_gb = 50
+# Lab — works but unreproducible across teams
+module "gke" {
+  source = "../../modules/gke"
+}
+
+# Production — pinned to a specific release
+module "gke" {
+  source = "git::https://github.com/your-org/terraform-modules.git//gke?ref=v2.1.0"
+}
+```
+
+Without versioning, a module change merged by one engineer silently affects every other engineer's next `terraform apply`. With tags, you opt in to upgrades deliberately.
+
+---
+
+### 3. Enforce state locking and remote backends
+
+GCS provides native state locking — two concurrent `terraform apply` runs cannot corrupt state. This lab already uses GCS, so locking is in place. What teams often miss in production:
+
+- **Never use local state** — it can't be shared and gets lost when a laptop dies.
+- **Separate state per environment** — one corrupted state file should not block all environments.
+- **Restrict bucket access** — the GCS state bucket should only be writable by the CI/CD service account, not every developer.
+
+```hcl
+backend "gcs" {
+  bucket = "platform-eng-lab-will-tfstate-prod"
+  prefix = "gke"
 }
 ```
 
 ---
 
-### `Cannot destroy cluster because deletion_protection is set to true`
+### 4. Replace spot nodes with a mixed node pool strategy
 
-**Symptom:** `terraform destroy` fails when trying to delete the cluster.
+Spot (preemptible) nodes are reclaimed by GCP with 30 seconds notice. This is fine for the lab but unacceptable for workloads that can't tolerate interruption. Production clusters should use a mixed strategy:
 
-**Cause:** Recent versions of the Google Terraform provider enable `deletion_protection = true` by default.
-
-**Fix:** Disable it on the existing cluster, then destroy:
-
-```bash
-gcloud container clusters update platform-eng-lab-will-gke \
-  --region us-central1 --no-deletion-protection
-
-terraform destroy
-```
-
----
-
-### `executable gke-gcloud-auth-plugin not found`
-
-**Symptom:** `kubectl` commands fail with `gke-gcloud-auth-plugin not found`.
-
-**Cause:** When gcloud is installed via Homebrew, plugin binaries are not on the default `$PATH`.
-
-**Fix:**
-```bash
-export PATH=$PATH:/opt/homebrew/share/google-cloud-sdk/bin
-echo 'export PATH=$PATH:/opt/homebrew/share/google-cloud-sdk/bin' >> ~/.zshrc
-```
-
----
-
-### `TLS handshake timeout` on kubectl
-
-**Symptom:** `kubectl get nodes` fails with `net/http: TLS handshake timeout`.
-
-**Cause:** The cluster no longer exists — the nightly auto-destroy workflow deleted it.
-
-**Fix:**
-```bash
-cd phase-1-terraform/envs/dev && terraform apply -auto-approve -var-file=dev.tfvars
-gcloud container clusters get-credentials platform-eng-lab-will-dev-gke \
-  --region us-central1 --project platform-eng-lab-will
-```
-
----
-
-### Auto-destroy reports "Found 0 resources" but resources exist
-
-**Symptom:** The nightly workflow skips destruction even though the cluster is running.
-
-**Cause:** The jq query was checking `.values.root_module.resources` but all resources live in child modules (`module.gke`, `module.networking`). The root module has no direct resources.
-
-**Fix:** The query was updated to traverse child modules recursively:
-
-```bash
-# Before (broken — only checks root module)
-terraform show -json | jq '.values.root_module.resources | length'
-
-# After (fixed — checks root + all child modules)
-terraform show -json | jq '[.values.root_module | .. | objects | .resources? // empty | .[]] | length'
-```
-
----
-
-## Production Considerations
-
-| Topic | Lab | Production |
+| Node pool | Type | For |
 |---|---|---|
-| Environments | Single GCP project | Separate project per env (dev/staging/prod) |
-| State locking | GCS bucket (locking is automatic) | Same — GCS locking is built-in, no extra config |
-| Module versioning | Local `./modules/gke` | Versioned in Terraform Registry or Git tags |
-| Node type | Spot instances | Mix: spot for stateless, on-demand for stateful |
-| Deletion protection | `false` (easier teardown) | `true` always |
-| Binary Authorization | Disabled | Enabled — only signed images allowed to run |
+| `pool-spot` | Spot, autoscaling | Stateless apps, batch jobs, CI runners |
+| `pool-standard` | On-demand, min 2 | System components, databases, anything with a PodDisruptionBudget |
+
+This keeps costs low while guaranteeing capacity for critical workloads.
+
+---
+
+### 5. Enable deletion protection and drift detection
+
+Two settings that prevent the most common production accidents:
+
+**Deletion protection** — prevents the cluster from being destroyed via Terraform or the console without an explicit override:
+
+```hcl
+resource "google_container_cluster" "main" {
+  deletion_protection = true  # lab sets this to false for easy teardown
+}
+```
+
+**Drift detection** — in CI, run `terraform plan` on a schedule (e.g. nightly) and alert if the plan is non-empty. Any diff means someone made a manual change to production infrastructure. This is the audit mechanism that makes IaC meaningful.
+
+---
+
+### 6. Enable Binary Authorization
+
+By default, any container image can run on the cluster — including images from untrusted registries or with known CVEs. Binary Authorization enforces that only images signed by a trusted CI pipeline are allowed to deploy:
+
+```hcl
+resource "google_container_cluster" "main" {
+  binary_authorization {
+    evaluation_mode = "PROJECT_SINGLETON_POLICY_ENFORCE"
+  }
+}
+```
+
+Combined with image signing in CI (covered in Phase 10b), this closes the supply chain gap: an attacker who compromises a registry cannot run arbitrary code on the cluster because unsigned images are rejected at admission.
+
+---
+
+### 7. Use Workload Identity instead of service account keys
+
+This lab provisions a GKE cluster but doesn't address how pods authenticate to GCP services. The naive approach — mounting a service account JSON key as a Kubernetes secret — creates long-lived credentials that can be extracted from the cluster.
+
+Workload Identity (covered in Phase 9) maps a Kubernetes service account to a GCP service account without any key file. The credential is ephemeral, scoped to the pod, and automatically rotated. In production, no GCP service account key should ever exist as a Kubernetes secret.
 
 → **Next: [Phase 2 — Kubernetes](../phase-2-kubernetes/README.md)**
