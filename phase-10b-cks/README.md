@@ -1,6 +1,6 @@
 # Phase 10b — CKS Exam Preparation (Certified Kubernetes Security Specialist)
 
-> **CKS concepts introduced:** kube-bench, AppArmor, seccomp, OPA Gatekeeper, Cosign, Falco, Kubernetes Audit Policy | **Builds on:** Phase 10 security hardening
+> **CKS concepts introduced:** kube-bench, AppArmor, seccomp, Kyverno, Cosign, Falco, Kubernetes Audit Policy | **Builds on:** Phase 10 security hardening
 
 [📝 Take the quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-10b-cks/quiz.html)
 
@@ -12,7 +12,7 @@
 |---|---|---|
 | **kube-bench** | Runs CIS Kubernetes Benchmark checks against the API server, kubelet, and node config | Surfaces misconfigurations against industry hardening standards — each finding maps to a CKS exam domain |
 | **AppArmor / seccomp** | Restricts kernel syscalls and filesystem access per container | The red team escaped a namespace via an unrestricted syscall surface — kernel hardening closes this |
-| **OPA Gatekeeper** | Admission controller enforcing Rego policies on every resource creation | Rejects non-compliant pods before they start; policies are code-reviewed and version-controlled |
+| **Kyverno** | Admission controller enforcing YAML-native policies on every resource creation | Rejects non-compliant pods before they start; policies are Kubernetes resources — no Rego required |
 | **Cosign** | Signs container images; Policy Controller verifies signatures at admission | Images with no provenance are a supply chain risk — signing creates a verifiable build chain |
 | **Falco** | eBPF runtime threat detection; fires alerts when syscall patterns match threat rules | Admission controllers protect at create time; Falco detects malicious behaviour in running containers |
 | **Audit Policy** | Records every API server request at a configurable verbosity level | Without it, a secret can be read 1,000 times with no trace — required for SOC 2 compliance |
@@ -48,7 +48,7 @@ Admission chain (every kubectl apply / pod create):
     └── API Server
             ├── RBAC authorisation           ← Challenge 2: least-privilege roles, no automount
             ├── Pod Security Admission        ← namespace labels enforce baseline/restricted
-            └── Gatekeeper webhook            ← Challenge 4: RequireNonRoot, BlockHostPath
+            └── Kyverno webhook              ← Challenge 4: require-non-root, block-hostpath
                     └── Rejects non-compliant pods before they are scheduled
 
 Node-level hardening (per running pod):
@@ -84,8 +84,8 @@ Audit trail:
 phase-10b-cks/
 ├── security-context-values.yaml  ← Helm values: seccomp, AppArmor, capabilities
 ├── policies/
-│   ├── require-non-root.yaml     ← Gatekeeper: ConstraintTemplate + Constraint
-│   ├── block-hostpath.yaml       ← Gatekeeper: blocks hostPath volume mounts
+│   ├── require-non-root.yaml     ← Kyverno ClusterPolicy: enforce runAsNonRoot on all pods
+│   ├── block-hostpath.yaml       ← Kyverno ClusterPolicy: deny hostPath volume mounts
 │   └── image-policy.yaml         ← Sigstore Policy Controller: signed images only
 ├── falco/
 │   └── coverline-rules.yaml      ← Custom Falco rule: suspicious DB credential access
@@ -111,7 +111,7 @@ Install local tools:
 
 ```bash
 brew install kube-bench cosign syft
-helm repo add gatekeeper https://open-policy-agent.github.io/gatekeeper/charts
+helm repo add kyverno https://kyverno.github.io/kyverno/
 helm repo add falcosecurity https://falcosecurity.github.io/charts
 helm repo add sigstore https://sigstore.github.io/helm-charts
 helm repo update
@@ -121,7 +121,7 @@ helm repo update
 
 ## Architecture Decision Records
 
-- `docs/decisions/adr-018-gatekeeper-over-kyverno.md` — Why OPA Gatekeeper over Kyverno for policy enforcement
+- `docs/decisions/adr-018-kyverno-over-gatekeeper.md` — Why Kyverno over OPA Gatekeeper for policy enforcement
 - `docs/decisions/adr-019-cosign-supply-chain.md` — Why Cosign + Sigstore for image signing over Notary/notation
 - `docs/decisions/adr-020-falco-ebpf-over-kernel-module.md` — Why eBPF driver over the kernel module for Falco on GKE
 
@@ -297,20 +297,55 @@ kubectl get pod -l app=coverline-backend \
 
 ---
 
-## Challenge 4 — Minimize microservice vulnerabilities: OPA Gatekeeper
+## Challenge 4 — Minimize microservice vulnerabilities: Kyverno
 
 **CKS domain: Minimize Microservice Vulnerabilities (20%)**
 
-### Step 1: Install Gatekeeper
+Kyverno enforces policies written as Kubernetes-native YAML — no Rego, no separate constraint templates. A `ClusterPolicy` is a single resource with `validate`, `mutate`, or `generate` rules. `validationFailureAction: Enforce` blocks non-compliant resources at admission; `Audit` logs violations without blocking.
+
+### Step 1: Install Kyverno
 
 ```bash
-helm upgrade --install gatekeeper gatekeeper/gatekeeper \
-  --namespace gatekeeper-system \
+helm repo add kyverno https://kyverno.github.io/kyverno/
+helm repo update
+helm upgrade --install kyverno kyverno/kyverno \
+  --namespace kyverno \
   --create-namespace \
   --wait
 ```
 
-### Step 2: Apply the RequireNonRoot policy
+Verify:
+
+```bash
+kubectl get pods -n kyverno
+```
+
+### Step 2: Apply the require-non-root policy
+
+`phase-10b-cks/policies/require-non-root.yaml`:
+
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-non-root
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: check-run-as-non-root
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [coverline, default]
+      validate:
+        message: "Containers must set runAsNonRoot: true"
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  runAsNonRoot: true
+```
 
 ```bash
 kubectl apply -f phase-10b-cks/policies/require-non-root.yaml
@@ -322,16 +357,61 @@ Test — this should be rejected at admission:
 kubectl run test-root --image=nginx --restart=Never \
   --overrides='{"spec":{"containers":[{"name":"test-root","image":"nginx",
     "securityContext":{"runAsNonRoot":false}}]}}'
-# Expected: Error from server (Forbidden): admission webhook denied the request
+# Expected: Error from server (Forbidden): ...admission webhook denied the request...
 ```
 
-### Step 3: Apply the BlockHostPath policy
+### Step 3: Apply the block-hostpath policy
+
+`phase-10b-cks/policies/block-hostpath.yaml`:
+
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-hostpath
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: no-hostpath-volumes
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "hostPath volumes are not allowed"
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.volumes[?hostPath] | length(@) }}"
+                operator: GreaterThan
+                value: "0"
+```
 
 ```bash
 kubectl apply -f phase-10b-cks/policies/block-hostpath.yaml
 ```
 
-This is how the red team's container escape would have been blocked. A pod mounting a `hostPath` volume is denied at admission — it never starts.
+This is how the red team's container escape would have been blocked. A pod mounting a `hostPath` volume is denied before it is scheduled — it never starts.
+
+Verify the policies are active:
+
+```bash
+kubectl get clusterpolicy
+```
+
+Expected:
+
+```
+NAME              ADMISSION   BACKGROUND   READY   AGE
+block-hostpath    true        true         True    30s
+require-non-root  true        true         True    30s
+```
+
+Check for existing violations (audit mode scan runs in the background):
+
+```bash
+kubectl get policyreport -A
+```
 
 ### Step 4: Enable secrets encryption at rest (GKE)
 
@@ -573,9 +653,8 @@ kubectl get clusterrolebindings -o json | \
   jq -r '.items[] | select(.roleRef.name=="cluster-admin") |
     .subjects[]? | select(.kind=="ServiceAccount") | "\(.namespace)/\(.name)"'
 
-# Gatekeeper constraint violations
-kubectl get constraint -o json | \
-  jq '.items[] | {name: .metadata.name, violations: .status.totalViolations}'
+# Kyverno policy violations
+kubectl get policyreport -A
 
 # Backend image is signed
 cosign verify --key cosign.pub \
@@ -590,10 +669,10 @@ kubectl get pods -n falco
 ## Teardown
 
 ```bash
-helm uninstall gatekeeper -n gatekeeper-system
+helm uninstall kyverno -n kyverno
 helm uninstall policy-controller -n cosign-system
 helm uninstall falco -n falco
-kubectl delete namespace gatekeeper-system cosign-system falco
+kubectl delete namespace kyverno cosign-system falco
 kubectl delete -f phase-10b-cks/policies/
 kubectl delete job kube-bench
 ```
@@ -608,7 +687,7 @@ The AppArmor annotations, seccomp profiles, and RBAC changes are non-destructive
 |---|---|
 | GKE cluster (Phase 1) | ~$0.66 |
 | KMS key (secrets encryption) | ~$0.06 |
-| Gatekeeper, Falco, Policy Controller pods | included in node cost |
+| Kyverno, Falco, Policy Controller pods | included in node cost |
 | **Phase 10b additional cost** | **~$0.06** |
 
 ---
@@ -621,7 +700,7 @@ No single security control is sufficient. The CKS curriculum maps to exactly the
 Layer                  Control                  What it stops
 ─────────────────────────────────────────────────────────────────
 Supply chain           Cosign + SBOM            Unverified or tampered images entering the cluster
-Admission              Gatekeeper, PSA          Non-compliant pods being created
+Admission              Kyverno, PSA             Non-compliant pods being created
 Node / kernel          AppArmor, seccomp        Syscall-based container escapes
 Runtime                Falco                    Malicious behaviour in running containers
 Identity               RBAC, no automount       Lateral movement via stolen SA tokens
@@ -637,8 +716,15 @@ The red team found gaps at layers 1, 3, 4, and 6. Fixing any one of them would n
 ### 1. Run kube-bench on every node pool upgrade
 A GKE node pool upgrade brings new kubelet binaries. Run kube-bench as a Job after every upgrade to confirm the CIS checks still pass on the new version.
 
-### 2. Audit Gatekeeper violations weekly
-Gatekeeper logs constraint violations even in `warn` mode (it allows the resource but logs it). Review violations weekly — they surface misconfigured workloads before they become incidents. Add a Prometheus metric scrape from Gatekeeper's `/metrics` endpoint.
+### 2. Review Kyverno PolicyReports weekly
+Kyverno generates `PolicyReport` and `ClusterPolicyReport` resources with the results of background scans against existing workloads. Review them weekly — they surface misconfigured resources that were created before a policy was applied:
+
+```bash
+kubectl get policyreport -A
+kubectl describe clusterpolicyreport
+```
+
+Kyverno also exposes a `/metrics` endpoint — scrape it with Prometheus to alert on violation counts.
 
 ### 3. Keep Falco rules in Git, not in ConfigMaps
 This lab creates Falco rules via `kubectl create configmap`. In production, manage rule ConfigMaps through ArgoCD — Falco rule changes get code review, a PR trail, and are automatically rolled back if they break something.
@@ -658,12 +744,12 @@ This lab stores `COSIGN_PRIVATE_KEY` as a GitHub Actions secret. In production, 
 
 | Red team finding | Closed by |
 |---|---|
-| Container escape via `hostPath` + unrestricted syscalls | BlockHostPath Gatekeeper policy + AppArmor/seccomp (Challenges 3, 4) |
+| Container escape via `hostPath` + unrestricted syscalls | Kyverno block-hostpath policy + AppArmor/seccomp (Challenges 3, 4) |
 | SA tokens automounted in all pods | `automountServiceAccountToken: false` on default SA (Challenge 2) |
 | Three images with no provenance | Cosign signing in CI + Policy Controller admission webhook (Challenge 5) |
 | No audit log of secret access | API server audit logging to Cloud Logging (Challenge 6) |
 | No runtime threat detection | Falco eBPF on all nodes with custom CoverLine rules (Challenge 6) |
-| No admission control | Gatekeeper with RequireNonRoot + BlockHostPath constraints (Challenge 4) |
+| No admission control | Kyverno require-non-root + block-hostpath ClusterPolicies (Challenge 4) |
 
 The red team runs again in 90 days. This time the cluster is ready for them.
 
