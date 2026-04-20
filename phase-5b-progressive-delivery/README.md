@@ -1,262 +1,259 @@
 # Phase 5b — Progressive Delivery (Argo Rollouts)
 
+> **Progressive delivery concepts introduced:** Rollout, Canary strategy, AnalysisTemplate, AnalysisRun, automatic rollback | **Builds on:** Phase 5 GitOps with ArgoCD
+
+[▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-5b-progressive-delivery/incident-animation.html) · [📝 Take the quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-5b-progressive-delivery/quiz.html)
+
 ---
 
-> **CoverLine — 20,000 members. A Thursday afternoon.**
+## Concepts introduced
+
+| Concept | What it does | Why we need it |
+|---|---|---|
+| **Rollout** | Argo Rollouts CRD that replaces a Kubernetes Deployment | Adds progressive delivery strategies (canary, blue-green) to any workload |
+| **Canary strategy** | Shifts traffic incrementally — 10% → 30% → 100% | A bad release reaches at most 10% of members before being caught |
+| **AnalysisTemplate** | Defines a Prometheus query and pass/fail conditions | Gates promotion on live production metrics — not just pod readiness |
+| **AnalysisRun** | An execution of an AnalysisTemplate at a specific canary step | Records the exact metric values that caused a promotion or rollback |
+| **Automatic rollback** | Fires when an AnalysisRun fails | Traffic shifts back to stable immediately — no human intervention required |
+
+---
+
+## The problem
+
+> *CoverLine — 20,000 members. A Thursday afternoon.*
 >
 > The backend team shipped a new claims processing feature at 2:30 PM. ArgoCD synced the Helm chart in 45 seconds. The Deployment rolled out to 100% of pods in under 3 minutes. Everything looked green.
 >
-> At 2:48 PM, Karim noticed the error rate on the Grafana dashboard had climbed from 0.2% to 12.4%. The new release had introduced a silent regression in the claims submission endpoint — it failed for any member with more than 5 dependents. Roughly 8% of CoverLine's member base.
+> At 2:48 PM, the error rate on the Grafana dashboard had climbed from 0.2% to 12.4%. The new release had a silent regression in the claims submission endpoint — it failed for any member with more than 5 dependents. Roughly 8% of the member base.
 >
 > The team rolled back at 3:06 PM. 18 minutes of degraded service. 1,600 members affected. Two enterprise client success managers received escalation emails before the engineers knew there was a problem.
 >
-> The post-mortem question was simple: *"Why did 100% of traffic hit the new version before we verified it worked?"*
->
-> *"We need a way to ship to 10% of traffic, watch the error rate for 5 minutes, and only proceed if metrics are healthy. If anything looks wrong, roll back automatically — before we even have time to notice."*
+> *"Why did 100% of traffic hit the new version before we verified it worked?"*
 
-> **▶ [Watch the incident unfold →](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-5b-progressive-delivery/incident-animation.html)**
-> *(animated dashboard — no install required)*
+The decision: progressive delivery. Ship to 10% of traffic, query Prometheus for 2 minutes, advance only if metrics are healthy. If anything looks wrong, roll back automatically — before the team has time to notice.
 
 ---
 
-## End-to-end delivery workflow
-
-From a merged pull request to production — zero manual steps:
+## Architecture
 
 ```
-Developer opens PR → review → merge to main
-        │
-        ▼
-GitHub Actions (cd.yml)
-  ├── Build backend image
-  ├── Push to Artifact Registry  (us-central1-docker.pkg.dev/.../backend:<sha>)
-  ├── Update tag in phase-3-helm/charts/backend/values.yaml
-  └── Commit + push values.yaml back to Git
-        │
-        ▼
-ArgoCD detects values.yaml change (polls every 3 min or via webhook)
-  └── Syncs Helm chart to cluster
-        │
-        ▼
-Argo Rollouts intercepts — starts canary
-  ├── 10% traffic → new version
-  ├── pause 2 minutes
-  ├── AnalysisTemplate queries Prometheus (success rate ≥ 99%?)
-  │     ├── ✔ pass → advance to 30%
-  │     └── ✖ fail → rollback to stable immediately
-  ├── 30% traffic → new version
-  ├── pause 2 minutes
-  ├── AnalysisTemplate queries Prometheus again
-  │     ├── ✔ pass → advance to 100%
-  │     └── ✖ fail → rollback to stable immediately
-  └── 100% traffic → rollout complete, stable pointer updated
-```
+Merge to main
+    │
+    ├── CD pipeline (Phase 4)
+    │       └── Builds image → updates values.yaml → commits to Git
+    │
+    └── ArgoCD (Phase 5)
+            └── Detects values.yaml change → syncs chart
+                    │
+                    └── Argo Rollouts intercepts
+                            ├── Step 1: setWeight 10%  → 1 canary pod
+                            ├── Step 2: pause 2 minutes
+                            ├── Step 3: AnalysisRun → query Prometheus (pod readiness)
+                            │       ├── pass  → setWeight 30%
+                            │       └── fail  → rollback to stable immediately
+                            ├── Step 4: pause 2 minutes
+                            ├── Step 5: AnalysisRun → query Prometheus again
+                            │       ├── pass  → setWeight 100% → rollout complete
+                            │       └── fail  → rollback to stable immediately
+                            └── stable pointer updated
 
-> **What changed vs Phase 5 (GitOps only):**
-> Phase 5 syncs 100% of traffic to the new version in one step. Phase 5b intercepts that sync and gates promotion on live production metrics. A bad release never reaches more than 10% of members before being rolled back automatically.
+AnalysisTemplate: coverline-success-rate
+    └── Queries kube_pod_status_ready every 30s (3 checks)
+    └── Fails if any canary pod is not ready (failureLimit: 0)
+```
 
 ---
 
-## What we'll build
+## Repository structure
 
-| Component | What it does |
-|-----------|-------------|
-| **Argo Rollouts controller** | Replaces the default Kubernetes rollout mechanism with progressive delivery |
-| **Canary strategy** | Ships to 10% → 30% → 100% with a 2-minute pause at each step |
-| **AnalysisTemplate** | Queries Prometheus every 30s — gates promotion on HTTP success rate ≥ 99% |
-| **Automatic rollback** | If the analysis fails, traffic is immediately shifted back to the stable version |
-| **ArgoCD integration** | Rollouts become the deployment mechanism within the existing GitOps flow |
+```
+phase-5b-progressive-delivery/
+├── rollout.yaml             ← Rollout replacing the backend Deployment
+│                              strategy: canary, steps: 10% → 30% → 100%
+└── analysis-template.yaml  ← AnalysisTemplate querying Prometheus pod readiness
+```
 
 ---
 
 ## Prerequisites
 
-Cluster running with Phase 5 (ArgoCD + coverline-backend deployed):
-```bash
-cd phase-1-terraform && terraform apply
-gcloud container clusters get-credentials platform-eng-lab-will-gke \
-  --region us-central1 --project platform-eng-lab-will
-bash bootstrap.sh --phase 5b
-```
+Cluster running with Phase 5 (ArgoCD + coverline-backend deployed) and Phase 6 (Prometheus running in the `monitoring` namespace — required by the AnalysisTemplate):
 
-Verify ArgoCD and the backend are healthy:
 ```bash
 kubectl get applications -n argocd
-kubectl get pods -l app.kubernetes.io/name=backend
+kubectl get pods -n monitoring | grep prometheus
 ```
 
----
-
-## Step 1 — Install Argo Rollouts
-
-### Install the controller
-
-```bash
-kubectl create namespace argo-rollouts
-kubectl apply -n argo-rollouts \
-  -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
-kubectl get pods -n argo-rollouts -w
-```
-
-Expected: `argo-rollouts-<hash>` pod reaches `Running`.
-
-### Install the kubectl plugin
+Install the Argo Rollouts kubectl plugin:
 
 ```bash
 brew install argoproj/tap/kubectl-argo-rollouts
-```
-
-Verify:
-```bash
 kubectl argo rollouts version
 ```
 
 ---
 
-## Step 2 — Convert the Deployment to a Rollout
+## Architecture Decision Records
 
-Argo Rollouts uses a `Rollout` custom resource that mirrors the Deployment spec but adds a `strategy` block. The existing `coverline-backend` Deployment must be replaced.
+- `docs/decisions/adr-021-canary-over-bluegreen.md` — Why canary over blue-green for progressive delivery at CoverLine's scale
+- `docs/decisions/adr-022-pod-readiness-gate.md` — Why pod readiness as the initial AnalysisTemplate gate before HTTP metrics are available
+- `docs/decisions/adr-023-rollout-outside-helm.md` — Why the Rollout is applied as a standalone manifest rather than replacing the Helm chart Deployment
 
-### Why replace, not patch?
+---
 
-A `Rollout` and a `Deployment` managing the same pods will conflict — both will try to own the ReplicaSets. The cleanest approach is to delete the Deployment and apply the Rollout in its place.
+## Challenge 1 — Install Argo Rollouts
+
+### Step 1: Create the namespace and apply the controller
 
 ```bash
-# Apply the AnalysisTemplate FIRST — if the Rollout starts without it, the first canary will immediately degrade
+kubectl create namespace argo-rollouts
+kubectl apply -n argo-rollouts \
+  -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+```
+
+### Step 2: Wait for the controller to be ready
+
+```bash
+kubectl get pods -n argo-rollouts -w
+```
+
+Expected:
+```
+NAME                             READY   STATUS    RESTARTS
+argo-rollouts-xxxx               1/1     Running   0
+```
+
+---
+
+## Challenge 2 — Apply the AnalysisTemplate and Rollout
+
+The AnalysisTemplate must exist before the Rollout starts. If it is missing when the first canary step runs, the AnalysisRun immediately degrades.
+
+### Step 1: Review the AnalysisTemplate
+
+```yaml
+# analysis-template.yaml
+spec:
+  metrics:
+    - name: pod-readiness
+      interval: 30s
+      count: 3
+      failureLimit: 0
+      provider:
+        prometheus:
+          address: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            min(
+              kube_pod_status_ready{
+                namespace="default",
+                pod=~"coverline-backend.*",
+                condition="true"
+              }
+            )
+      successCondition: result[0] >= 1
+      failureCondition: result[0] < 1
+```
+
+The query checks every 30 seconds, 3 times (`count: 3`). If a single check finds any canary pod not ready, the analysis fails immediately (`failureLimit: 0`) and the rollback fires.
+
+### Step 2: Review the Rollout strategy
+
+```yaml
+# rollout.yaml (strategy section)
+strategy:
+  canary:
+    steps:
+      - setWeight: 10
+      - pause: {duration: 2m}
+      - analysis:
+          templates:
+            - templateName: coverline-success-rate
+      - setWeight: 30
+      - pause: {duration: 2m}
+      - analysis:
+          templates:
+            - templateName: coverline-success-rate
+    antiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        weight: 1
+```
+
+`antiAffinity` ensures canary and stable pods land on different nodes where possible — a node failure cannot take both versions down simultaneously.
+
+### Step 3: Apply the AnalysisTemplate first, then replace the Deployment
+
+```bash
+# Apply the AnalysisTemplate first
 kubectl apply -f phase-5b-progressive-delivery/analysis-template.yaml
 
-# Remove the existing Deployment
+# Remove the existing Deployment (the Rollout will manage pods instead)
 kubectl delete deployment coverline-backend
 
 # Apply the Rollout
 kubectl apply -f phase-5b-progressive-delivery/rollout.yaml
 ```
 
-> **Note:** If you apply the Rollout without deleting the Deployment first, Argo Rollouts will scale the Deployment down to 0 automatically and take over. Either approach works, but deleting first is cleaner.
+### Step 4: Verify the Rollout is healthy
 
-Watch it come up:
 ```bash
 kubectl argo rollouts get rollout coverline-backend --watch
 ```
 
-Expected output:
+Expected:
 ```
 Name:            coverline-backend
-Namespace:       default
 Status:          ✔ Healthy
 Strategy:        Canary
   Step:          6/6
   SetWeight:     100
   ActualWeight:  100
 Replicas:
-  Desired:       2
-  Current:       2
-  Updated:       2
-  Ready:         2
-  Available:     2
+  Desired:       2   Current: 2   Updated: 2   Ready: 2
 ```
 
 ---
 
-## Step 3 — Verify the AnalysisTemplate is applied
+## Challenge 3 — Deploy a new version (green path)
 
-The AnalysisTemplate was already applied in Step 2. Confirm it is present before proceeding — if it is missing, the first canary will degrade immediately with `AnalysisTemplate not found`.
+Simulate shipping a new release and watch the canary promote automatically.
 
-```bash
-kubectl get analysistemplate
-```
-
-Expected:
-```
-NAME                     AGE
-coverline-success-rate   5s
-```
-
-Inspect what the analysis will measure:
-```bash
-kubectl describe analysistemplate coverline-success-rate
-```
-
-The template queries `kube_pod_status_ready{condition="true"}` from kube-state-metrics — a metric that is always present for any running pod, with no app instrumentation required. It checks that all canary pods are in a ready state. If any canary pod becomes unready (crash, OOM, failed readiness probe), the analysis fails and the rollback fires.
-
-> **Note:** In production with a properly instrumented app, combine multiple metrics in the AnalysisTemplate. Here is a complete example gating on both HTTP success rate and p99 latency:
->
-> ```yaml
-> apiVersion: argoproj.io/v1alpha1
-> kind: AnalysisTemplate
-> metadata:
->   name: coverline-success-rate
->   namespace: default
-> spec:
->   metrics:
->     - name: success-rate
->       interval: 30s
->       failureLimit: 1
->       provider:
->         prometheus:
->           address: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
->           query: |
->             sum(rate(http_requests_total{namespace="default",job="coverline-backend",status!~"5.."}[2m]))
->             /
->             sum(rate(http_requests_total{namespace="default",job="coverline-backend"}[2m]))
->       successCondition: result[0] >= 0.99
->       failureCondition: result[0] < 0.99
->
->     - name: p99-latency
->       interval: 30s
->       failureLimit: 1
->       provider:
->         prometheus:
->           address: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
->           query: |
->             histogram_quantile(0.99,
->               sum(rate(http_request_duration_seconds_bucket{namespace="default",job="coverline-backend"}[2m]))
->               by (le)
->             )
->       successCondition: result[0] <= 0.5
->       failureCondition: result[0] > 0.5
-> ```
->
-> This gates promotion on **both**: HTTP success rate ≥ 99% AND p99 latency ≤ 500ms. Either metric failing independently triggers a rollback — a release that returns 200 OK but adds 800ms to every request is caught just as a 5xx spike would be.
->
-> Both metrics require the app to expose a `/metrics` endpoint (e.g. via `prometheus-flask-exporter` for Python). The `kube_pod_status_ready` gate used in this lab is a reliable baseline for any app regardless of instrumentation.
-
----
-
-## Step 4 — Deploy a new version (green path)
-
-Simulate shipping a new release by updating the image tag. This triggers the canary rollout.
+### Step 1: Trigger a canary rollout
 
 ```bash
 kubectl argo rollouts set image coverline-backend \
   backend=us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:latest
+```
 
+### Step 2: Watch the rollout progress
+
+```bash
 kubectl argo rollouts get rollout coverline-backend --watch
 ```
 
-> **Note:** This lab uses `:latest` since it is the only tag guaranteed to exist in the registry. Argo Rollouts still runs all canary steps and analysis regardless of whether the new image differs from stable — the progression logic is driven by the revision change, not image content.
-
-### What you'll observe
-
 | Time | What happens |
 |------|-------------|
-| 0s | Rollout starts — 1 canary pod created (10% weight) |
-| ~10s | Analysis begins — Prometheus queried every 30s |
-| 2min | Analysis passes — weight advances to 30% |
-| 4min | Analysis passes again — weight advances to 100% |
-| ~5min | Old pods terminated — rollout complete |
+| 0s | 1 canary pod created — 10% weight |
+| ~10s | AnalysisRun starts — Prometheus queried every 30s |
+| 2m | Analysis passes (3/3 checks) — weight advances to 30% |
+| 4m | Analysis passes again — weight advances to 100% |
+| ~5m | Old pods terminated — rollout complete |
 
-Watch traffic weights in real time:
+### Step 3: Inspect the AnalysisRun
+
 ```bash
-# In a second terminal
-watch kubectl argo rollouts get rollout coverline-backend
+kubectl get analysisrun
+kubectl describe analysisrun <name>
 ```
+
+The AnalysisRun log shows the exact Prometheus query result at each measurement interval — a permanent audit trail of why the canary was promoted.
 
 ---
 
-## Step 5 — Simulate a bad deploy (automatic rollback)
+## Challenge 4 — Simulate a bad deploy (automatic rollback)
 
-Now simulate the Thursday afternoon incident: ship a broken version and watch it get caught before it reaches 100%.
+Reproduce the Thursday afternoon incident: ship a broken version and watch it get caught at 10%.
+
+### Step 1: Deploy a broken image
 
 ```bash
 kubectl argo rollouts set image coverline-backend \
@@ -265,252 +262,112 @@ kubectl argo rollouts set image coverline-backend \
 kubectl argo rollouts get rollout coverline-backend --watch
 ```
 
-The canary pod will enter `ImagePullBackOff` — it can never become ready, so Argo Rollouts stalls at step 0 waiting for it. The 2-minute pause timer doesn't start until the canary pod is available.
+The canary pod enters `ImagePullBackOff`. Argo Rollouts stalls at step 0 — it waits for the canary pod to become ready before starting the pause timer.
 
-> **Why doesn't it auto-abort?** Argo Rollouts waits for the canary pod to become ready before starting the pause timer. A pod stuck in `ImagePullBackOff` will eventually be caught by `progressDeadlineSeconds` (default: 10 minutes). For this lab, abort manually.
+### Step 2: Abort and roll back
 
 ```bash
-# Trigger the abort
 kubectl argo rollouts abort coverline-backend
-
-# Roll back to the previous stable revision
 kubectl argo rollouts undo coverline-backend
 ```
 
-`undo` creates a new revision (e.g. revision 4) with the previous image — it goes through the canary steps again since both canary and stable are now the same image. Let it promote, or skip the steps:
+`undo` creates a new revision with the previous stable image and runs it through the canary steps. To skip directly to stable:
 
 ```bash
 kubectl argo rollouts promote coverline-backend --full
 ```
 
-Verify traffic is back on the stable version:
+### Step 3: Verify the stable version is restored
+
 ```bash
 kubectl argo rollouts get rollout coverline-backend
 # Status: ✔ Healthy
 ```
 
-### Check the AnalysisRuns
-
-```bash
-kubectl get analysisrun
-kubectl describe analysisrun <name>
-```
-
-The AnalysisRun log shows the exact Prometheus query result — the same signal Karim would have seen on Grafana, but acted on automatically.
-
 ---
 
-## Step 6 — ArgoCD integration
+## Challenge 5 — Verify ArgoCD integration
 
-### Apply the ArgoCD applications
+ArgoCD recognises `Rollout` resources and reflects their health in the application status.
 
-```bash
-kubectl apply -f phase-5-gitops/argocd-app-backend.yaml
-kubectl apply -f phase-5-gitops/argocd-app-frontend.yaml
-kubectl get applications -n argocd
-```
-
-Expected:
-```
-NAME                 SYNC STATUS   HEALTH STATUS
-coverline-backend    Synced        Healthy
-coverline-frontend   Synced        Healthy
-```
-
-### What ArgoCD shows out of the box
-
-ArgoCD recognises `Rollout` resources from the CRDs and reflects their health correctly — `Healthy`, `Progressing`, or `Degraded` — in the sync status. In the UI you will see the Rollout listed as a resource inside the application, and its health status updates in real time as the canary progresses.
-
-**What you will NOT see without the UI extension:** canary weight percentages, step-by-step progress, and AnalysisRun pass/fail details. The standard ArgoCD UI does not include a dedicated rollout panel by default.
-
-### Verify ArgoCD sees the Rollout
+### Step 1: Check the ArgoCD application health
 
 ```bash
 kubectl get application coverline-backend -n argocd \
   -o jsonpath='{.status.health.status}'
-# Expected: Healthy
 ```
 
-### View rollout progress
+Expected: `Healthy`
 
-For this lab, the CLI gives more detail than the ArgoCD UI:
+### Step 2: Trigger a sync via Git
 
-```bash
-kubectl argo rollouts get rollout coverline-backend --watch
-```
-
-This shows live step progress, canary weights, and AnalysisRun pass/fail in real time — everything you need to observe the canary.
-
-The ArgoCD UI (port-forward below) shows the Rollout resource health status (`Healthy` / `Progressing` / `Degraded`) but not the detailed canary panel. The full panel requires the Argo Rollouts UI extension — see https://github.com/argoproj-labs/rollout-extension for installation instructions.
-
-```bash
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-```
-
-### GitOps flow with progressive delivery
-
-The full deployment flow is now:
+Update the image tag in `phase-3-helm/charts/backend/values.yaml`, push to main, and watch the full GitOps + progressive delivery loop:
 
 ```
-Developer pushes image tag change to Git
-        ↓
-ArgoCD detects diff → syncs Helm chart
-        ↓
-Argo Rollouts starts canary (10%)
-        ↓
-AnalysisTemplate queries Prometheus every 30s
-        ↓
-Green metrics → promote to 30% → 100%
-Bad metrics  → automatic rollback → Slack/PagerDuty alert
-```
-
-No human intervention required unless the analysis fails — in which case the rollback already happened.
-
----
-
-## Step 7 — Verify & Screenshot
-
-```bash
-# Final state
-kubectl argo rollouts get rollout coverline-backend
-kubectl get analysistemplate
-kubectl get analysisrun
-
-# Rollout history
-kubectl argo rollouts history coverline-backend
-```
-
-Take screenshots for the README:
-- `canary-promoting.png` — rollout mid-promotion showing 30% canary weight
-- `rollback-fired.png` — AnalysisRun showing the failed metric and rollback message
-- `argocd-rollout.png` — ArgoCD UI showing the Rollout panel
-
----
-
-## Troubleshooting
-
-### Canary pod in `ImagePullBackOff` — rollout stalls at step 0
-
-**Cause:** Argo Rollouts waits for the canary pod to become available before starting the pause timer. A pod that can never start (bad image tag, registry auth failure) stalls the rollout indefinitely.
-
-**Fix:** Abort and undo manually:
-```bash
-kubectl argo rollouts abort coverline-backend
-kubectl argo rollouts undo coverline-backend
-```
-
-To avoid this blocking in production, set `progressDeadlineSeconds: 300` in the Rollout spec — the rollout is automatically aborted if it hasn't progressed within that window.
-
----
-
-### Rollout stuck at 0% weight (analysis cannot reach Prometheus)
-
-**Cause:** The AnalysisTemplate references a Prometheus service that isn't reachable.
-
-```bash
-kubectl describe analysisrun <name>
-# Look for: "unable to query prometheus"
-kubectl get svc -n monitoring | grep prometheus
-```
-
-The Prometheus URL in the AnalysisTemplate must match the in-cluster service name. Default: `http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090`
-
-### `kubectl argo rollouts` command not found
-
-**Cause:** The kubectl plugin is not installed or not in PATH.
-
-```bash
-brew install argoproj/tap/kubectl-argo-rollouts
-# or download the binary manually:
-# https://github.com/argoproj/argo-rollouts/releases
-```
-
-### Rollout shows `Degraded` after applying rollout.yaml
-
-**Cause:** The old Deployment's ReplicaSet still exists and conflicts with the Rollout.
-
-```bash
-kubectl get replicaset -l app.kubernetes.io/name=backend
-kubectl delete replicaset <old-rs-name>
-```
-
-### ArgoCD shows the application as `OutOfSync` after switching to Rollout
-
-**Cause:** The Deployment resource still exists in ArgoCD's state. Delete it and let ArgoCD reconcile.
-
-```bash
-kubectl delete deployment coverline-backend
-# ArgoCD will re-apply the Rollout from Git on next sync
+Git push → ArgoCD syncs chart → Argo Rollouts starts canary → AnalysisRun passes → 100%
 ```
 
 ---
 
-## Production Considerations
+## Teardown
 
-### 1. Use a service mesh for precise traffic splitting
-This lab uses Argo Rollouts' default traffic splitting (pod-count-based weight approximation). In production, integrate with a service mesh (Istio, Linkerd) or an ingress controller (NGINX, Traefik) for exact percentage-based traffic splitting at the L7 layer — critical when you have only a small number of replicas.
-
-### 2. Define multiple metrics in the AnalysisTemplate
-This lab gates on HTTP success rate only. In production, combine multiple metrics: success rate + p99 latency + error count. A release that keeps 200 OK but adds 800ms to every request should also trigger a rollback.
-
-### 3. Set `progressDeadlineSeconds`
-Without a deadline, a stalled canary (e.g., analysis waiting indefinitely) blocks traffic at the canary weight forever. Set `progressDeadlineSeconds: 600` — if the rollout hasn't completed in 10 minutes, it's automatically aborted.
-
-### 4. Notify on rollback
-An automatic rollback is silent by default. Configure Argo Rollouts notifications (or ArgoCD notifications) to alert Slack/PagerDuty whenever a rollback fires — the on-call engineer needs to know a bad deploy was caught and reverted, even if no users were affected.
-
-### 5. Keep the stable version pinned in Git
-The GitOps source of truth should always reflect the current stable image tag. After a successful rollout, update the image tag in Git — don't rely solely on `kubectl argo rollouts set image`, which bypasses Git and creates drift.
-
-### 6. Move the Rollout into the Helm chart
-This lab applies `rollout.yaml` as a standalone manifest outside of Helm. When ArgoCD syncs the Helm chart, it creates a separate Helm-managed Deployment alongside the Rollout — resulting in duplicate pods sharing the same selector.
-
-In production, replace the `Deployment` template in the Helm chart with a `Rollout`:
-
-**`phase-3-helm/charts/backend/templates/rollout.yaml`** (replace `deployment.yaml`):
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Rollout
-metadata:
-  name: {{ include "backend.fullname" . }}
-  labels:
-    {{- include "backend.labels" . | nindent 4 }}
-spec:
-  replicas: {{ .Values.replicaCount }}
-  selector:
-    matchLabels:
-      {{- include "backend.selectorLabels" . | nindent 6 }}
-  template:
-    metadata:
-      labels:
-        {{- include "backend.selectorLabels" . | nindent 8 }}
-    spec:
-      containers:
-        - name: backend
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          ports:
-            - containerPort: 5000
-          {{- with .Values.resources }}
-          resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-  strategy:
-    canary:
-      steps:
-        - setWeight: 10
-        - pause: {duration: 2m}
-        - analysis:
-            templates:
-              - templateName: coverline-success-rate
-        - setWeight: 30
-        - pause: {duration: 2m}
-        - analysis:
-            templates:
-              - templateName: coverline-success-rate
+```bash
+kubectl delete -f phase-5b-progressive-delivery/
+kubectl delete namespace argo-rollouts
+# Restore the standard Deployment for subsequent phases
+kubectl apply -f phase-2-kubernetes/backend/deployment.yaml
 ```
-
-With this in place, ArgoCD manages one object (the Rollout) and there is no Deployment conflict. The AnalysisTemplate can live in a separate `templates/analysis-template.yaml` in the same chart.
 
 ---
 
-[📝 Take the Phase 5b quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-5b-progressive-delivery/quiz.html)
+## Cost breakdown
+
+Argo Rollouts runs as a single controller pod on the existing cluster. No additional GCP resources are created.
+
+| Resource | $/day |
+|---|---|
+| GKE cluster (Phase 1) | ~$0.66 |
+| Argo Rollouts controller | included in node cost |
+| **Phase 5b additional cost** | **$0** |
+
+---
+
+## Progressive delivery concept: canary vs. rolling update
+
+A Kubernetes rolling update replaces pods one by one until all replicas run the new version. It stops if pods fail readiness checks — but by then, the new version is already serving a fraction of traffic.
+
+A canary rollout is different in two ways:
+
+1. **Traffic weight is explicit.** You control exactly what percentage of requests goes to the new version at each step — not just how many pods are running it.
+2. **Promotion is gated on metrics.** The rollout only advances when an external signal (Prometheus) confirms the new version is healthy. A deployment that passes pod readiness but causes silent errors (wrong API format, business logic regression) will fail the analysis and roll back.
+
+The Thursday afternoon incident would not have happened: 1,600 members would have been 160 (10% canary weight), and the error spike at 2:48 PM would have failed the first AnalysisRun, triggering a rollback at 2:52 PM — before the enterprise client escalations.
+
+---
+
+## Production considerations
+
+### 1. Gate on HTTP success rate, not just pod readiness
+The AnalysisTemplate in this lab uses pod readiness as the gate — reliable for any app, but blind to silent regressions like wrong response formats. In production, instrument the app with `prometheus-flask-exporter` and gate on HTTP success rate ≥ 99% and p99 latency ≤ 500ms.
+
+### 2. Set `progressDeadlineSeconds`
+Without a deadline, a stalled canary blocks traffic at 10% indefinitely. Set `progressDeadlineSeconds: 600` — the rollout is automatically aborted if it has not progressed within 10 minutes.
+
+### 3. Notify on automatic rollback
+A rollback is silent by default. Configure Argo Rollouts notifications (or ArgoCD notifications) to alert Slack or PagerDuty when a rollback fires — the on-call engineer needs to know, even if no users were affected.
+
+### 4. Move the Rollout into the Helm chart
+This lab applies `rollout.yaml` as a standalone manifest. When ArgoCD also manages the Helm chart (which contains a Deployment), both will try to own the same pods. In production, replace `deployment.yaml` in the Helm chart with a `rollout.yaml` template so ArgoCD manages a single object.
+
+### 5. Use a service mesh for exact traffic splitting
+This lab uses pod-count-based weight approximation — with 2 replicas, 10% weight means 1 pod out of 10 (requires 10 total pods). A service mesh (Istio, Linkerd) or NGINX ingress provides exact percentage-based L7 traffic splitting regardless of replica count.
+
+---
+
+## Outcome
+
+A bad deploy can no longer silently reach 100% of members. Every new backend image goes through a 10% → 30% → 100% canary with Prometheus-gated promotion. An unhealthy canary rolls back automatically within 2 minutes — before alerts fire and before users notice.
+
+---
+
+[Back to main README](../README.md) | [Next: Phase 6 — Observability](../phase-6-observability/README.md)
