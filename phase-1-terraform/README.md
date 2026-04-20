@@ -85,6 +85,16 @@ gcloud config set project platform-eng-lab-will
 
 ---
 
+## Architecture Decision Records
+
+- `docs/decisions/adr-001-terraform-over-deployment-manager.md` — Why Terraform over GCP Deployment Manager for infrastructure provisioning
+- `docs/decisions/adr-002-gcs-remote-state.md` — Why GCS backend with per-environment prefixes over local state
+- `docs/decisions/adr-003-vpc-native-over-routes-based.md` — Why VPC-native GKE networking over routes-based mode
+- `docs/decisions/adr-004-spot-nodes-dev.md` — Why spot instances in dev/staging despite preemption risk
+- `docs/decisions/adr-005-workload-identity-over-sa-keys.md` — Why Workload Identity over mounted service account JSON keys
+
+---
+
 ## Challenge 1 — Create the GCS bucket for Terraform state
 
 This is the one step you do manually. Terraform cannot store its own state before the bucket exists.
