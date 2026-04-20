@@ -366,6 +366,87 @@ kubectl describe hpa coverline-backend | grep -A20 "Events"
 
 ---
 
+## Challenge 6 — Upgrade the node pool
+
+A GKE node pool upgrade is the most common voluntary disruption in production. GKE drains each node, evicts pods, replaces it with a node running the newer Kubernetes version, and repeats across the pool. Without a PDB, an upgrade can evict all replicas of a deployment simultaneously. This challenge completes the PDB story from Challenge 4 — not by simulating a drain, but by running a real upgrade.
+
+### Step 1: Check the current node pool version
+
+```bash
+gcloud container node-pools describe platform-eng-lab-will-dev-gke-np \
+  --cluster=platform-eng-lab-will-dev-gke \
+  --region=us-central1 \
+  --project=platform-eng-lab-will \
+  --format="table(version)"
+```
+
+### Step 2: Scale the backend to 3 replicas before upgrading
+
+With exactly 2 replicas, the PDB has `ALLOWED DISRUPTIONS: 0` — GKE cannot evict any pod and the upgrade stalls. Scale up first so the PDB allows 1 disruption:
+
+```bash
+kubectl scale deployment coverline-backend --replicas=3
+kubectl get pdb
+```
+
+Expected: `coverline-backend` now shows `ALLOWED DISRUPTIONS: 1`.
+
+### Step 3: Trigger the node pool upgrade
+
+```bash
+gcloud container clusters upgrade platform-eng-lab-will-dev-gke \
+  --node-pool=platform-eng-lab-will-dev-gke-np \
+  --region=us-central1 \
+  --project=platform-eng-lab-will
+```
+
+GKE shows the target version and prompts for confirmation. The upgrade process per node:
+1. Cordon — marks the node unschedulable
+2. Drain — evicts pods, checking the PDB before each eviction
+3. Delete — removes the old node VM
+4. Provision — brings up a new node running the upgraded version
+5. Repeat for the next node
+
+### Step 4: Watch the rolling replacement
+
+```bash
+# Terminal 1 — nodes cycle through SchedulingDisabled → NotReady → Ready
+kubectl get nodes -w
+
+# Terminal 2 — backend pods must stay running throughout
+kubectl get pods -l app.kubernetes.io/name=backend -w
+```
+
+Expected: nodes appear one at a time with `SchedulingDisabled` status while draining, then `NotReady` briefly, then `Ready` on the new version. Backend pods are never all evicted simultaneously — the PDB enforces `minAvailable: 2` for the entire duration of the upgrade.
+
+If the PDB would be violated (fewer than 2 pods would remain available), GKE pauses the drain and waits rather than proceeding. You can see this pause in the node events:
+
+```bash
+kubectl describe node <node-name> | grep -A5 "Events"
+```
+
+Look for: `eviction.k8s.io "coverline-backend-xxx" is forbidden: cannot evict pod as it would violate the pod's disruption budget`
+
+### Step 5: Verify the upgrade completed
+
+```bash
+gcloud container node-pools describe platform-eng-lab-will-dev-gke-np \
+  --cluster=platform-eng-lab-will-dev-gke \
+  --region=us-central1 \
+  --project=platform-eng-lab-will \
+  --format="table(version)"
+
+kubectl get nodes -o wide
+```
+
+All nodes should report the new version. Scale the backend back to 2 replicas:
+
+```bash
+kubectl scale deployment coverline-backend --replicas=2
+```
+
+---
+
 ## Teardown
 
 ```bash
