@@ -30,9 +30,3 @@ module "gke" {
   min_node_count = var.min_node_count
   max_node_count = var.max_node_count
 }
-
-module "bigquery" {
-  source     = "../../modules/bigquery"
-  region     = var.region
-  dataset_id = replace("${local.naming_prefix}-dataset", "-", "_")
-}
