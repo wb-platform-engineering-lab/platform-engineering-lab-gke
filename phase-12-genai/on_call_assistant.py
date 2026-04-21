@@ -6,6 +6,7 @@ and posts a structured root cause hypothesis to a Slack webhook.
 
 import json
 import os
+import re
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -28,16 +29,12 @@ When a Grafana alert fires you will be given the alert name. Your job is to:
 2. Query recent error logs from Loki (query_loki)
 3. Query relevant metrics from Prometheus (query_prometheus)
 
-After investigation, return ONLY a JSON object with this exact schema:
-{
-  "summary": "<one sentence description of what is happening>",
-  "likely_cause": "<the most probable root cause>",
-  "evidence": ["<log or metric snippet 1>", "<log or metric snippet 2>", ...],
-  "recommended_actions": ["<kubectl or ops command 1>", "<kubectl or ops command 2>", ...],
-  "severity": "low" | "medium" | "high" | "critical"
-}
+After investigation, output ONLY a raw JSON object — no prose, no markdown, no explanation. Your entire response must be parseable by json.loads().
 
-Be specific. Cite actual metric values and log lines. Do not speculate beyond the evidence."""
+Schema:
+{"summary": "...", "likely_cause": "...", "evidence": ["..."], "recommended_actions": ["..."], "severity": "low"|"medium"|"high"|"critical"}
+
+Be specific. Cite actual metric values and log lines. Output ONLY the JSON object."""
 
 
 # ---------------------------------------------------------------------------
@@ -162,43 +159,62 @@ def investigate(alert_name: str) -> dict:
     turn = 0
     while True:
         turn += 1
-        if turn > MAX_TURNS:
-            return {
-                "summary": f"Investigation exceeded {MAX_TURNS} turns for alert {alert_name}",
-                "likely_cause": "Unknown — investigation loop limit reached",
-                "evidence": [],
-                "recommended_actions": ["Investigate manually"],
-                "severity": "high",
-            }
+
+        # On the final turn call without tools to force end_turn + JSON output
+        active_tools = [] if turn >= MAX_TURNS else TOOLS
 
         response = client.messages.create(
             model=MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
-            tools=TOOLS,
+            tools=active_tools if active_tools else anthropic.NOT_GIVEN,
             messages=messages,
         )
 
         if response.stop_reason == "end_turn":
             text_block = next((b for b in response.content if hasattr(b, "text")), None)
             if text_block:
-                return json.loads(text_block.text)
+                raw = text_block.text.strip()
+                # Strip markdown fences
+                if raw.startswith("```"):
+                    raw = raw.split("```")[1]
+                    if raw.startswith("json"):
+                        raw = raw[4:]
+                    raw = raw.strip()
+                # Extract first JSON object (handles nested braces)
+                if not raw.startswith("{"):
+                    match = re.search(r"\{[\s\S]*\}", raw)
+                    if match:
+                        raw = match.group(0)
+                try:
+                    return json.loads(raw)
+                except json.JSONDecodeError:
+                    # Model returned prose — wrap it as a valid hypothesis
+                    return {
+                        "summary": raw[:200] if raw else "No structured response",
+                        "likely_cause": "See summary — model returned unstructured output",
+                        "evidence": [],
+                        "recommended_actions": ["Review raw model output", "Investigate manually"],
+                        "severity": "medium",
+                    }
             return {"summary": "No text in response", "likely_cause": "unknown", "evidence": [], "recommended_actions": [], "severity": "medium"}
 
         tool_results = []
         for block in response.content:
             if block.type == "tool_use":
                 result = TOOL_MAP[block.name](**block.input)
+                content = json.dumps(result)
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": block.id,
-                    "content": json.dumps(result),
+                    "content": content if content else "{}",
                 })
 
-        messages += [
-            {"role": "assistant", "content": response.content},
-            {"role": "user", "content": tool_results},
-        ]
+        if tool_results:
+            messages += [
+                {"role": "assistant", "content": response.content},
+                {"role": "user", "content": tool_results},
+            ]
 
 
 # ---------------------------------------------------------------------------

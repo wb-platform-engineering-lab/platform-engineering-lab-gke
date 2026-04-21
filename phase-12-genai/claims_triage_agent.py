@@ -290,18 +290,20 @@ def triage_claim(claim_id: int) -> tuple[TriageDecision, dict]:
         for block in response.content:
             if block.type == "tool_use":
                 result = TOOL_MAP[block.name](**block.input)
+                content = json.dumps(result)
                 tool_results.append(
                     {
                         "type": "tool_result",
                         "tool_use_id": block.id,
-                        "content": json.dumps(result),
+                        "content": content if content else "{}",
                     }
                 )
 
-        messages += [
-            {"role": "assistant", "content": response.content},
-            {"role": "user", "content": tool_results},
-        ]
+        if tool_results:
+            messages += [
+                {"role": "assistant", "content": response.content},
+                {"role": "user", "content": tool_results},
+            ]
 
 
 # ---------------------------------------------------------------------------
