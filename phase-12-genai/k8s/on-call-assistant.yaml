@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: on-call-assistant
+  namespace: default
+  labels:
+    app: on-call-assistant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: on-call-assistant
+  template:
+    metadata:
+      labels:
+        app: on-call-assistant
+    spec:
+      containers:
+        - name: assistant
+          image: python:3.11-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              pip install anthropic --quiet
+              python /app/on_call_assistant.py
+          ports:
+            - containerPort: 8888
+          env:
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: anthropic-api-key
+                  key: ANTHROPIC_API_KEY
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: on-call-assistant-secrets
+                  key: SLACK_WEBHOOK_URL
+                  optional: true
+            - name: GRAFANA_URL
+              value: "http://kube-prometheus-stack-grafana.monitoring.svc.cluster.local:80"
+            - name: GRAFANA_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: on-call-assistant-secrets
+                  key: GRAFANA_TOKEN
+                  optional: true
+            - name: LOKI_URL
+              value: "http://loki.monitoring.svc.cluster.local:3100"
+            - name: PROMETHEUS_URL
+              value: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
+          volumeMounts:
+            - name: app-code
+              mountPath: /app
+          readinessProbe:
+            tcpSocket:
+              port: 8888
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8888
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: app-code
+          configMap:
+            name: on-call-assistant-code
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: on-call-assistant
+  namespace: default
+  labels:
+    app: on-call-assistant
+spec:
+  selector:
+    app: on-call-assistant
+  ports:
+    - port: 8888
+      targetPort: 8888
+      protocol: TCP
+  type: ClusterIP

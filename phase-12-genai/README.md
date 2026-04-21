@@ -32,27 +32,60 @@ The decision: an agentic triage assistant built on the Anthropic SDK — queries
 
 ## Architecture
 
-```
-Airflow DAG (daily 06:00 UTC)
-    └── PythonOperator → claims_triage_agent.py
-            │
-            ├── Tool: query_claim(claim_id)         → PostgreSQL (claims table)
-            ├── Tool: get_policy(member_id)          → PostgreSQL (policies table)
-            └── Tool: get_claim_history(member_id)   → PostgreSQL (claim history)
-                    │
-                    └── Claude API (claude-sonnet-4-6)
-                            ├── Returns: {"decision": "approve|review|reject",
-                            │             "confidence": 0.0–1.0, "reason": "..."}
-                            ├── Writes result → PostgreSQL (claim_triage table)
-                            └── Pushes metrics → Prometheus Pushgateway
-                                    └── Prometheus scrapes → Grafana LLM dashboard
+```mermaid
+flowchart TD
+    subgraph Airflow["Airflow (daily 06:00 UTC)"]
+        DAG["claims_triage DAG"]
+        T1["fetch_pending_claims\nPythonOperator"]
+        T2["run_triage\nPythonOperator"]
+        DAG --> T1 -->|"claim_ids via XCom"| T2
+    end
 
-On-call assistant (Deployment, port 8888):
-    └── Grafana alert fires → webhook → on_call_assistant.py
-            ├── Tool: get_alert_details  → Grafana Alerting API
-            ├── Tool: query_loki         → Loki HTTP API
-            └── Tool: query_prometheus   → Prometheus HTTP API
-                    └── Posts root cause hypothesis → Slack webhook
+    subgraph Agent["claims_triage_agent.py — agentic loop"]
+        LOOP["Tool use loop\nMAX_TURNS=6"]
+        TC1["query_claim()"]
+        TC2["get_policy()"]
+        TC3["get_claim_history()"]
+        CLAUDE["Claude API\nclaude-sonnet-4-6"]
+        GUARD["Guardrails\nPydantic · circuit breaker\nconfidence gate · sanitise"]
+        LOOP --> TC1 & TC2 & TC3 --> CLAUDE --> GUARD
+    end
+
+    subgraph PG["PostgreSQL"]
+        CLAIMS["claims"]
+        POLICIES["policies"]
+        TRIAGE["claim_triage"]
+    end
+
+    subgraph Observability["Observability"]
+        PGW["Prometheus\nPushgateway"]
+        PROM["Prometheus"]
+        GRAF["Grafana\nLLM dashboard"]
+        ALERT["Grafana\nAlerting"]
+    end
+
+    subgraph OnCall["on_call_assistant.py — webhook :8888"]
+        WH["HTTP server"]
+        INV["Investigation loop"]
+        TG["get_alert_details"]
+        TL["query_loki"]
+        TP["query_prometheus"]
+        SLACK["Slack webhook"]
+        WH --> INV --> TG & TL & TP --> SLACK
+    end
+
+    T2 --> LOOP
+    TC1 --> CLAIMS
+    TC2 --> POLICIES
+    TC3 --> CLAIMS
+    GUARD -->|"write decision"| TRIAGE
+    GUARD -->|"push metrics"| PGW
+    PGW --> PROM --> GRAF
+    PROM --> ALERT
+    ALERT -->|"POST /alert"| WH
+    TG -->|"Grafana API"| GRAF
+    TL -->|"LogQL"| PROM
+    TP -->|"PromQL"| PROM
 ```
 
 ---
@@ -370,6 +403,8 @@ Key panels:
 | Cost over time | timeseries | `sum(llm_cost_usd) by (decision)` |
 
 After a triage run the dashboard shows daily cost, a decision distribution pie chart (mostly `approve`, some `review`), and latency in the 1500–3000 ms range.
+
+![LLM Claims Triage Grafana Dashboard](screenshots/phase-12-grafana-llm-dashboard.png)
 
 ---
 

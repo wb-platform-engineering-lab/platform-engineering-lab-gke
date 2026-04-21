@@ -74,11 +74,64 @@ gsutil mb -p platform-eng-lab-will -l us-central1 \
   gs://platform-eng-lab-will-data-staging
 ```
 
-Local tools:
+### Troubleshooting: Airflow pods stuck in `Init:CrashLoopBackOff`
+
+**Symptom:** After `bash bootstrap.sh --phase 9`, Helm exits with `context deadline exceeded` and Airflow pods loop on `Init:CrashLoopBackOff`. The init container log shows:
+
+```
+TimeoutError: There are still unapplied migrations after 60 seconds.
+MigrationHead(s) in DB: set() | Migration Head(s) in Source Code: {'88344c1d9134'}
+```
+
+**Cause:** The Helm install timed out before the `run-airflow-migrations` job could complete. The Airflow metadata tables were never created in PostgreSQL, so every pod's `wait-for-airflow-migrations` init container times out waiting for them.
+
+**Fix:** Run the migration manually in a temporary pod, then restart the Airflow deployments:
 
 ```bash
-pip install dbt-bigquery==1.7.*
-dbt --version   # should show 1.7.x
+FERNET_KEY=$(kubectl get secret -n airflow airflow-fernet-key \
+  -o jsonpath='{.data.fernet-key}' | base64 -d)
+
+kubectl run airflow-migrate --rm -i --restart=Never \
+  -n airflow \
+  --image=apache/airflow:2.8.1 \
+  --env="AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://coverline:coverline123@postgresql.default.svc.cluster.local:5432/coverline" \
+  --env="AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}" \
+  --env="AIRFLOW__CORE__EXECUTOR=KubernetesExecutor" \
+  -- airflow db migrate
+
+kubectl rollout restart deployment/airflow-webserver deployment/airflow-scheduler -n airflow
+kubectl rollout restart statefulset/airflow-triggerer -n airflow
+```
+
+Verify the migrations ran (should return ~43 tables):
+
+```bash
+kubectl exec -n default postgresql-0 -- \
+  env PGPASSWORD=coverline123 psql -U coverline -d coverline \
+  -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';"
+```
+
+Once the count is ≥ 40, the rollout restart will bring all Airflow pods to `Running`.
+
+---
+
+Local tools — dbt runs in a virtual environment to avoid conflicts with the system Python.
+
+> **Python version note:** dbt requires Python 3.9–3.12. Python 3.13+ is not yet supported due to
+> an incompatibility in the `mashumaro` dependency. If your system Python is 3.13+, install 3.12
+> first: `brew install python@3.12`
+
+```bash
+python3.12 -m venv ~/.venv/dbt   # use python3 if your system Python is 3.9–3.12
+source ~/.venv/dbt/bin/activate
+uv pip install "dbt-bigquery>=1.8,<2.0"
+dbt --version   # should show 1.8.x or later
+```
+
+Add the activate line to your shell profile so the venv is active in every new terminal:
+
+```bash
+echo 'source ~/.venv/dbt/bin/activate' >> ~/.zshrc
 ```
 
 ---
