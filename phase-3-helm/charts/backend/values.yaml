@@ -1,25 +1,20 @@
-replicaCount: 2
-
+replicaCount: 3
 image:
   repository: us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend
   tag: "49d1e26aa43ae2b62aa2acac74db8b24660fc5c2"
   pullPolicy: IfNotPresent
-
 service:
   type: ClusterIP
   port: 5000
-
 db:
   host: postgresql
   port: 5432
   name: coverline
   user: coverline
   password: coverline123
-
 redis:
   host: redis-master
   port: 6379
-
 resources:
   requests:
     cpu: "100m"
@@ -27,20 +22,15 @@ resources:
   limits:
     cpu: "250m"
     memory: "256Mi"
-
-
 serviceMonitor:
   enabled: false
   namespace: monitoring
-
   additionalLabels:
     release: kube-prometheus-stack
-
   port: http
   path: /metrics
   interval: 15s
   scrapeTimeout: 10s
-
 # Vault Agent secret injection
 #vault:
 #  enabled: true
