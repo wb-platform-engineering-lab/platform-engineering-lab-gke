@@ -251,7 +251,11 @@ Open `http://localhost:9090` → **Alerts**. The three CoverLine rules should ap
 kubectl scale deployment coverline-backend --replicas=0
 ```
 
-Wait 1 minute, then check `http://localhost:9090/alerts` — `BackendDown` should transition to `Pending` then `Firing`. Restore:
+Wait 1 minute, then check `http://localhost:9090/alerts` — `BackendDown` should transition to `Pending` then `Firing`. 
+
+![Backend Alert](./screenshots/backend_down_firing_alert.png)
+
+Restore:
 
 ```bash
 kubectl scale deployment coverline-backend --replicas=2
