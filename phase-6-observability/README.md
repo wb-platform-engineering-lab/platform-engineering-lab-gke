@@ -202,6 +202,8 @@ Navigate to **Dashboards**. The kube-prometheus-stack installs several dashboard
 - **Kubernetes / Compute Resources / Namespace (Pods)** — per-pod resource usage
 - **Node Exporter / Nodes** — disk, network, and system metrics per node
 
+
+![Dashboard Cluster](./screenshots/dashboard_cluster.png)
 ---
 
 ## Challenge 4 — Apply the CoverLine alert rules
@@ -272,6 +274,8 @@ Run these queries in **Grafana → Explore → Loki** during normal operation an
 ```logql
 {namespace="default"} |= "error" or |= "ERROR"
 ```
+
+![Dashboard Loki Logs](./screenshots/dashboard_loki_logs.png)
 
 ### Backend logs — filter out health check noise
 
