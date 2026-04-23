@@ -109,6 +109,14 @@ kubectl apply -n argocd \
   -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 ```
 
+- if it fails with this error `The CustomResourceDefinition "applicationsets.argoproj.io" is invalid: metadata.annotations: Too long: may not be more than 262144 bytes`, run this command :
+
+```bash
+kubectl apply --server-side -n argocd \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml \
+  --force-conflicts
+```
+
 ### Step 2: Wait for all ArgoCD pods to be ready
 
 ```bash
