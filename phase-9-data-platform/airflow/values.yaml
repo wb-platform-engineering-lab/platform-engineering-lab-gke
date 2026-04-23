@@ -1,0 +1,61 @@
+executor: KubernetesExecutor
+
+webserver:
+  defaultUser:
+    enabled: true
+    role: Admin
+    username: admin
+    email: admin@coverline.io
+    firstName: Admin
+    lastName: User
+    password: admin  # change in production
+
+scheduler:
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+workers:
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+dags:
+  gitSync:
+    enabled: true
+    repo: https://github.com/wb-platform-engineering-lab/platform-engineering-lab-gke.git
+    branch: main
+    subPath: phase-9-data-platform/dags
+
+logs:
+  persistence:
+    enabled: false
+
+# Disable bundled PostgreSQL — use the cluster's existing postgresql.default instead.
+# Old Bitnami images (16.1.0-debian-11-r15) are no longer freely available post-Aug 2025.
+postgresql:
+  enabled: false
+
+data:
+  metadataConnection:
+    user: coverline
+    pass: coverline123
+    host: postgresql.default.svc.cluster.local
+    port: 5432
+    db: coverline
+    sslmode: disable
+
+fernetKeySecretName: airflow-fernet-key
+
+serviceAccount:
+  annotations:
+    iam.gke.io/workload-identity-pool: "platform-eng-lab-will.svc.id.goog"
+    iam.gke.io/workload-identity-provider: "platform-eng-lab-will.svc.id.goog"

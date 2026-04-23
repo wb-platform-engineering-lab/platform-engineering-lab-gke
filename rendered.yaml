@@ -1,0 +1,113 @@
+---
+# Source: backend/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coverline-backend
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/instance: coverline
+    app.kubernetes.io/version: 2.0.0
+---
+# Source: backend/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: coverline-backend
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/instance: coverline
+    app.kubernetes.io/version: 2.0.0
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/instance: coverline
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+---
+# Source: backend/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coverline-backend
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/instance: coverline
+    app.kubernetes.io/version: 2.0.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+      app.kubernetes.io/instance: coverline
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backend
+        app.kubernetes.io/instance: coverline
+    spec:
+      serviceAccountName: coverline-backend
+
+      containers:
+        - name: backend
+          image: "us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:b8ff726a196c357daffed70eab9550f670349bff"
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 5000
+
+          env:
+            - name: DB_PORT
+              value: "5432"
+            - name: REDIS_PORT
+              value: "6379"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: backend/templates/servicemonitor.yaml
+#apiVersion: monitoring.coreos.com/v1
+#kind: ServiceMonitor
+#metadata:
+#  name: coverline-backend
+#  namespace: monitoring
+#  labels:
+#
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/instance: coverline
+    app.kubernetes.io/version: 2.0.0
+#    release: kube-prometheus-stack
+#spec:
+#  namespaceSelector:
+#    matchNames:
+#      - default
+#  selector:
+#    matchLabels:
+#      app.kubernetes.io/name: backend
+#      app.kubernetes.io/instance: coverline
+#  endpoints:
+#    - port: http
+#      path: /metrics
+#      interval: 15s

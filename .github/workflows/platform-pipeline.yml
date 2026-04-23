@@ -18,7 +18,7 @@ on:
         required: true
         type: choice
         options:
-          - stag
+          - staging
           - prod
 
 env:
@@ -134,7 +134,7 @@ jobs:
             sleep 5
           done
 
-  # ── Manual promotion: stag or prod ───────────────────────────────────────
+  # ── Manual promotion: staging or prod ───────────────────────────────────
   promote:
     name: Promote to ${{ github.event.inputs.target_env }}
     runs-on: ubuntu-latest

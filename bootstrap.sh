@@ -26,7 +26,7 @@ done
 
 if [ -z "$PHASE" ]; then
   echo "Usage: bash bootstrap.sh --phase <number>"
-  echo "  Supported phases: 3, 4, 5, 5b, 6, 7, 8"
+  echo "  Supported phases: 3, 4, 5, 5b, 6, 7, 8, 9, 10"
   exit 1
 fi
 
@@ -46,6 +46,7 @@ add_helm_repos() {
   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
   helm repo add grafana              https://grafana.github.io/helm-charts           2>/dev/null || true
   helm repo add jetstack             https://charts.jetstack.io                      2>/dev/null || true
+  helm repo add apache-airflow       https://airflow.apache.org                      2>/dev/null || true
   helm repo update
 }
 
@@ -172,6 +173,39 @@ install_vault() {
   echo "  bash phase-7-vault/vault-init.sh"
 }
 
+install_airflow() {
+  echo ""
+  echo "[phase 9] Installing Apache Airflow..."
+  kubectl create namespace airflow --dry-run=client -o yaml | kubectl apply -f -
+
+  # Generate Fernet key if the secret doesn't already exist
+  if ! kubectl get secret airflow-fernet-key -n airflow &>/dev/null; then
+    FERNET_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+    kubectl create secret generic airflow-fernet-key \
+      --namespace airflow \
+      --from-literal=fernet-key="$FERNET_KEY"
+    echo "[phase 9] Fernet key secret created."
+  else
+    echo "[phase 9] Fernet key secret already exists — skipping."
+  fi
+
+  helm upgrade --install airflow apache-airflow/airflow \
+    --namespace airflow \
+    --values phase-9-data-platform/airflow/values.yaml \
+    --version "1.13.*" \
+    --wait --timeout 10m
+
+  echo "Phase 9 — Airflow ready."
+  echo ""
+  echo "Next steps:"
+  echo "  Access the UI:  kubectl port-forward -n airflow svc/airflow-webserver 8080:8080"
+  echo "  Login:          http://localhost:8080  (admin / admin)"
+  echo ""
+  echo "  Complete Workload Identity setup (Step 2 of README):"
+  echo "    gcloud iam service-accounts create airflow-worker --project platform-eng-lab-will"
+  echo "    # then follow phase-9-data-platform/README.md Step 2"
+}
+
 # ---------------------------------------------------------------------------
 # Phase execution — each phase is cumulative
 # ---------------------------------------------------------------------------
@@ -187,27 +221,27 @@ case $PHASE in
     install_argocd
     ;;
   5b)
+    install_observability
     install_postgresql_redis
     install_argocd
-    install_observability
     install_argo_rollouts
     ;;
   6)
+    install_observability
     install_postgresql_redis
     install_argocd
-    install_observability
     ;;
   7)
+    install_observability
     install_postgresql_redis
     install_argocd
-    install_observability
     install_cert_manager
     install_vault
     ;;
   8)
+    install_observability
     install_postgresql_redis
     install_argocd
-    install_observability
 
     echo ""
     echo "[phase 8] Configuring backend — disabling Vault injection, setting env vars directly..."
@@ -237,10 +271,30 @@ case $PHASE in
     echo ""
     echo "Phase 8 — done."
     ;;
-  10)
+  9)
+    install_observability
     install_postgresql_redis
     install_argocd
+
+    echo ""
+    echo "[phase 9] Configuring backend — disabling Vault injection, setting env vars directly..."
+    kubectl delete mutatingwebhookconfiguration vault-agent-injector-cfg 2>/dev/null || true
+    kubectl patch deployment coverline-backend --type=json \
+      -p='[{"op":"add","path":"/spec/template/metadata/annotations/vault.hashicorp.com~1agent-inject","value":"false"}]'
+    kubectl set env deployment/coverline-backend \
+      DB_HOST=postgresql \
+      DB_NAME=coverline \
+      DB_USER=coverline \
+      DB_PASSWORD=coverline123 \
+      REDIS_HOST=redis-master
+    kubectl rollout status deployment/coverline-backend --timeout=3m
+
+    install_airflow
+    ;;
+  10)
     install_observability
+    install_postgresql_redis
+    install_argocd
 
     echo ""
     echo "[phase 10] Configuring backend — disabling Vault injection, setting env vars directly..."
@@ -272,7 +326,7 @@ case $PHASE in
     echo "Phase 10 — done."
     ;;
   *)
-    echo "Unknown phase: $PHASE. Supported: 3, 4, 5, 5b, 6, 7, 8, 10"
+    echo "Unknown phase: $PHASE. Supported: 3, 4, 5, 5b, 6, 7, 8, 9, 10"
     exit 1
     ;;
 esac
