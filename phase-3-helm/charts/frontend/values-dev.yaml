@@ -1,3 +1,3 @@
 replicaCount: 1
 image:
-  tag: "b8ff726" # Updated automatically by platform-pipeline deploy-dev job
+  tag: "a0ac9bb" # Updated automatically by platform-pipeline deploy-dev job
