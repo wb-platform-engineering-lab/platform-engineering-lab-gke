@@ -1,6 +1,6 @@
 # Phase 4 — Helm & Microservices
 
-> **Helm concepts introduced:** Chart, Release, Values, Templates, Helpers | **Builds on:** Phase 2 Kubernetes deployments
+> **Helm concepts introduced:** Chart, Release, Values, Templates, Helpers | **Builds on:** Phase 2 Kubernetes deployments, Phase 3 Vault (optional — for Challenge 6)
 
 [📝 Take the quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-4-helm/quiz.html)
 
@@ -335,6 +335,61 @@ REVISION   STATUS      CHART           DESCRIPTION
 ```
 
 Revision 3 is a new deploy of the revision 1 configuration. Kubernetes rolls back to 2 replicas without restarting healthy pods unnecessarily.
+
+---
+
+## Challenge 6 — Enable Vault secret injection
+
+> **Requires:** Phase 3 Vault deployed with the vault-agent-injector running in the cluster.
+
+In Phase 3, Vault annotations were bolted onto the deployment via `kubectl patch`. Now that the chart owns the deployment, vault injection is a values toggle — no patching required.
+
+### Step 1: Upgrade the release with Vault enabled
+
+```bash
+helm upgrade coverline phase-4-helm/charts/backend/ \
+  --set vault.enabled=true
+```
+
+This adds the `vault.hashicorp.com/*` annotations to the pod template and overrides the container command to source `/vault/secrets/backend.env` and `/vault/secrets/db.env` before starting the app. The plaintext `DB_HOST`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD` env vars are removed — credentials now come exclusively from Vault.
+
+### Step 2: Verify the vault-agent sidecar was injected
+
+```bash
+kubectl get pods -l app.kubernetes.io/instance=coverline
+kubectl describe pod -l app.kubernetes.io/instance=coverline | grep -A5 "Init Containers"
+```
+
+You should see a `vault-agent-init` init container and a `vault-agent` sidecar alongside the `backend` container.
+
+### Step 3: Verify secrets were written
+
+```bash
+kubectl exec deploy/coverline-backend -c backend \
+  -- cat /vault/secrets/backend.env
+
+kubectl exec deploy/coverline-backend -c backend \
+  -- cat /vault/secrets/db.env
+```
+
+`backend.env` contains the static config (`DB_HOST`, `DB_NAME`, `REDIS_HOST`). `db.env` contains dynamic credentials with a 1-hour TTL — different values on each pod restart.
+
+### Step 4: Confirm no plaintext secrets in the Helm release
+
+```bash
+helm get values coverline
+```
+
+With `vault.enabled=true`, no password appears in the values or in the pod spec. The only credential path is Vault → vault-agent → file → app.
+
+### Disable Vault (revert to plaintext env vars)
+
+```bash
+helm upgrade coverline phase-4-helm/charts/backend/ \
+  --set vault.enabled=false
+```
+
+The chart falls back to reading `db.password` from `values.yaml`. This is useful for local development without a Vault dependency.
 
 ---
 
