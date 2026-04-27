@@ -20,7 +20,7 @@
 
 ## The problem
 
-> *CoverLine — 1,000 members. March.*
+> *CoverLine — 5,000 members. March.*
 >
 > The backend team shipped a Redis caching fix on a Tuesday afternoon. By Wednesday morning, the frontend was broken — the fix had changed an API response format that three other services depended on. No one knew which version of the backend was running in production. The Kubernetes YAML files had drifted from what was actually deployed. A hotfix was pushed directly to the cluster by copy-pasting from a Slack message.
 >

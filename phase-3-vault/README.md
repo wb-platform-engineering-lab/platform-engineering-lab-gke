@@ -21,7 +21,7 @@
 
 ## The problem
 
-> *CoverLine — 100,000 members. January.*
+> *CoverLine — 1,000 members. January.*
 >
 > CoverLine was preparing for its Series B. As part of due diligence, the investors hired an external security firm to audit the codebase. The audit took three days. The report took one paragraph to deliver its most critical finding:
 >
@@ -95,7 +95,7 @@ phase-3-vault/
 
 ## Prerequisites
 
-- Phase 1 GKE cluster running with `kubectl` configured
+- Phase 2 Kubernetes setup complete (`kubectl` configured, nginx Ingress installed)
 - Phase 4 PostgreSQL deployed (`helm install postgresql ...`) *(required for dynamic DB credentials — complete Phase 4 first)*
 - Phase 7 Prometheus running in the `monitoring` namespace *(required for vault-monitoring — complete Phase 7 first)*
 - Terraform and Ansible installed locally:
@@ -556,4 +556,4 @@ Database credentials no longer exist in Git, environment variables, or pod manif
 
 ---
 
-[Back to main README](../README.md) | [Next: Phase 8 — Advanced Kubernetes](../phase-8-advanced-k8s/README.md)
+[Back to main README](../README.md) | [Next: Phase 4 — Helm & Microservices](../phase-4-helm/README.md)
