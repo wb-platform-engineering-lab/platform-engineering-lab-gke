@@ -22,7 +22,7 @@ Package all CoverLine services as Helm charts. Use per-environment `values-*.yam
 
 ## Consequences
 
-- Each chart lives in `phase-3-helm/charts/<service>/`.
+- Each chart lives in `phase-4-helm/charts/<service>/`.
 - `values.yaml` defines defaults; `values-dev.yaml` and `values-prod.yaml` override per environment.
-- ArgoCD (Phase 5) deploys by pointing at the Helm chart — GitOps and Helm compose naturally.
+- ArgoCD (Phase 6) deploys by pointing at the Helm chart — GitOps and Helm compose naturally.
 - Bitnami charts are used for PostgreSQL and Redis (see ADR-011) rather than writing custom stateful charts.

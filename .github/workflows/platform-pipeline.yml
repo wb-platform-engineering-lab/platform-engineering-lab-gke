@@ -6,7 +6,7 @@ on:
       - main
       - "feature/**"
     paths:
-      - "phase-3-helm/app/**"
+      - "phase-4-helm/app/**"
       - ".github/workflows/platform-pipeline.yml"
   workflow_dispatch:
     inputs:
@@ -57,7 +57,7 @@ jobs:
         run: |
           docker build \
             -t ${{ env.REGISTRY }}/backend:${{ steps.meta.outputs.sha }} \
-            phase-3-helm/app/backend/
+            phase-4-helm/app/backend/
 
       - name: Install Trivy
         run: |
@@ -76,7 +76,7 @@ jobs:
         run: |
           docker build \
             -t ${{ env.REGISTRY }}/frontend:${{ steps.meta.outputs.sha }} \
-            phase-3-helm/app/frontend/
+            phase-4-helm/app/frontend/
 
       - name: Scan frontend image for CVEs
         run: |
@@ -118,14 +118,14 @@ jobs:
           SHA=${{ needs.ci.outputs.image_sha }}
           for chart in backend frontend; do
             yq eval ".image.tag = \"${SHA}\"" -i \
-              "phase-3-helm/charts/${chart}/values-dev.yaml"
+              "phase-4-helm/charts/${chart}/values-dev.yaml"
           done
 
       - name: Commit and push
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add phase-3-helm/charts/*/values-dev.yaml
+          git add phase-4-helm/charts/*/values-dev.yaml
           git diff --cached --quiet || \
             git commit -m "chore(dev): deploy image ${{ needs.ci.outputs.image_sha }}"
           for i in 1 2 3; do
@@ -161,7 +161,7 @@ jobs:
           ENV=${{ github.event.inputs.target_env }}
           for chart in backend frontend; do
             yq eval ".image.tag = \"${SHA}\"" -i \
-              "phase-3-helm/charts/${chart}/values-${ENV}.yaml"
+              "phase-4-helm/charts/${chart}/values-${ENV}.yaml"
           done
 
       - name: Commit and push
@@ -169,7 +169,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           ENV=${{ github.event.inputs.target_env }}
-          git add phase-3-helm/charts/*/values-${ENV}.yaml
+          git add phase-4-helm/charts/*/values-${ENV}.yaml
           git diff --cached --quiet || \
             git commit -m "chore(${ENV}): promote image ${{ github.event.inputs.image_sha }}"
           git pull --rebase origin main

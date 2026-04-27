@@ -25,4 +25,4 @@ Enable both `selfHeal: true` and `prune: true` on all ArgoCD Applications. Self-
 - Engineers must use git to make any change to cluster resources — `kubectl edit` changes will be reverted within minutes.
 - Orphaned resources from deleted chart components are cleaned up automatically.
 - Emergency manual overrides (e.g., during an incident) require temporarily disabling sync or adding a `argocd.argoproj.io/sync-options: Prune=false` annotation.
-- Phase 5 lab deliberately demonstrates drift detection: students observe ArgoCD revert a manual `kubectl scale` command.
+- Phase 6 lab deliberately demonstrates drift detection: students observe ArgoCD revert a manual `kubectl scale` command.

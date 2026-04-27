@@ -24,5 +24,5 @@ Use `ClusterIP` for all internal service-to-service communication. Use a single 
 
 - A single GCP load balancer fronts the NGINX Ingress controller — cost-efficient.
 - All external routing rules are managed as `Ingress` YAML manifests in version control.
-- TLS certificates can be managed per-`Ingress` via cert-manager (Phase 7 builds on this).
+- TLS certificates can be managed per-`Ingress` via cert-manager (Phase 3 builds on this).
 - Backend services are not directly reachable from outside the cluster — only via Ingress paths.

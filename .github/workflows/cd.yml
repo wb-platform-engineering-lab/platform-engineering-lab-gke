@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "phase-3-helm/app/**"
+      - "phase-4-helm/app/**"
       - ".github/workflows/cd.yml"
 
 env:
@@ -34,7 +34,7 @@ jobs:
           workload_identity_provider: projects/253419630104/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: github-ci@platform-eng-lab-will.iam.gserviceaccount.com
 
-      # Phase 7 only — retrieve secrets from Vault via JWT auth (no static secrets in CI).
+      # Phase 3 only — retrieve secrets from Vault via JWT auth (no static secrets in CI).
       # Skip this step when Vault is not running (phases 8, 10).
       - name: Authenticate to Vault and retrieve secrets
         if: ${{ vars.VAULT_ENABLED == 'true' }}
@@ -55,7 +55,7 @@ jobs:
       - name: Build & push backend
         uses: docker/build-push-action@v5
         with:
-          context: phase-3-helm/app/backend
+          context: phase-4-helm/app/backend
           platforms: linux/amd64
           push: true
           tags: |
@@ -65,7 +65,7 @@ jobs:
       - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
-          context: phase-3-helm/app/frontend
+          context: phase-4-helm/app/frontend
           platforms: linux/amd64
           push: true
           tags: |
@@ -75,16 +75,16 @@ jobs:
       - name: Update image tags in values.yaml
         run: |
           sed -i "s/tag: .*/tag: \"${{ github.sha }}\"/" \
-            phase-3-helm/charts/backend/values.yaml
+            phase-4-helm/charts/backend/values.yaml
           sed -i "s/tag: .*/tag: \"${{ github.sha }}\"/" \
-            phase-3-helm/charts/frontend/values.yaml
+            phase-4-helm/charts/frontend/values.yaml
 
       - name: Commit and push updated values.yaml
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add phase-3-helm/charts/backend/values.yaml \
-                  phase-3-helm/charts/frontend/values.yaml
+          git add phase-4-helm/charts/backend/values.yaml \
+                  phase-4-helm/charts/frontend/values.yaml
           git diff --cached --quiet || git commit -m "ci: update image tags to ${{ github.sha }}"
           git push
 

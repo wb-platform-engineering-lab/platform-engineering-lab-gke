@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Phase 5 introduces GitOps: the cluster state is declared in git and a controller reconciles the live state to match. ArgoCD and FluxCD are the two dominant CNCF-graduated GitOps controllers for Kubernetes.
+Phase 6 introduces GitOps: the cluster state is declared in git and a controller reconciles the live state to match. ArgoCD and FluxCD are the two dominant CNCF-graduated GitOps controllers for Kubernetes.
 
 ## Decision
 

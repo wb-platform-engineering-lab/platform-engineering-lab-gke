@@ -5,7 +5,7 @@ on:
     branches-ignore:
       - main
     paths:
-      - "phase-3-helm/app/**"
+      - "phase-4-helm/app/**"
       - ".github/workflows/ci.yml"
 
 env:
@@ -37,7 +37,7 @@ jobs:
       - name: Build & push backend
         uses: docker/build-push-action@v5
         with:
-          context: phase-3-helm/app/backend
+          context: phase-4-helm/app/backend
           platforms: linux/amd64
           push: true
           tags: |
@@ -59,7 +59,7 @@ jobs:
       - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
-          context: phase-3-helm/app/frontend
+          context: phase-4-helm/app/frontend
           platforms: linux/amd64
           push: true
           tags: |

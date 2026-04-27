@@ -27,4 +27,4 @@ Use PostgreSQL deployed via Helm (Bitnami chart) on Kubernetes.
 - Deployed as a Kubernetes StatefulSet via the Bitnami Helm chart — teaches PVCs, StatefulSets, and headless services
 - In production, this would be replaced with Cloud SQL (managed PostgreSQL) to eliminate operational overhead
 - The Bitnami chart provides production-grade defaults (resource limits, liveness probes, persistent storage)
-- Connection credentials are managed via Kubernetes Secrets, preparing for Vault integration in Phase 7
+- Connection credentials are managed via Kubernetes Secrets, preparing for Vault integration in Phase 3

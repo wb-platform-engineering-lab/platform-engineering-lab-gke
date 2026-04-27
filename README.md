@@ -72,13 +72,13 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 0 | Foundations (Docker, Linux, Git) | 0 | 2–3 days | ✅ Complete | |
 | 1 | Cloud & Terraform (GCP, VPC, GKE) | 50 | 4–6 days | ✅ Complete | |
 | 2 | Kubernetes Core (raw YAML) | 200 | 2–3 days | ✅ Complete | |
-| 3 | Helm & Microservices + PostgreSQL + Redis | 1,000 | 5–7 days | ✅ Complete | |
-| 3b | Event-Driven Architecture (Kafka + Strimzi) | 2,000 | 3–4 days | ⬜ Not started | |
-| 4 | CI/CD Pipelines | 5,000 | 3–4 days | ✅ Complete | |
-| 5 | GitOps with ArgoCD | 15,000 | 2–3 days | ✅ Complete | |
-| 5b | Progressive Delivery (Argo Rollouts) | 20,000 | 2–3 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-5b-progressive-delivery/incident-animation.html) |
-| 6 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-6-observability/incident-animation.html) |
-| 7 | Secrets Management (Vault) | 100,000 | 4–5 days | ✅ Complete | |
+| 3 | Secrets Management (Vault) | 1,000 | 4–5 days | ✅ Complete | |
+| 4 | Helm & Microservices + PostgreSQL + Redis | 5,000 | 5–7 days | ✅ Complete | |
+| 4b | Event-Driven Architecture (Kafka + Strimzi) | 7,000 | 3–4 days | ⬜ Not started | |
+| 5 | CI/CD Pipelines | 10,000 | 3–4 days | ✅ Complete | |
+| 6 | GitOps with ArgoCD | 15,000 | 2–3 days | ✅ Complete | |
+| 6b | Progressive Delivery (Argo Rollouts) | 20,000 | 2–3 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-6b-progressive-delivery/incident-animation.html) |
+| 7 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-7-observability/incident-animation.html) |
 | 8 | Advanced Kubernetes + **CKAD** + **CKA** | 250,000 | 3–4 days + 4–8 wks cert | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-8-advanced-k8s/incident-animation.html) |
 | 8b | Service Mesh (Istio — mTLS, tracing) | 300,000 | 3–4 days | ⬜ Not started |
 | 9 | Data Platform (Airflow + dbt + BigQuery) + **GCP DevOps** | 500,000 | 6–8 days | ⬜ Not started |
@@ -100,7 +100,7 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 |---|---|---|
 | Terraform Associate (003) | HashiCorp | Phase 1 |
 | Google Cloud Associate Cloud Engineer | Google | Phase 1 |
-| Prometheus Certified Associate (PCA) | CNCF | Phase 6 |
+| Prometheus Certified Associate (PCA) | CNCF | Phase 7 |
 | Certified Kubernetes Application Developer (CKAD) | CNCF | Phase 8 |
 | Certified Kubernetes Administrator (CKA) | CNCF | Phase 8 |
 | GCP Professional Cloud DevOps Engineer | Google | Phase 9 |
@@ -121,11 +121,11 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 │       ├── gke/
 │       └── bigquery/
 ├── phase-2-kubernetes/
-├── phase-3-helm/
-├── phase-4-ci-cd/
-├── phase-5-gitops/
-├── phase-6-observability/
-├── phase-7-vault/
+├── phase-3-vault/
+├── phase-4-helm/
+├── phase-5-ci-cd/
+├── phase-6-gitops/
+├── phase-7-observability/
 │   ├── terraform/            # KMS key ring + Vault service account
 │   ├── vault-values.yaml     # Helm values: HA Raft, GCP KMS auto-unseal
 │   ├── vault-init.sh         # Initialize Vault, enable auth methods, revoke root token

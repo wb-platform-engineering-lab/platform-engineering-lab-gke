@@ -259,12 +259,12 @@ kubectl exec -it vault-0 -n vault -- \
 
 ```bash
 # Apply the ArgoCD ApplicationSet
-kubectl apply -f phase-5-gitops/applicationset.yaml
+kubectl apply -f phase-6-gitops/applicationset.yaml
 
 # Or deploy directly
-helm upgrade --install coverline phase-3-helm/coverline \
+helm upgrade --install coverline phase-4-helm/coverline \
   -n coverline --create-namespace \
-  -f phase-3-helm/coverline/values-dev.yaml
+  -f phase-4-helm/coverline/values-dev.yaml
 ```
 
 **4.6 — Restore PostgreSQL data**

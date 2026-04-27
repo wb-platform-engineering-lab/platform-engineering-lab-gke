@@ -23,6 +23,6 @@ Use multi-stage Docker builds: a `builder` stage installs dependencies and compi
 ## Consequences
 
 - Final image size reduced by 60–80% compared to single-stage (e.g., 1.2 GB → 200 MB for a Python app with compiled dependencies).
-- Trivy image scanning (Phase 4) runs faster on smaller images with fewer installed packages.
+- Trivy image scanning (Phase 5) runs faster on smaller images with fewer installed packages.
 - Base image must be pinned to a digest in production to prevent silent upstream changes.
 - Distroless or slim images may not include a shell — `kubectl exec` for debugging requires a debug sidecar or an ephemeral container.

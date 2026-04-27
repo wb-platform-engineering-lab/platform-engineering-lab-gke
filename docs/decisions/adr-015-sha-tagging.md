@@ -23,6 +23,6 @@ Tag every image with the full git commit SHA (`$GITHUB_SHA`). Optionally also ta
 ## Consequences
 
 - Every CI run produces a uniquely tagged image — no image is ever overwritten.
-- GitOps promotion (Phase 5) works by updating the SHA in the Helm values file and committing — ArgoCD detects the change and rolls out.
+- GitOps promotion (Phase 6) works by updating the SHA in the Helm values file and committing — ArgoCD detects the change and rolls out.
 - Image registry storage grows unbounded — a cleanup policy (e.g., keep last 20 tags) must be applied to Artifact Registry.
 - `docker pull` of an old SHA still works as long as the image has not been garbage-collected.

@@ -24,5 +24,5 @@ Use the Bitnami Helm charts for `postgresql` and `redis`. Pin chart versions in 
 
 - PostgreSQL and Redis run in-cluster — suitable for lab and dev; production should evaluate Cloud SQL and Memorystore.
 - Chart versions are pinned to prevent unplanned upgrades during the lab.
-- Passwords are stored in Kubernetes Secrets created by the chart — later replaced by Vault dynamic credentials (Phase 7).
+- Passwords are stored in Kubernetes Secrets created by the chart — later replaced by Vault dynamic credentials (Phase 3).
 - PVC sizes are set small (1Gi) for the lab; production would need larger PVCs and a storage class with expansion enabled.

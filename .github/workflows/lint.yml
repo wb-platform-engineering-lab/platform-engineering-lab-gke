@@ -7,9 +7,9 @@ on:
       - main
     paths:
       - "phase-1-terraform/**"
-      - "phase-3-helm/**"
+      - "phase-4-helm/**"
       - ".github/workflows/**"
-      - "phase-5-gitops/**"
+      - "phase-6-gitops/**"
       - ".yamllint.yml"
       - ".pre-commit-config.yaml"
 
@@ -42,13 +42,13 @@ jobs:
       - name: Run Hadolint on backend Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: phase-3-helm/app/backend/Dockerfile
+          dockerfile: phase-4-helm/app/backend/Dockerfile
           ignore: DL3005 DL3008
 
       - name: Run Hadolint on frontend Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: phase-3-helm/app/frontend/Dockerfile
+          dockerfile: phase-4-helm/app/frontend/Dockerfile
           ignore: DL3005 DL3008
 
   yamllint:
@@ -61,4 +61,4 @@ jobs:
         run: pip install yamllint
 
       - name: Run yamllint
-        run: yamllint -c .yamllint.yml .github/workflows/ phase-2-kubernetes/ phase-5-gitops/
+        run: yamllint -c .yamllint.yml .github/workflows/ phase-2-kubernetes/ phase-6-gitops/

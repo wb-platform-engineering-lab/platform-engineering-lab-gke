@@ -23,5 +23,5 @@ Install the NGINX Ingress Controller (via Helm) rather than using the GKE-native
 
 - NGINX controller runs as a Deployment in the `ingress-nginx` namespace — needs resource requests set.
 - One GCP L4 load balancer is created for the NGINX controller's `LoadBalancer` Service — shared across all Ingress resources.
-- Canary deployments in Phase 5b use NGINX canary annotations (`nginx.ingress.kubernetes.io/canary-weight`).
+- Canary deployments in Phase 6b use NGINX canary annotations (`nginx.ingress.kubernetes.io/canary-weight`).
 - Migrating to GCE Ingress later would require re-annotating all Ingress resources and recreating routing rules.

@@ -114,11 +114,11 @@ platform-engineering-lab-gke/
 │       ├── networking/
 │       └── gke/
 ├── phase-2-kubernetes/
-├── phase-3-helm/
-├── phase-4-ci-cd/
-├── phase-5-gitops/
-├── phase-6-observability/
-├── phase-7-vault/
+├── phase-4-helm/
+├── phase-5-ci-cd/
+├── phase-6-gitops/
+├── phase-7-observability/
+├── phase-3-vault/
 ├── phase-8-advanced-k8s/
 ├── phase-9-data-platform/
 ├── phase-10-security/
@@ -246,7 +246,7 @@ Reusable Terraform modules for:
 * Kubernetes cluster
 * BigQuery dataset
 
-Deployable to at least two environments (dev and staging) with environment-specific variables. Nightly auto-destroy in place to prevent runaway costs. Workload Identity enabled on the cluster — required for Phase 7 (Vault KMS auto-unseal) and Phase 10 (Falco, OPA).
+Deployable to at least two environments (dev and staging) with environment-specific variables. Nightly auto-destroy in place to prevent runaway costs. Workload Identity enabled on the cluster — required for Phase 3 (Vault KMS auto-unseal) and Phase 10 (Falco, OPA).
 
 ## ADRs
 
@@ -320,7 +320,7 @@ Understand raw Kubernetes before abstractions.
 
 ---
 
-# Phase 3 — Helm & Microservices
+# Phase 4 — Helm & Microservices
 
 ## Business Context
 
@@ -381,7 +381,7 @@ PostgreSQL and Redis are deployed as Kubernetes StatefulSets in this phase to pr
 
 ---
 
-# Phase 3b — Event-Driven Architecture (Kafka)
+# Phase 4b — Event-Driven Architecture (Kafka)
 
 ## Business Context
 
@@ -452,7 +452,7 @@ Member submits claim
 
 ---
 
-# Phase 4 — CI/CD Pipelines
+# Phase 5 — CI/CD Pipelines
 
 ## Business Context
 
@@ -502,7 +502,7 @@ Automate build and delivery before introducing GitOps — so there is a real pip
 
 ---
 
-# Phase 5 — GitOps with ArgoCD
+# Phase 6 — GitOps with ArgoCD
 
 ## Business Context
 
@@ -515,7 +515,7 @@ Automate build and delivery before introducing GitOps — so there is a real pip
 
 ## Objective
 
-Automate deployments using GitOps, driven by the CI/CD pipeline from Phase 4.
+Automate deployments using GitOps, driven by the CI/CD pipeline from Phase 5.
 
 ## Topics
 
@@ -548,7 +548,7 @@ Write `docs/decisions/adr-001-argocd-over-flux.md` explaining why ArgoCD was cho
 
 ---
 
-# Phase 5b — Progressive Delivery (Argo Rollouts)
+# Phase 6b — Progressive Delivery (Argo Rollouts)
 
 ## Business Context
 
@@ -596,7 +596,7 @@ Implement progressive delivery on top of the existing GitOps stack.
 
 ---
 
-# Phase 6 — Observability Stack
+# Phase 7 — Observability Stack
 
 ## Business Context
 
@@ -653,7 +653,7 @@ Monitor and debug systems.
 
 ---
 
-# Phase 7 — Secrets Management (Vault)
+# Phase 3 — Secrets Management (Vault)
 
 ## Business Context
 
@@ -682,7 +682,7 @@ Secure secrets properly — injecting them into both pods and CI/CD pipelines.
 2. Store application secrets
 3. Inject secrets into pods
 4. Rotate secrets dynamically
-5. Integrate Vault with the CI/CD pipeline from Phase 4
+5. Integrate Vault with the CI/CD pipeline from Phase 5
 
 ## ADRs
 
@@ -1045,8 +1045,8 @@ These additions reinforce DR concepts in context:
 
 | Phase | DR Addition |
 |---|---|
-| Phase 3 (Helm) | Add `pg_dump` CronJob to PostgreSQL Helm values |
-| Phase 7 (Vault) | Add Vault snapshot CronJob |
+| Phase 4 (Helm) | Add `pg_dump` CronJob to PostgreSQL Helm values |
+| Phase 3 (Vault) | Add Vault snapshot CronJob |
 | Phase 9 (Data Platform) | BigQuery dataset export to GCS as part of Airflow DAG |
 
 ## ADRs
@@ -1160,7 +1160,7 @@ Implement cost visibility and FinOps practices for the platform.
 | **Skills** | `/commit` after labeling all workloads and after budget alerts are configured |
 | **Agents** | `Explore` to audit all existing deployments before adding cost labels — missing labels mean uncategorized spend |
 | **Key tools** | `Edit` (add labels to all Helm values.yaml), `Bash` (kubectl, gcloud billing), `WebFetch` (Kubecost docs) |
-| **Watch for** | Kubecost requires Prometheus — verify the Phase 6 observability stack is running before installing |
+| **Watch for** | Kubecost requires Prometheus — verify the Phase 7 observability stack is running before installing |
 | **Est. tokens** | ~80–110K |
 | **Est. cost** | ~$0.55–0.75 |
 | **Est. time** | 2–3 days |

@@ -61,7 +61,7 @@ Design, implement, and test a backup and disaster recovery strategy for all stat
 
 ## Prerequisites
 
-- Phase 7 (Vault) running on cluster
+- Phase 3 (Vault) running on cluster
 - Phase 6 (Prometheus/Grafana) running on cluster
 - `gcloud` CLI authenticated with `roles/storage.admin` on the project
 - `helm` and `kubectl` configured for the dev cluster
@@ -488,6 +488,6 @@ phase-10c-backup-dr/
 
 ## Related Phases
 
-- **Phase 7 (Vault)** — Vault is a stateful component; its raft snapshots are part of this DR strategy
+- **Phase 3 (Vault)** — Vault is a stateful component; its raft snapshots are part of this DR strategy
 - **Phase 6 (Observability)** — Prometheus alerts on backup job failure require the Phase 6 stack to be running
 - **Phase 1 (Terraform)** — GCS backend for state is already versioned; no additional work needed

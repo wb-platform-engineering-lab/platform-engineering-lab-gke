@@ -1,6 +1,6 @@
 # Phase 10 — Security & Production Hardening
 
-> **Security concepts introduced:** RBAC least privilege, NetworkPolicies, Pod Security Standards, Trivy image scanning, Kubernetes audit logs | **Builds on:** Phase 6 observability cluster
+> **Security concepts introduced:** RBAC least privilege, NetworkPolicies, Pod Security Standards, Trivy image scanning, Kubernetes audit logs | **Builds on:** Phase 7 observability cluster
 
 [📝 Take the quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-10-security/quiz.html)
 
@@ -70,7 +70,7 @@ phase-10-security/
 └── security-context-values.yaml ← Helm values: non-root, readOnlyRootFilesystem, emptyDir mounts
 ```
 
-Trivy scanning is already integrated in `.github/workflows/ci.yml` (Phase 4). Audit logging is enabled by default on GKE via Cloud Audit Logs.
+Trivy scanning is already integrated in `.github/workflows/ci.yml` (Phase 5). Audit logging is enabled by default on GKE via Cloud Audit Logs.
 
 ---
 
@@ -166,7 +166,7 @@ kubectl patch serviceaccount coverline-frontend \
   -p '{"automountServiceAccountToken": false}'
 ```
 
-> **Exception:** If Vault Agent injection is enabled (Phase 7), leave `coverline-backend` automounting enabled — Vault Agent needs the token for Kubernetes auth.
+> **Exception:** If Vault Agent injection is enabled (Phase 3), leave `coverline-backend` automounting enabled — Vault Agent needs the token for Kubernetes auth.
 
 ---
 
@@ -226,7 +226,7 @@ Expected: timeout or connection refused after ~3 seconds — the packet never re
 
 The security context sets `runAsUser: 1000`. The original Dockerfile used `pip install --user`, which installs packages into `/root/.local` — inaccessible to uid 1000. The image must be rebuilt with system-wide package installation.
 
-The updated Dockerfile at `phase-3-helm/app/backend/Dockerfile` uses a multi-stage build:
+The updated Dockerfile at `phase-4-helm/app/backend/Dockerfile` uses a multi-stage build:
 
 ```dockerfile
 FROM python:3.12-slim AS builder
@@ -252,7 +252,7 @@ Push to a feature branch to trigger CI and build the hardened image, or build ma
 ```bash
 docker build --platform linux/amd64 \
   -t us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:secure \
-  phase-3-helm/app/backend/
+  phase-4-helm/app/backend/
 docker push us-central1-docker.pkg.dev/platform-eng-lab-will/coverline/backend:secure
 ```
 
@@ -289,7 +289,7 @@ extraVolumeMounts:
 ### Step 3: Apply via Helm
 
 ```bash
-helm upgrade coverline phase-3-helm/charts/backend/ \
+helm upgrade coverline phase-4-helm/charts/backend/ \
   -f phase-10-security/security-context-values.yaml
 ```
 
