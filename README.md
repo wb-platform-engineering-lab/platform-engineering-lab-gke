@@ -79,6 +79,7 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 6 | GitOps with ArgoCD | 15,000 | 2–3 days | ✅ Complete | |
 | 6b | Progressive Delivery (Argo Rollouts) | 20,000 | 2–3 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-6b-progressive-delivery/incident-animation.html) |
 | 7 | Observability (Prometheus, Grafana, Loki) + **PCA** | 50,000 | 5–7 days | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-7-observability/incident-animation.html) |
+| 7b | Identity & Access Management (Keycloak SSO) | 75,000 | 2–3 days | ⬜ Not started | |
 | 8 | Advanced Kubernetes + **CKAD** + **CKA** | 250,000 | 3–4 days + 4–8 wks cert | ✅ Complete | [▶ incident](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-8-advanced-k8s/incident-animation.html) |
 | 8b | Service Mesh (Istio — mTLS, tracing) | 300,000 | 3–4 days | ⬜ Not started |
 | 9 | Data Platform (Airflow + dbt + BigQuery) + **GCP DevOps** | 500,000 | 6–8 days | ⬜ Not started |
@@ -126,13 +127,11 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 ├── phase-5-ci-cd/
 ├── phase-6-gitops/
 ├── phase-7-observability/
-│   ├── terraform/            # KMS key ring + Vault service account
-│   ├── vault-values.yaml     # Helm values: HA Raft, GCP KMS auto-unseal
-│   ├── vault-init.sh         # Initialize Vault, enable auth methods, revoke root token
-│   ├── vault-policy.sh       # App policies + Kubernetes/JWT auth roles
-│   ├── vault-dynamic-secrets.sh  # PostgreSQL dynamic credentials
-│   ├── vault-agent-patch.yaml    # Sidecar injector annotations for coverline-backend
-│   └── vault-wi-binding.sh   # Workload Identity IAM binding (run after cluster exists)
+├── phase-7b-iam/
+│   ├── keycloak-values.yaml       # Bitnami Keycloak Helm values
+│   ├── keycloak-setup.sh          # Realm, clients, groups, GitHub IdP + Vault secret storage
+│   ├── argocd-oidc-values.yaml    # ArgoCD OIDC config pointing to Keycloak
+│   └── grafana-oidc-values.yaml   # Grafana generic_oauth config pointing to Keycloak
 ├── phase-8-advanced-k8s/
 ├── phase-9-data-platform/
 ├── phase-10-security/

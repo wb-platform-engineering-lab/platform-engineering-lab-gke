@@ -1,0 +1,47 @@
+# Keycloak Helm values (Bitnami chart)
+# helm upgrade --install keycloak bitnami/keycloak -n keycloak -f keycloak-values.yaml
+
+auth:
+  adminUser: admin
+  # adminPassword loaded from Vault — do not set here
+  # kubectl create secret generic keycloak-admin \
+  #   --from-literal=admin-password=<from vault> -n keycloak
+
+production: false   # set true + TLS in production
+proxy: edge         # nginx Ingress terminates TLS, Keycloak sees plain HTTP
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "1Gi"
+
+# Use the cluster's existing PostgreSQL (bitnami)
+postgresql:
+  enabled: false
+
+externalDatabase:
+  host: postgresql.default.svc.cluster.local
+  port: 5432
+  database: keycloak
+  user: coverline
+  # password loaded from existing postgresql secret
+  existingSecret: postgresql
+  existingSecretPasswordKey: password
+
+service:
+  type: ClusterIP
+  ports:
+    http: 80
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  hostname: keycloak.coverline.internal
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+  tls: false   # enable + add cert-manager annotation in production

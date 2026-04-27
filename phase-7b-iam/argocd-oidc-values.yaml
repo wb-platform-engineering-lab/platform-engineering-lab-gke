@@ -1,0 +1,46 @@
+# argocd-oidc-values.yaml
+# Upgrades ArgoCD to use Keycloak as the OIDC provider.
+# Client secret must exist in the argocd namespace before upgrading:
+#
+#   ARGOCD_SECRET=$(vault kv get -field=argocd_client_secret secret/coverline/keycloak)
+#   kubectl create secret generic argocd-oidc-secret \
+#     --from-literal=oidc.keycloak.clientSecret="$ARGOCD_SECRET" \
+#     -n argocd
+#
+# helm upgrade argocd argo/argo-cd -n argocd -f phase-7b-iam/argocd-oidc-values.yaml
+
+configs:
+  cm:
+    # Direct OIDC to Keycloak — no Dex required
+    oidc.config: |
+      name: Keycloak
+      issuer: http://keycloak.coverline.internal/realms/coverline
+      clientID: argocd
+      clientSecret: $oidc.keycloak.clientSecret
+      requestedScopes:
+        - openid
+        - profile
+        - email
+        - groups
+      requestedIDTokenClaims:
+        groups:
+          essential: true
+
+    # Disable built-in admin login after SSO is verified
+    # admin.enabled: "false"
+
+  rbac:
+    # Map Keycloak groups to ArgoCD roles
+    policy.csv: |
+      g, /platform-admin, role:admin
+      g, /developer,      role:readonly
+      g, /viewer,         role:readonly
+    policy.default: role:readonly
+    scopes: "[groups, email]"
+
+  secret:
+    # Reference the K8s secret created above
+    extra:
+      oidc.keycloak.clientSecret:
+        name: argocd-oidc-secret
+        key: oidc.keycloak.clientSecret

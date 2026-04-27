@@ -1,0 +1,48 @@
+# grafana-oidc-values.yaml
+# Upgrades the kube-prometheus-stack Grafana instance to use Keycloak SSO.
+# Client secret must exist before upgrading:
+#
+#   GRAFANA_SECRET=$(vault kv get -field=grafana_client_secret secret/coverline/keycloak)
+#   kubectl create secret generic grafana-oidc-secret \
+#     --from-literal=client-secret="$GRAFANA_SECRET" \
+#     -n monitoring
+#
+# helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#   -n monitoring -f phase-7b-iam/grafana-oidc-values.yaml
+
+grafana:
+  adminPassword: admin123
+
+  envFromSecret: grafana-oidc-secret
+
+  grafana.ini:
+    server:
+      root_url: http://grafana.coverline.internal
+
+    auth:
+      disable_login_form: false   # keep true only after SSO is verified end-to-end
+
+    auth.generic_oauth:
+      enabled: true
+      name: Keycloak
+      allow_sign_up: true
+      client_id: grafana
+      client_secret: ${GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}
+      scopes: openid email profile offline_access groups
+      auth_url: http://keycloak.coverline.internal/realms/coverline/protocol/openid-connect/auth
+      token_url: http://keycloak.coverline.internal/realms/coverline/protocol/openid-connect/token
+      api_url: http://keycloak.coverline.internal/realms/coverline/protocol/openid-connect/userinfo
+      # Map Keycloak groups to Grafana roles
+      role_attribute_path: >
+        contains(groups[*], '/platform-admin') && 'Admin' ||
+        contains(groups[*], '/developer') && 'Editor' ||
+        'Viewer'
+      role_attribute_strict: false
+      email_attribute_path: email
+      login_attribute_path: preferred_username
+
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - grafana.coverline.internal
