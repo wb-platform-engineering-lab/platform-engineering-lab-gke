@@ -1,6 +1,6 @@
-# Helm values override — apply on top of phase-3-helm/charts/backend/values.yaml
+# Helm values override — apply on top of phase-4-helm/charts/backend/values.yaml
 # Usage:
-#   helm upgrade coverline phase-3-helm/charts/backend/ \
+#   helm upgrade coverline phase-4-helm/charts/backend/ \
 #     -f phase-10-security/security-context-values.yaml
 #
 # IMPORTANT: requires the updated Docker image (non-root user, system-wide pip install).

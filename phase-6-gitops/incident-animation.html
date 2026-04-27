@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CoverLine — Phase 5 · The Silent Overwrite</title>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;--purple:#bc8cff;--orange:#db6d28;--font:'JetBrains Mono','Fira Code','Courier New',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12px;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:999}
+#hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.logo{font-size:13px;font-weight:bold;color:var(--blue)}
+.phase-badge{background:var(--bg3);border:1px solid var(--border);padding:3px 10px;border-radius:4px;font-size:10px;color:var(--muted)}
+#main{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;flex:1;overflow:hidden}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px;display:flex;flex-direction:column;overflow:hidden}
+.ptitle{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+/* Git log */
+.commit{display:flex;gap:8px;margin-bottom:6px;opacity:0;transform:translateY(3px);transition:opacity .35s,transform .35s}
+.commit.on{opacity:1;transform:none}
+.commit-hash{color:var(--orange);font-size:10px;min-width:52px}
+.commit-author{color:var(--blue);font-size:10px;min-width:60px}
+.commit-msg{font-size:10px;color:var(--muted)}
+.commit-msg.conflict{color:var(--red)}
+.conflict-banner{background:rgba(248,81,73,.12);border:1px solid var(--red);border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:10px;color:var(--red);opacity:0;transition:opacity .5s}
+.conflict-banner.on{opacity:1}
+/* Sarah's investigation */
+.investigation{display:flex;flex-direction:column;gap:5px;margin-bottom:8px}
+.inv-line{font-size:10px;color:var(--muted);opacity:0;transform:translateX(-4px);transition:opacity .35s,transform .35s}
+.inv-line.on{opacity:1;transform:none}
+.inv-line.found{color:var(--yellow)}
+/* ArgoCD panel */
+.argo-app{background:var(--bg3);border-radius:5px;border:1px solid var(--border);padding:8px;margin-bottom:7px;transition:border-color .5s}
+.argo-app.synced{border-color:var(--green)}
+.argo-app.outofsync{border-color:var(--yellow)}
+.argo-app.degraded{border-color:var(--red)}
+.argo-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.argo-name{font-size:11px;font-weight:bold}
+.argo-badge{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:bold}
+.argo-badge.synced{background:var(--green);color:#000}
+.argo-badge.oos{background:var(--yellow);color:#000}
+.argo-badge.deg{background:var(--red);color:#fff}
+.argo-badge.syncing{background:var(--blue);color:#fff;animation:pulse .8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.argo-detail{font-size:9px;color:var(--muted)}
+.sync-log{font-size:10px;line-height:1.65;overflow:hidden}
+.sline{color:var(--muted);opacity:0;transition:opacity .2s}
+.sline.on{opacity:1}
+.sline.ok{color:var(--green)}.sline.warn{color:var(--yellow)}.sline.info{color:var(--blue)}
+#overlay{position:fixed;inset:0;background:rgba(13,17,23,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .9s;z-index:200}
+#overlay.on{opacity:1;pointer-events:all}
+.ov-title{font-size:20px;color:var(--red);font-weight:bold;margin-bottom:6px}
+.ov-sub{color:var(--muted);font-size:12px;margin-bottom:24px;max-width:440px;text-align:center;line-height:1.5}
+.fix{font-size:12px;margin-bottom:7px;opacity:0;transform:translateY(6px);transition:opacity .5s,transform .5s}
+.fix.on{opacity:1;transform:none}
+.fix .ck{color:var(--green);margin-right:6px}
+button{background:transparent;border:1px solid var(--blue);color:var(--blue);padding:7px 22px;border-radius:4px;cursor:pointer;font-family:var(--font);font-size:12px;margin-top:20px}
+button:hover{background:rgba(88,166,255,.1)}
+#ftr{background:var(--bg2);border-top:1px solid var(--border);padding:4px 16px;display:flex;justify-content:space-between;flex-shrink:0}
+.fi{color:var(--muted);font-size:10px}.fi span{color:var(--text)}
+</style>
+</head>
+<body>
+<div id="hdr">
+  <div class="logo">◈ CoverLine · Phase 5 — GitOps</div>
+  <div class="phase-badge">15,000 members · Friday 17:00</div>
+  <div id="clock">Friday 17:00</div>
+</div>
+<div id="main">
+  <!-- Git log + conflict -->
+  <div class="panel">
+    <div class="ptitle">git log — conflicting friday deploys</div>
+    <div class="conflict-banner" id="banner">⚠ Two deploys merged in 47 minutes — second silently overwrote first</div>
+    <div id="git-log">
+      <div class="commit" id="c1"><span class="commit-hash">a3f9e2b</span><span class="commit-author">thomas</span><span class="commit-msg">feat: update claims config (rate limits)</span></div>
+      <div class="commit" id="c2"><span class="commit-hash">b7d1c4f</span><span class="commit-author">sarah</span><span class="commit-msg conflict">fix: conflicting config — overwrote thomas's changes 🔥</span></div>
+    </div>
+    <div style="margin-top:10px">
+      <div class="ptitle">sarah's investigation (2 hours)</div>
+      <div class="investigation">
+        <div class="inv-line" id="i1">$ kubectl get deployment claims-api -o yaml | grep image</div>
+        <div class="inv-line" id="i2">  image: coverline/claims:v2.1.0  # which config?</div>
+        <div class="inv-line" id="i3">$ git log --oneline phase-6-gitops/claims/ | head -5</div>
+        <div class="inv-line" id="i4">  # 2 commits in 47 min — who overwrote who?</div>
+        <div class="inv-line found" id="i5">  # Found it: sarah's pipeline ran after thomas's</div>
+        <div class="inv-line found" id="i6">  # rate_limit config reset to default → 500s</div>
+        <div class="inv-line" id="i7">  # 2 hours to diagnose. Cluster was source of truth.</div>
+      </div>
+    </div>
+  </div>
+  <!-- ArgoCD -->
+  <div class="panel">
+    <div class="ptitle">argocd — git is the source of truth</div>
+    <div id="argo-apps">
+      <div class="argo-app" id="app1">
+        <div class="argo-header">
+          <span class="argo-name">coverline-backend</span>
+          <span class="argo-badge synced" id="ab1">Synced</span>
+        </div>
+        <div class="argo-detail" id="ad1">git: main@a3f9e2b · cluster: in sync</div>
+      </div>
+      <div class="argo-app" id="app2">
+        <div class="argo-header">
+          <span class="argo-name">coverline-claims</span>
+          <span class="argo-badge synced" id="ab2">Synced</span>
+        </div>
+        <div class="argo-detail" id="ad2">git: main@a3f9e2b · cluster: in sync</div>
+      </div>
+    </div>
+    <div class="ptitle" style="margin-top:8px">argocd sync log</div>
+    <div class="sync-log" id="sync-log"></div>
+    <div style="margin-top:8px;font-size:10px;color:var(--muted);font-style:italic" id="argo-verdict"></div>
+  </div>
+</div>
+<div id="overlay">
+  <div class="ov-title">GIT WASN'T THE SOURCE OF TRUTH</div>
+  <div class="ov-sub">Two pipelines. Two deploys. One silent overwrite. Sarah spent 2 hours diffing YAML. The cluster knew what was running — but nobody asked it the right question.</div>
+  <div class="fix" id="f1"><span class="ck">✓</span>ArgoCD watches Git — cluster always reflects exactly what's in main</div>
+  <div class="fix" id="f2"><span class="ck">✓</span>Drift is impossible — ArgoCD corrects it automatically</div>
+  <div class="fix" id="f3"><span class="ck">✓</span>Every change is a Git commit — full audit trail, no surprises</div>
+  <button onclick="replay()">↺ Replay</button>
+</div>
+<div id="ftr">
+  <div class="fi">env: <span>production</span></div>
+  <div class="fi">phase: <span>5 — gitops with argocd</span></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let tids=[];
+function at(ms,fn){tids.push(setTimeout(fn,ms))}
+function addSync(text,cls=''){
+  const s=$('sync-log'),l=document.createElement('div');
+  l.className='sline '+cls; l.textContent=text;
+  s.appendChild(l); requestAnimationFrame(()=>l.classList.add('on'));
+}
+
+function init(){
+  at(600, ()=>$('c1').classList.add('on'));
+  at(1400,()=>$('c2').classList.add('on'));
+  at(2200,()=>$('banner').classList.add('on'));
+  [1,2,3,4,5,6,7].forEach((i,idx)=>at(3000+idx*700,()=>$('i'+i).classList.add('on')));
+
+  // ArgoCD detects conflict — OutOfSync
+  at(4500,()=>{
+    $('app2').classList.add('outofsync');
+    $('ab2').textContent='OutOfSync'; $('ab2').className='argo-badge oos';
+    $('ad2').textContent='git: main@b7d1c4f · cluster: DRIFT DETECTED';
+  });
+
+  at(5200,()=>{
+    addSync('[17:47:03] Detected drift on coverline-claims','warn');
+    addSync('[17:47:03] git: rate_limit=100 · cluster: rate_limit=1000','warn');
+  });
+
+  at(6500,()=>{
+    $('ab2').textContent='Syncing'; $('ab2').className='argo-badge syncing';
+    addSync('[17:47:05] Auto-sync triggered — restoring desired state','info');
+  });
+
+  at(8000,()=>{
+    addSync('[17:47:07] coverline-claims: rollout complete','ok');
+    $('app2').className='argo-app synced';
+    $('ab2').textContent='Synced'; $('ab2').className='argo-badge synced';
+    $('ad2').textContent='git: main@b7d1c4f · cluster: in sync';
+    $('argo-verdict').textContent='"The cluster is the source of truth. But it shouldn\'t be. Git should be." — Sarah';
+    $('argo-verdict').style.color='var(--blue)';
+  });
+
+  at(10500,()=>{
+    $('overlay').classList.add('on');
+    at(600, ()=>$('f1').classList.add('on'));
+    at(1100,()=>$('f2').classList.add('on'));
+    at(1600,()=>$('f3').classList.add('on'));
+  });
+}
+
+function replay(){
+  tids.forEach(clearTimeout); tids=[];
+  $('overlay').classList.remove('on');
+  ['f1','f2','f3'].forEach(id=>$(id).classList.remove('on'));
+  ['c1','c2','banner'].forEach(id=>$(id).classList.remove('on'));
+  [1,2,3,4,5,6,7].forEach(i=>$('i'+i).classList.remove('on'));
+  $('app2').className='argo-app';
+  $('ab2').textContent='Synced'; $('ab2').className='argo-badge synced';
+  $('ad2').textContent='git: main@a3f9e2b · cluster: in sync';
+  $('sync-log').innerHTML=''; $('argo-verdict').textContent='';
+  init();
+}
+window.addEventListener('load',init);
+</script>
+</body>
+</html>

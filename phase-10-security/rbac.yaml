@@ -54,7 +54,7 @@ roleRef:
 # and becomes an attack vector if the pod is compromised.
 # ---------------------------------------------------------------------------
 
-# NOTE: If Vault Agent injection is enabled (Phase 7), leave
+# NOTE: If Vault Agent injection is enabled (Phase 3), leave
 # coverline-backend automounting ENABLED — Vault Agent needs the token
 # for Kubernetes auth. Disable it on the frontend only.
 

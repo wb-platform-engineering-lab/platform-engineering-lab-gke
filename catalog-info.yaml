@@ -45,5 +45,5 @@ metadata:
   description: All CoverLine service catalog entries
 spec:
   targets:
-    - ./phase-3-helm/app/backend/catalog-info.yaml
-    - ./phase-3-helm/app/frontend/catalog-info.yaml
+    - ./phase-4-helm/app/backend/catalog-info.yaml
+    - ./phase-4-helm/app/frontend/catalog-info.yaml

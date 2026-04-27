@@ -10,7 +10,7 @@ CoverLine services need environment-specific configuration: database hostnames, 
 
 ## Decision
 
-Store non-secret configuration in Kubernetes `ConfigMap` objects and inject them into pods as environment variables or volume mounts. Store secrets (passwords, API keys) in Kubernetes `Secret` objects (and Vault in Phase 7).
+Store non-secret configuration in Kubernetes `ConfigMap` objects and inject them into pods as environment variables or volume mounts. Store secrets (passwords, API keys) in Kubernetes `Secret` objects (and Vault in Phase 3).
 
 ## Alternatives Considered
 

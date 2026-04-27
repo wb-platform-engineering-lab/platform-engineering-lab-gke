@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Phase 7 introduces HashiCorp Vault for secrets management. Vault itself needs to run somewhere. Running Vault inside Kubernetes creates a circular dependency: Kubernetes secrets are needed to bootstrap Vault, but Vault is the secrets manager.
+Phase 3 introduces HashiCorp Vault for secrets management. Vault itself needs to run somewhere. Running Vault inside Kubernetes creates a circular dependency: Kubernetes secrets are needed to bootstrap Vault, but Vault is the secrets manager.
 
 ## Decision
 

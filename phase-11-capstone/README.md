@@ -43,7 +43,7 @@ Git (main branch)
     ├── phase-1-terraform/envs/{dev,staging,prod}/
     │       └── Shared modules → 3 independent GKE clusters with isolated state
     │
-    ├── phase-3-helm/charts/{backend,frontend}/
+    ├── phase-4-helm/charts/{backend,frontend}/
     │       ├── values.yaml           ← base config
     │       ├── values-dev.yaml       ← dev overrides (patched by CI on merge)
     │       ├── values-staging.yaml   ← staging overrides (patched on approval)
@@ -197,7 +197,7 @@ kubectl config get-contexts | grep platform-eng-lab-will
 
 ## Challenge 2 — Deploy the ArgoCD ApplicationSet
 
-With three environments and multiple services, the Phase 5 approach of writing one ArgoCD Application manifest per service per environment does not scale. An **ApplicationSet** uses a Matrix generator to produce one Application per combination of cluster and chart directory automatically.
+With three environments and multiple services, the Phase 6 approach of writing one ArgoCD Application manifest per service per environment does not scale. An **ApplicationSet** uses a Matrix generator to produce one Application per combination of cluster and chart directory automatically.
 
 ### Step 1: Register staging and prod clusters with ArgoCD
 
@@ -233,12 +233,12 @@ The ApplicationSet template references `values-{{env}}.yaml`. Each chart needs o
 ```bash
 for env in dev staging prod; do
   for chart in backend frontend; do
-    touch "phase-3-helm/charts/${chart}/values-${env}.yaml"
+    touch "phase-4-helm/charts/${chart}/values-${env}.yaml"
   done
 done
 ```
 
-Populate `phase-3-helm/charts/backend/values-staging.yaml`:
+Populate `phase-4-helm/charts/backend/values-staging.yaml`:
 
 ```yaml
 replicaCount: 2
@@ -259,7 +259,7 @@ image:
 kubectl apply -f phase-11-capstone/argocd/applicationset.yaml -n argocd
 ```
 
-The ApplicationSet at `phase-11-capstone/argocd/applicationset.yaml` uses a Matrix generator combining registered clusters with chart directories in `phase-3-helm/charts/*`. For each combination it generates one Application named `coverline-{chart}-{env}`.
+The ApplicationSet at `phase-11-capstone/argocd/applicationset.yaml` uses a Matrix generator combining registered clusters with chart directories in `phase-4-helm/charts/*`. For each combination it generates one Application named `coverline-{chart}-{env}`.
 
 ### Step 4: Verify Applications are generated
 
@@ -287,7 +287,7 @@ The `.github/workflows/platform-pipeline.yml` workflow covers the full path from
 
 | Stage | Trigger | Gate | Mechanism |
 |---|---|---|---|
-| CI | Every push to `phase-3-helm/app/**` | Trivy scan must pass (CRITICAL/HIGH) | Image only pushed if clean |
+| CI | Every push to `phase-4-helm/app/**` | Trivy scan must pass (CRITICAL/HIGH) | Image only pushed if clean |
 | Dev deploy | Merge to `main` | None (automatic) | Patches `values-dev.yaml` → ArgoCD syncs |
 | Staging | `workflow_dispatch` | 1 approver | Patches `values-staging.yaml` → ArgoCD syncs |
 | Prod | `workflow_dispatch` | 1 approver | Patches `values-prod.yaml` → ArgoCD syncs |
@@ -310,8 +310,8 @@ Push a change to trigger CI and auto-deploy to dev:
 
 ```bash
 git checkout -b feature/capstone-test
-echo "# capstone" >> phase-3-helm/app/backend/app.py
-git add phase-3-helm/app/backend/app.py
+echo "# capstone" >> phase-4-helm/app/backend/app.py
+git add phase-4-helm/app/backend/app.py
 git commit -m "test: trigger capstone pipeline"
 git push origin feature/capstone-test
 ```
@@ -375,7 +375,7 @@ kubectl port-forward -n backstage svc/backstage 7007:7007
 
 ### Step 3: Add catalog-info.yaml to each service
 
-Add `phase-3-helm/app/backend/catalog-info.yaml`:
+Add `phase-4-helm/app/backend/catalog-info.yaml`:
 
 ```yaml
 apiVersion: backstage.io/v1alpha1
@@ -413,7 +413,7 @@ The platform overview dashboard consolidates all signal into one view: RED metri
 
 ### Step 1: Add the backend metrics endpoint
 
-Add `prometheus-flask-exporter==0.23.1` to `phase-3-helm/app/backend/requirements.txt` and initialise it in `app.py`:
+Add `prometheus-flask-exporter==0.23.1` to `phase-4-helm/app/backend/requirements.txt` and initialise it in `app.py`:
 
 ```python
 from prometheus_flask_exporter import PrometheusMetrics
@@ -599,7 +599,7 @@ The promotion pipeline adds one more layer: the same image SHA travels unchanged
 
 **Backstage as the single pane of glass.** Every service has a `catalog-info.yaml`. Every service links to its runbook, its Grafana dashboard, and its on-call rotation. When an incident starts, the on-call engineer opens the Backstage service page — not Slack or a shared doc that was last updated eight months ago.
 
-**Progressive rollout to prod.** Replace the rolling update in prod with an Argo Rollout (Phase 5b) configured with a canary strategy: 10% of traffic to the new version for 10 minutes, automated metric analysis against the SLO panel, then full promotion or automatic rollback.
+**Progressive rollout to prod.** Replace the rolling update in prod with an Argo Rollout (Phase 6b) configured with a canary strategy: 10% of traffic to the new version for 10 minutes, automated metric analysis against the SLO panel, then full promotion or automatic rollback.
 
 **Regular DR drills.** The Terraform directory approach means you can provision a fresh prod cluster with one command. Run a DR drill quarterly: spin up a new cluster, apply the ApplicationSet, restore the database from the latest snapshot, verify all services are healthy. Time it. Target: under 45 minutes to full operational status.
 

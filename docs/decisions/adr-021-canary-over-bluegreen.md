@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Phase 5b introduces progressive delivery: rolling out a new version to a subset of users before full promotion. Two dominant patterns exist — blue-green (two full environments, instant switch) and canary (gradual traffic shift by percentage).
+Phase 6b introduces progressive delivery: rolling out a new version to a subset of users before full promotion. Two dominant patterns exist — blue-green (two full environments, instant switch) and canary (gradual traffic shift by percentage).
 
 ## Decision
 

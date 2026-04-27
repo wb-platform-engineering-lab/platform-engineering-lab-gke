@@ -280,7 +280,7 @@ containers:
 ```
 
 ```bash
-helm upgrade coverline phase-3-helm/charts/backend/ \
+helm upgrade coverline phase-4-helm/charts/backend/ \
   --reuse-values \
   --values phase-10b-cks/security-context-values.yaml
 ```

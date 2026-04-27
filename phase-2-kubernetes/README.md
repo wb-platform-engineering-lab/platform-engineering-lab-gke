@@ -427,4 +427,4 @@ The CoverLine backend and frontend run as Kubernetes Deployments with 2 replicas
 
 ---
 
-[Back to main README](../README.md) | [Next: Phase 3 — CI/CD](../phase-3-cicd/README.md)
+[Back to main README](../README.md) | [Next: Phase 4 — CI/CD](../phase-3-cicd/README.md)

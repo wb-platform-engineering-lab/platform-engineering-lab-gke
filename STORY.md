@@ -88,7 +88,7 @@ They moved to Kubernetes.
 
 ---
 
-*Phase 3 — 1,000 members*
+*Phase 4 — 1,000 members*
 
 The backend team shipped a Redis caching fix on a Tuesday afternoon. By Wednesday morning, the frontend was broken — the fix had changed an API response format that three other services depended on.
 
@@ -98,13 +98,13 @@ Thomas called an all-hands. *"We have four engineers and we already can't tell w
 
 Everything moved to Helm. One source of truth. Versioned. Rollbackable.
 
-→ **[Phase 3 — Helm & Microservices](./phase-3-helm/README.md)**
+→ **[Phase 4 — Helm & Microservices](./phase-4-helm/README.md)**
 
 ---
 
 ## Chapter 3 — The Deploy Took Four Hours
 
-*Phase 4 — 5,000 members*
+*Phase 5 — 5,000 members*
 
 CoverLine hired Karim as its first dedicated platform engineer.
 
@@ -116,11 +116,11 @@ Karim found six different versions of the deploy process spread across Slack thr
 
 He built GitHub Actions pipelines. Every merge to main triggers a build, a push, and a deploy. No runbooks. No manual steps.
 
-→ **[Phase 4 — CI/CD Pipelines](./phase-4-ci-cd/README.md)**
+→ **[Phase 5 — CI/CD Pipelines](./phase-5-ci-cd/README.md)**
 
 ---
 
-*Phase 5 — 15,000 members*
+*Phase 6 — 15,000 members*
 
 The pipelines worked. But they created a new problem.
 
@@ -132,11 +132,11 @@ By 5 PM, the claims API was returning 500s. Neither developer knew the other had
 
 Karim introduced ArgoCD. The cluster state is driven entirely from Git. Drift is impossible. Every change is traceable.
 
-→ **[Phase 5 — GitOps with ArgoCD](./phase-5-gitops/README.md)**
+→ **[Phase 6 — GitOps with ArgoCD](./phase-6-gitops/README.md)**
 
 ---
 
-*Phase 5b — 20,000 members*
+*Phase 6b — 20,000 members*
 
 GitOps was in place. The team was shipping fast, with confidence.
 
@@ -158,7 +158,7 @@ They introduced Argo Rollouts. New versions now receive 10% of traffic first. A 
 
 The next bug reached 10% of users for three minutes. The system corrected itself.
 
-→ **[Phase 5b — Progressive Delivery](./phase-5b-progressive-delivery/README.md)**
+→ **[Phase 6b — Progressive Delivery](./phase-6b-progressive-delivery/README.md)**
 
 ---
 
@@ -176,13 +176,13 @@ Karim and Sarah spent a week building the observability stack. Prometheus. Grafa
 
 The next incident, they woke up before the customer did.
 
-→ **[Phase 6 — Observability](./phase-6-observability/README.md)**
+→ **[Phase 7 — Observability](./phase-7-observability/README.md)**
 
 ---
 
 ## Chapter 5 — The Credentials Were in Git
 
-*Phase 7 — 100,000 members*
+*Phase 4 — 100,000 members*
 
 CoverLine was preparing for its Series B. As part of due diligence, the investors hired an external security firm to audit the codebase.
 
@@ -200,7 +200,7 @@ The Series B was delayed by six weeks pending a full security remediation.
 
 They deployed HashiCorp Vault. Credentials never touch the filesystem. Pods get short-lived dynamic credentials that rotate automatically. Git contains no secrets — not even accidentally.
 
-→ **[Phase 7 — Secrets Management (Vault)](./phase-7-vault/README.md)**
+→ **[Phase 3 — Secrets Management (Vault)](./phase-3-vault/README.md)**
 
 ---
 

@@ -1,6 +1,6 @@
 # Phase 12 — GenAI & Agentic Platform
 
-> **GenAI concepts introduced:** Anthropic SDK tool use, agentic loop, structured output, Prometheus Pushgateway | **Builds on:** Phase 6 observability, Phase 9 data platform
+> **GenAI concepts introduced:** Anthropic SDK tool use, agentic loop, structured output, Prometheus Pushgateway | **Builds on:** Phase 7 observability, Phase 9 data platform
 
 [📝 Take the quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-12-genai/quiz.html)
 
@@ -107,7 +107,7 @@ phase-12-genai/
 
 ## Prerequisites
 
-Phases 1 through 10 complete. Phase 12 builds on the PostgreSQL database (Phase 3), the Airflow data platform (Phase 9), and the Prometheus/Grafana observability stack (Phase 6).
+Phases 1 through 10 complete. Phase 12 builds on the PostgreSQL database (Phase 4), the Airflow data platform (Phase 9), and the Prometheus/Grafana observability stack (Phase 6).
 
 ```bash
 bash bootstrap.sh --phase 9

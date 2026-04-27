@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [6.0.0] — 2026-04-05
 
-### Phase 6 — Observability Stack
+### Phase 7 — Observability Stack
 
 #### Added
 - kube-prometheus-stack installed via Helm — Prometheus, Grafana, Alertmanager, node-exporter, kube-state-metrics
@@ -26,21 +26,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.0.0] — 2026-04-04
 
-### Phase 5 — GitOps with ArgoCD
+### Phase 6 — GitOps with ArgoCD
 
 #### Added
 - ArgoCD installed on GKE via official manifests
-- `coverline-backend` ArgoCD Application watching `phase-3-helm/charts/backend` on `main` branch
-- `coverline-frontend` ArgoCD Application watching `phase-3-helm/charts/frontend` on `main` branch
+- `coverline-backend` ArgoCD Application watching `phase-4-helm/charts/backend` on `main` branch
+- `coverline-frontend` ArgoCD Application watching `phase-4-helm/charts/frontend` on `main` branch
 - Automated sync with `selfHeal: true` and `prune: true` — cluster always matches repo state
 - GitOps loop verified end-to-end: change `values.yaml` → push to main → ArgoCD auto-syncs → pods updated
-- Phase 5 README with GitOps flow diagram, install steps, and troubleshooting
+- Phase 6 README with GitOps flow diagram, install steps, and troubleshooting
 
 ---
 
 ## [4.0.0] — 2026-04-04
 
-### Phase 4 — CI/CD Pipelines
+### Phase 5 — CI/CD Pipelines
 
 #### Added
 - GitHub Actions CI workflow (`ci.yml`) — builds and pushes Docker images to Artifact Registry on every feature branch push, tagged with git SHA and `dev`
@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dedicated `github-ci` service account with least-privilege permissions (`artifactregistry.writer` + `container.developer`)
 - `.pre-commit-config.yaml` — local pre-commit hooks for tflint, hadolint, and yamllint
 - `.yamllint.yml` — yamllint config tuned for Kubernetes and Helm YAML
-- Phase 4 README with pipeline overview, full GCP setup commands, and troubleshooting
+- Phase 5 README with pipeline overview, full GCP setup commands, and troubleshooting
 
 #### Fixed
 - `gke-gcloud-auth-plugin` installed in CD runner to fix `Kubernetes cluster unreachable` error
@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.0.0] — 2026-04-04
 
-### Phase 3 — Helm & Microservices
+### Phase 4 — Helm & Microservices
 
 #### Added
 - Backend and frontend packaged as Helm charts with templates, `values.yaml`, and `_helpers.tpl`
@@ -70,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flask backend upgraded with real `/claims` endpoints (PostgreSQL reads/writes + Redis caching with 30s TTL)
 - Node.js frontend upgraded to proxy claims API — displays live claims from backend
 - `helm upgrade` and `helm rollback` demonstrated (scale to 3 replicas, rollback to 2)
-- Phase 3 README with architecture diagram, deploy steps, and troubleshooting
+- Phase 4 README with architecture diagram, deploy steps, and troubleshooting
 
 #### Fixed
 - `.gitignore` updated to exclude `phase-*/charts/` from the `charts/` ignore rule

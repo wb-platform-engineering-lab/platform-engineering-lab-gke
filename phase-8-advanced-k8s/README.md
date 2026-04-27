@@ -1,6 +1,6 @@
 # Phase 8 — Advanced Kubernetes
 
-> **Kubernetes concepts introduced:** HPA, Cluster Autoscaler, PodDisruptionBudget, resource requests/limits | **Builds on:** Phase 6 observability cluster
+> **Kubernetes concepts introduced:** HPA, Cluster Autoscaler, PodDisruptionBudget, resource requests/limits | **Builds on:** Phase 7 observability cluster
 
 [▶ Watch the incident animation](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-8-advanced-k8s/incident-animation.html) · [📝 Take the quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-8-advanced-k8s/quiz.html)
 
@@ -78,7 +78,7 @@ phase-8-advanced-k8s/
 └── pdb.yaml    ← PDB: backend minAvailable 2, frontend minAvailable 1
 ```
 
-Resource requests and limits live in `phase-3-helm/charts/backend/values.yaml` and are applied via Helm.
+Resource requests and limits live in `phase-4-helm/charts/backend/values.yaml` and are applied via Helm.
 
 ---
 
@@ -117,12 +117,12 @@ brew install k6
 
 ## Challenge 1 — Set resource requests and limits
 
-Resource requests and limits are already defined in `phase-3-helm/charts/backend/values.yaml`. This challenge verifies they are correctly applied and explains why each value was chosen.
+Resource requests and limits are already defined in `phase-4-helm/charts/backend/values.yaml`. This challenge verifies they are correctly applied and explains why each value was chosen.
 
 ### Step 1: Review the backend values
 
 ```yaml
-# phase-3-helm/charts/backend/values.yaml
+# phase-4-helm/charts/backend/values.yaml
 resources:
   requests:
     cpu: "100m"     # 0.1 vCPU guaranteed — enough for a healthy idle pod
@@ -141,7 +141,7 @@ resources:
 ### Step 2: Apply and verify
 
 ```bash
-helm upgrade coverline phase-3-helm/charts/backend/
+helm upgrade coverline phase-4-helm/charts/backend/
 kubectl describe pod -l app.kubernetes.io/name=backend | grep -A6 "Limits\|Requests"
 ```
 

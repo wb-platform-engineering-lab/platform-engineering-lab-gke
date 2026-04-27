@@ -19,7 +19,7 @@ spec:
               repoURL: https://github.com/wb-platform-engineering-lab/platform-engineering-lab-gke.git
               revision: HEAD
               directories:
-                - path: phase-3-helm/charts/*
+                - path: phase-4-helm/charts/*
   template:
     metadata:
       name: "coverline-{{path.basename}}-{{values.env}}"

@@ -1,6 +1,6 @@
 # Phase 10e — FinOps & Cost Visibility
 
-> **FinOps concepts introduced:** Kubecost, cost labels, resource rightsizing, GCP Budget Alerts, BigQuery billing export | **Builds on:** Phase 6 observability stack
+> **FinOps concepts introduced:** Kubecost, cost labels, resource rightsizing, GCP Budget Alerts, BigQuery billing export | **Builds on:** Phase 7 observability stack
 
 [📝 Take the quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-10e-finops/quiz.html)
 
@@ -244,7 +244,7 @@ kubectl top pods --sort-by=memory
 If `kubectl top` shows the backend using 40m CPU against a 500m request, update the Helm values and redeploy:
 
 ```bash
-helm upgrade coverline phase-3-helm/charts/backend/ \
+helm upgrade coverline phase-4-helm/charts/backend/ \
   --set resources.requests.cpu=100m \
   --set resources.requests.memory=128Mi \
   --set resources.limits.cpu=500m \

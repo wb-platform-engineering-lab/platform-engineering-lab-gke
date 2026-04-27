@@ -82,10 +82,10 @@ install_postgresql_redis() {
     --wait --timeout 10m
 
   echo "[phase 3] Installing CoverLine apps..."
-  helm upgrade --install coverline          phase-3-helm/charts/backend/  --wait --timeout 3m
-  helm upgrade --install coverline-frontend phase-3-helm/charts/frontend/ --wait --timeout 3m
+  helm upgrade --install coverline          phase-4-helm/charts/backend/  --wait --timeout 3m
+  helm upgrade --install coverline-frontend phase-4-helm/charts/frontend/ --wait --timeout 3m
 
-  echo "Phase 3 — done."
+  echo "Phase 4 — done."
 }
 
 install_argocd() {
@@ -94,7 +94,7 @@ install_argocd() {
   kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
   kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
   kubectl rollout status deployment/argocd-server -n argocd --timeout=5m
-  echo "Phase 5 — done."
+  echo "Phase 6 — done."
 }
 
 install_argo_rollouts() {
@@ -104,15 +104,15 @@ install_argo_rollouts() {
   kubectl apply -n argo-rollouts \
     -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
   kubectl rollout status deployment/argo-rollouts -n argo-rollouts --timeout=5m
-  echo "Phase 5b — Argo Rollouts ready."
+  echo "Phase 6b — Argo Rollouts ready."
   echo ""
   echo "Next steps:"
   echo "  1. Install the kubectl plugin:  brew install argoproj/tap/kubectl-argo-rollouts"
   echo "  2. Delete the existing Deployment and apply the Rollout:"
   echo "       kubectl delete deployment coverline-backend"
-  echo "       kubectl apply -f phase-5b-progressive-delivery/rollout.yaml"
+  echo "       kubectl apply -f phase-6b-progressive-delivery/rollout.yaml"
   echo "  3. Apply the AnalysisTemplate:"
-  echo "       kubectl apply -f phase-5b-progressive-delivery/analysis-template.yaml"
+  echo "       kubectl apply -f phase-6b-progressive-delivery/analysis-template.yaml"
 }
 
 install_observability() {
@@ -122,17 +122,17 @@ install_observability() {
 
   helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
     --namespace monitoring \
-    -f phase-6-observability/kube-prometheus-stack-values.yaml \
+    -f phase-7-observability/kube-prometheus-stack-values.yaml \
     --wait --timeout 10m
 
   helm upgrade --install loki grafana/loki \
     --namespace monitoring \
-    -f phase-6-observability/loki-values.yaml \
+    -f phase-7-observability/loki-values.yaml \
     --wait --timeout 5m
 
   helm upgrade --install promtail grafana/promtail \
     --namespace monitoring \
-    -f phase-6-observability/promtail-values.yaml \
+    -f phase-7-observability/promtail-values.yaml \
     --wait --timeout 5m
 
   echo "Phase 6 — done."
@@ -162,15 +162,15 @@ install_vault() {
 
   helm upgrade --install vault hashicorp/vault \
     --namespace vault \
-    -f phase-7-vault/vault-values.yaml \
+    -f phase-3-vault/vault-values.yaml \
     --wait --timeout 5m
 
-  echo "Phase 7 — done."
+  echo "Phase 3 — done."
   echo ""
   echo "Next: initialize Vault (run once on a fresh install):"
   echo "  kubectl port-forward -n vault svc/vault 8200:8200 &"
   echo "  export VAULT_ADDR=http://localhost:8200"
-  echo "  bash phase-7-vault/vault-init.sh"
+  echo "  bash phase-3-vault/vault-init.sh"
 }
 
 install_airflow() {
@@ -320,7 +320,7 @@ case $PHASE in
     echo "[phase 10] Pod security (Step 3) requires the updated Docker image."
     echo "  Build it first by pushing a change to a feature branch (triggers CI)."
     echo "  Then apply:"
-    echo "    helm upgrade coverline phase-3-helm/charts/backend/ \\"
+    echo "    helm upgrade coverline phase-4-helm/charts/backend/ \\"
     echo "      -f phase-10-security/security-context-values.yaml"
     echo ""
     echo "Phase 10 — done."
