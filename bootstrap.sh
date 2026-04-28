@@ -196,9 +196,13 @@ install_backstage() {
     echo ""
   fi
 
-  # Remove any partially-created PostgreSQL secret from a previous failed install.
-  # The Bitnami subchart errors if the secret exists but lacks the expected keys.
+  # Remove any partially-created PostgreSQL secret and StatefulSet from a previous
+  # failed install. The Bitnami subchart errors if the secret exists but lacks
+  # the expected keys. The StatefulSet storageClass is immutable, so delete and
+  # recreate it when re-running to avoid "forbidden field" upgrade errors.
   kubectl delete secret backstage-postgresql -n backstage 2>/dev/null || true
+  kubectl delete statefulset backstage-postgresql -n backstage 2>/dev/null || true
+  kubectl delete pvc data-backstage-postgresql-0 -n backstage 2>/dev/null || true
 
   helm repo add backstage https://backstage.github.io/charts 2>/dev/null || true
   helm repo update backstage
@@ -211,7 +215,8 @@ install_backstage() {
   helm upgrade --install backstage backstage/backstage \
     --namespace backstage \
     --values phase-11-capstone/backstage/values.yaml \
-    --set postgresql.auth.password=backstage-local-dev-only
+    --set postgresql.auth.password=backstage-local-dev-only \
+    --set postgresql.primary.persistence.storageClass=standard
 
   echo ""
   echo "Backstage install submitted (async — image pull takes 3–5 min on e2-medium)."
