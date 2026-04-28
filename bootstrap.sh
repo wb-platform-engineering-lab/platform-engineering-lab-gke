@@ -199,9 +199,12 @@ install_backstage() {
   helm repo add backstage https://backstage.github.io/charts 2>/dev/null || true
   helm repo update backstage
 
+  # Pass the PostgreSQL password explicitly so the Bitnami subchart does not
+  # attempt to read a partially-created secret from a previous failed install.
   helm upgrade --install backstage backstage/backstage \
     --namespace backstage \
     --values phase-11-capstone/backstage/values.yaml \
+    --set postgresql.auth.password=backstage-local-dev-only \
     --wait --timeout 10m
 
   echo "Backstage ready."
