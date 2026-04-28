@@ -196,6 +196,10 @@ install_backstage() {
     echo ""
   fi
 
+  # Remove any partially-created PostgreSQL secret from a previous failed install.
+  # The Bitnami subchart errors if the secret exists but lacks the expected keys.
+  kubectl delete secret backstage-postgresql -n backstage 2>/dev/null || true
+
   helm repo add backstage https://backstage.github.io/charts 2>/dev/null || true
   helm repo update backstage
 
