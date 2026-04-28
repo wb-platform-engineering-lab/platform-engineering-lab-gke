@@ -173,56 +173,6 @@ install_vault() {
   echo "  bash phase-3-vault/vault-init.sh"
 }
 
-install_backstage() {
-  echo ""
-  echo "[phase 11] Installing Backstage IDP..."
-  kubectl create namespace backstage --dry-run=client -o yaml | kubectl apply -f -
-
-  # Backstage references this secret via extraEnvVarsSecrets — the pod will not
-  # schedule if the secret is missing. Create a placeholder so the install
-  # succeeds, then remind the user to update it with a real token.
-  if ! kubectl get secret backstage-github-token -n backstage &>/dev/null; then
-    kubectl create secret generic backstage-github-token \
-      --namespace backstage \
-      --from-literal=GITHUB_TOKEN=placeholder
-    echo ""
-    echo "NOTE: Created placeholder 'backstage-github-token' secret."
-    echo "  Update it with a real GitHub PAT so Backstage can read the catalog:"
-    echo "    kubectl create secret generic backstage-github-token \\"
-    echo "      --namespace backstage \\"
-    echo "      --from-literal=GITHUB_TOKEN=<your-pat> \\"
-    echo "      --dry-run=client -o yaml | kubectl apply -f -"
-    echo "  Then restart Backstage:  kubectl rollout restart deploy/backstage -n backstage"
-    echo ""
-  fi
-
-  # Remove any partially-created PostgreSQL secret and StatefulSet from a previous
-  # failed install. The Bitnami subchart errors if the secret exists but lacks
-  # the expected keys. The StatefulSet storageClass is immutable, so delete and
-  # recreate it when re-running to avoid "forbidden field" upgrade errors.
-  kubectl delete secret backstage-postgresql -n backstage 2>/dev/null || true
-  kubectl delete statefulset backstage-postgresql -n backstage 2>/dev/null || true
-  kubectl delete pvc data-backstage-postgresql-0 -n backstage 2>/dev/null || true
-
-  helm repo add backstage https://backstage.github.io/charts 2>/dev/null || true
-  helm repo update backstage
-
-  # Pass the PostgreSQL password explicitly so the Bitnami subchart does not
-  # attempt to read a partially-created secret from a previous failed install.
-  # --wait is intentionally omitted: Backstage pulls a large image and its
-  # PostgreSQL subchart adds startup time that exceeds reliable timeout budgets
-  # on e2-medium nodes. Verify readiness manually after bootstrap completes.
-  helm upgrade --install backstage backstage/backstage \
-    --namespace backstage \
-    --values phase-11-capstone/backstage/values.yaml \
-    --set postgresql.auth.password=backstage-local-dev-only \
-    --set postgresql.primary.persistence.storageClass=standard
-
-  echo ""
-  echo "Backstage install submitted (async — image pull takes 3–5 min on e2-medium)."
-  echo "  Watch progress:  kubectl get pods -n backstage -w"
-  echo "  Access portal:   kubectl port-forward -n backstage svc/backstage 7007:7007"
-}
 
 install_airflow() {
   echo ""
@@ -392,8 +342,6 @@ case $PHASE in
       REDIS_HOST=redis-master
     kubectl rollout status deployment/coverline-backend --timeout=3m
 
-    install_backstage
-
     echo ""
     echo "[phase 11] Applying ArgoCD ApplicationSets..."
     kubectl apply -n argocd -f phase-11-capstone/argocd/applicationset.yaml
@@ -407,7 +355,6 @@ case $PHASE in
     echo "Phase 11 — done."
     echo ""
     echo "Next steps:"
-    echo "  Access Backstage:  kubectl port-forward -n backstage svc/backstage 7007:7007"
     echo "  Access ArgoCD:     kubectl port-forward -n argocd svc/argocd-server 8080:443"
     echo "  ArgoCD password:   kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 -d"
     echo "  See phase-11-capstone/README.md for multi-environment Terraform and promotion pipeline steps."
