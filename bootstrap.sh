@@ -178,14 +178,21 @@ install_backstage() {
   echo "[phase 11] Installing Backstage IDP..."
   kubectl create namespace backstage --dry-run=client -o yaml | kubectl apply -f -
 
-  # Ensure the GitHub token secret exists (user must pre-create it)
+  # Backstage references this secret via extraEnvVarsSecrets — the pod will not
+  # schedule if the secret is missing. Create a placeholder so the install
+  # succeeds, then remind the user to update it with a real token.
   if ! kubectl get secret backstage-github-token -n backstage &>/dev/null; then
+    kubectl create secret generic backstage-github-token \
+      --namespace backstage \
+      --from-literal=GITHUB_TOKEN=placeholder
     echo ""
-    echo "WARNING: Secret 'backstage-github-token' not found in namespace 'backstage'."
-    echo "  Create it before Backstage can read the catalog:"
+    echo "NOTE: Created placeholder 'backstage-github-token' secret."
+    echo "  Update it with a real GitHub PAT so Backstage can read the catalog:"
     echo "    kubectl create secret generic backstage-github-token \\"
     echo "      --namespace backstage \\"
-    echo "      --from-literal=GITHUB_TOKEN=<your-pat>"
+    echo "      --from-literal=GITHUB_TOKEN=<your-pat> \\"
+    echo "      --dry-run=client -o yaml | kubectl apply -f -"
+    echo "  Then restart Backstage:  kubectl rollout restart deploy/backstage -n backstage"
     echo ""
   fi
 
