@@ -201,13 +201,18 @@ install_backstage() {
 
   # Pass the PostgreSQL password explicitly so the Bitnami subchart does not
   # attempt to read a partially-created secret from a previous failed install.
+  # --wait is intentionally omitted: Backstage pulls a large image and its
+  # PostgreSQL subchart adds startup time that exceeds reliable timeout budgets
+  # on e2-medium nodes. Verify readiness manually after bootstrap completes.
   helm upgrade --install backstage backstage/backstage \
     --namespace backstage \
     --values phase-11-capstone/backstage/values.yaml \
-    --set postgresql.auth.password=backstage-local-dev-only \
-    --wait --timeout 10m
+    --set postgresql.auth.password=backstage-local-dev-only
 
-  echo "Backstage ready."
+  echo ""
+  echo "Backstage install submitted (async — image pull takes 3–5 min on e2-medium)."
+  echo "  Watch progress:  kubectl get pods -n backstage -w"
+  echo "  Access portal:   kubectl port-forward -n backstage svc/backstage 7007:7007"
 }
 
 install_airflow() {
