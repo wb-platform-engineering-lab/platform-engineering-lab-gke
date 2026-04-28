@@ -26,7 +26,7 @@ done
 
 if [ -z "$PHASE" ]; then
   echo "Usage: bash bootstrap.sh --phase <number>"
-  echo "  Supported phases: 3, 4, 5, 5b, 6, 7, 8, 9, 10"
+  echo "  Supported phases: 3, 4, 5, 5b, 6, 7, 8, 9, 10, 11"
   exit 1
 fi
 
@@ -171,6 +171,33 @@ install_vault() {
   echo "  kubectl port-forward -n vault svc/vault 8200:8200 &"
   echo "  export VAULT_ADDR=http://localhost:8200"
   echo "  bash phase-3-vault/vault-init.sh"
+}
+
+install_backstage() {
+  echo ""
+  echo "[phase 11] Installing Backstage IDP..."
+  kubectl create namespace backstage --dry-run=client -o yaml | kubectl apply -f -
+
+  # Ensure the GitHub token secret exists (user must pre-create it)
+  if ! kubectl get secret backstage-github-token -n backstage &>/dev/null; then
+    echo ""
+    echo "WARNING: Secret 'backstage-github-token' not found in namespace 'backstage'."
+    echo "  Create it before Backstage can read the catalog:"
+    echo "    kubectl create secret generic backstage-github-token \\"
+    echo "      --namespace backstage \\"
+    echo "      --from-literal=GITHUB_TOKEN=<your-pat>"
+    echo ""
+  fi
+
+  helm repo add backstage https://backstage.github.io/charts 2>/dev/null || true
+  helm repo update backstage
+
+  helm upgrade --install backstage backstage/backstage \
+    --namespace backstage \
+    --values phase-11-capstone/backstage/values.yaml \
+    --wait --timeout 10m
+
+  echo "Backstage ready."
 }
 
 install_airflow() {
@@ -325,8 +352,46 @@ case $PHASE in
     echo ""
     echo "Phase 10 — done."
     ;;
+  11)
+    install_observability
+    install_postgresql_redis
+    install_argocd
+
+    echo ""
+    echo "[phase 11] Configuring backend — disabling Vault injection, setting env vars directly..."
+    kubectl delete mutatingwebhookconfiguration vault-agent-injector-cfg 2>/dev/null || true
+    kubectl patch deployment coverline-backend --type=json \
+      -p='[{"op":"add","path":"/spec/template/metadata/annotations/vault.hashicorp.com~1agent-inject","value":"false"}]'
+    kubectl set env deployment/coverline-backend \
+      DB_HOST=postgresql \
+      DB_NAME=coverline \
+      DB_USER=coverline \
+      DB_PASSWORD=coverline123 \
+      REDIS_HOST=redis-master
+    kubectl rollout status deployment/coverline-backend --timeout=3m
+
+    install_backstage
+
+    echo ""
+    echo "[phase 11] Applying ArgoCD ApplicationSets..."
+    kubectl apply -n argocd -f phase-11-capstone/argocd/applicationset.yaml
+    kubectl apply -n argocd -f phase-11-capstone/argocd/security-baseline-appset.yaml
+
+    echo ""
+    echo "[phase 11] Applying Grafana platform-overview dashboard..."
+    kubectl apply -n monitoring -f phase-11-capstone/grafana/platform-overview-dashboard.yaml
+
+    echo ""
+    echo "Phase 11 — done."
+    echo ""
+    echo "Next steps:"
+    echo "  Access Backstage:  kubectl port-forward -n backstage svc/backstage 7007:7007"
+    echo "  Access ArgoCD:     kubectl port-forward -n argocd svc/argocd-server 8080:443"
+    echo "  ArgoCD password:   kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 -d"
+    echo "  See phase-11-capstone/README.md for multi-environment Terraform and promotion pipeline steps."
+    ;;
   *)
-    echo "Unknown phase: $PHASE. Supported: 3, 4, 5, 5b, 6, 7, 8, 9, 10"
+    echo "Unknown phase: $PHASE. Supported: 3, 4, 5, 5b, 6, 7, 8, 9, 10, 11"
     exit 1
     ;;
 esac
