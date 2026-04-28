@@ -591,11 +591,100 @@ The promotion pipeline adds one more layer: the same image SHA travels unchanged
 
 ## Production considerations
 
+### Management cluster (the pattern you will actually use)
+
+In this lab, ArgoCD, Vault, Backstage, and Grafana are installed in the same cluster as the workloads. That works for learning. It does not work in production.
+
+The standard production topology is a **management cluster** — a dedicated cluster that runs all platform tooling and deploys to separate workload clusters. It is sometimes called a tools cluster, ops cluster, or control plane cluster.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      MANAGEMENT CLUSTER                         │
+│                                                                 │
+│   ┌──────────┐  ┌───────┐  ┌───────────┐  ┌─────────────────┐ │
+│   │  ArgoCD  │  │ Vault │  │ Backstage │  │ Grafana (multi) │ │
+│   └────┬─────┘  └───┬───┘  └─────┬─────┘  └────────┬────────┘ │
+│        │            │            │                  │          │
+└────────┼────────────┼────────────┼──────────────────┼──────────┘
+         │            │            │                  │
+         │  deploys   │  secrets   │  catalog         │  metrics
+         │            │            │                  │
+    ┌────▼──────────────────────────────────────────▼────┐
+    │              WORKLOAD CLUSTERS                      │
+    │                                                     │
+    │  ┌─────────────┐  ┌───────────────┐  ┌──────────┐  │
+    │  │  dev-cluster│  │staging-cluster│  │prod-clust│  │
+    │  │             │  │               │  │          │  │
+    │  │ • app pods  │  │ • app pods    │  │ • app    │  │
+    │  │ • Prometheus│  │ • Prometheus  │  │ • Prom.  │  │
+    │  │ • ingress   │  │ • ingress     │  │ • ingress│  │
+    │  │ • Vault     │  │ • Vault       │  │ • Vault  │  │
+    │  │   injector  │  │   injector    │  │   inject.│  │
+    │  └─────────────┘  └───────────────┘  └──────────┘  │
+    └─────────────────────────────────────────────────────┘
+```
+
+**What lives in the management cluster only**
+
+| Tool | Why here, not in workload clusters |
+|---|---|
+| ArgoCD | One ArgoCD hub deploys to N clusters via registered destinations — no blast radius on the apps it manages |
+| Vault | One Vault with per-cluster auth backends; workload clusters run only the lightweight agent injector sidecar |
+| Backstage | Reads from all clusters via Kubernetes plugin; single install, single catalog |
+| Grafana | Aggregates remote-write Prometheus streams from all workload clusters into one view |
+| Atlantis / CI runners | Applies Terraform across environments; must not run inside the cluster being modified |
+
+**What lives in every workload cluster**
+
+| Tool | Why replicated |
+|---|---|
+| Prometheus | Scrapes pods locally (network latency matters), then remote-writes to central Grafana |
+| Vault agent injector | Sidecar webhook must be local to intercept pod creation |
+| Ingress controller | Traffic entry point per cluster |
+| cert-manager | Issues TLS certs for local services |
+
+**The key benefit: blast radius isolation.** If ArgoCD has a bug or an operator misconfigures it, the workload clusters keep running — they are not aware of ArgoCD at all. The platform tooling failing does not take down production.
+
+**ArgoCD hub-spoke in practice.** ArgoCD has first-class support for this topology. After installing ArgoCD in the management cluster, register each workload cluster as a destination:
+
+```bash
+# Run against the management cluster
+argocd cluster add gke_project_us-central1_dev-gke     --name dev
+argocd cluster add gke_project_us-central1_staging-gke --name staging
+argocd cluster add gke_project_us-central1_prod-gke    --name prod
+
+argocd cluster list
+# SERVER                          NAME      STATUS
+# https://10.0.0.1                dev       Successful
+# https://10.0.0.2                staging   Successful
+# https://10.0.0.3                prod      Successful
+```
+
+The ApplicationSet already written in `phase-11-capstone/argocd/applicationset.yaml` targets clusters by name — no manifest changes are required. The matrix generator produces one Application per `(cluster, chart)` pair automatically.
+
+**How bootstrap.sh maps to this topology**
+
+In the lab, `bootstrap.sh --phase 11` installs everything into one cluster. In production the same script would be split:
+
+```bash
+# Management cluster — platform tooling only
+bash bootstrap.sh --phase 11 --target management
+
+# Workload clusters — apps only (no ArgoCD, no Vault server, no Backstage)
+bash bootstrap.sh --phase 3 --target dev
+bash bootstrap.sh --phase 3 --target staging
+bash bootstrap.sh --phase 3 --target prod
+```
+
+ArgoCD then takes over and keeps the workload clusters in sync from that point forward. No human runs `helm upgrade` against a workload cluster again.
+
+---
+
 **GitOps for everything.** No one runs `kubectl apply` by hand in staging or prod. If a fix is urgent enough to skip a PR, it is urgent enough to be reviewed within the hour and reverted if wrong.
 
 **Image immutability.** The promotion pipeline always references a 7-character SHA. The strings `:latest` and `:main` never appear in production `values.yaml` files.
 
-**Separate GCP projects per environment.** The lab uses separate clusters in the same project for cost reasons. In production, dev, staging, and prod should be in separate GCP projects — separate blast radius, separate billing, separate audit log streams.
+**Separate GCP projects per environment.** The lab uses separate clusters in the same project for cost reasons. In production, dev, staging, and prod should be in separate GCP projects — separate blast radius, separate billing, separate audit log streams. The management cluster lives in its own project with tightly scoped cross-project IAM.
 
 **Backstage as the single pane of glass.** Every service has a `catalog-info.yaml`. Every service links to its runbook, its Grafana dashboard, and its on-call rotation. When an incident starts, the on-call engineer opens the Backstage service page — not Slack or a shared doc that was last updated eight months ago.
 
