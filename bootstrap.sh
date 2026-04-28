@@ -272,9 +272,8 @@ case $PHASE in
 
     echo ""
     echo "[phase 8] Configuring backend — disabling Vault injection, setting env vars directly..."
-    # Disable Vault agent injection (no Vault server in phase 8)
-    kubectl patch deployment coverline-backend --type=json \
-      -p='[{"op":"add","path":"/spec/template/metadata/annotations/vault.hashicorp.com~1agent-inject","value":"false"}]'
+    kubectl annotate deployment coverline-backend \
+      vault.hashicorp.com/agent-inject=false --overwrite
     # Inject DB and Redis env vars directly
     kubectl set env deployment/coverline-backend \
       DB_HOST=postgresql \
@@ -306,8 +305,8 @@ case $PHASE in
     echo ""
     echo "[phase 9] Configuring backend — disabling Vault injection, setting env vars directly..."
     kubectl delete mutatingwebhookconfiguration vault-agent-injector-cfg 2>/dev/null || true
-    kubectl patch deployment coverline-backend --type=json \
-      -p='[{"op":"add","path":"/spec/template/metadata/annotations/vault.hashicorp.com~1agent-inject","value":"false"}]'
+    kubectl annotate deployment coverline-backend \
+      vault.hashicorp.com/agent-inject=false --overwrite
     kubectl set env deployment/coverline-backend \
       DB_HOST=postgresql \
       DB_NAME=coverline \
@@ -327,9 +326,8 @@ case $PHASE in
     echo "[phase 10] Configuring backend — disabling Vault injection, setting env vars directly..."
     # Remove lingering Vault webhook if present (installed in a previous phase 7 run)
     kubectl delete mutatingwebhookconfiguration vault-agent-injector-cfg 2>/dev/null || true
-    # Disable Vault agent injection (no Vault server in phase 10)
-    kubectl patch deployment coverline-backend --type=json \
-      -p='[{"op":"add","path":"/spec/template/metadata/annotations/vault.hashicorp.com~1agent-inject","value":"false"}]'
+    kubectl annotate deployment coverline-backend \
+      vault.hashicorp.com/agent-inject=false --overwrite
     # Inject DB and Redis env vars directly
     kubectl set env deployment/coverline-backend \
       DB_HOST=postgresql \
@@ -360,8 +358,8 @@ case $PHASE in
     echo ""
     echo "[phase 11] Configuring backend — disabling Vault injection, setting env vars directly..."
     kubectl delete mutatingwebhookconfiguration vault-agent-injector-cfg 2>/dev/null || true
-    kubectl patch deployment coverline-backend --type=json \
-      -p='[{"op":"add","path":"/spec/template/metadata/annotations/vault.hashicorp.com~1agent-inject","value":"false"}]'
+    kubectl annotate deployment coverline-backend \
+      vault.hashicorp.com/agent-inject=false --overwrite
     kubectl set env deployment/coverline-backend \
       DB_HOST=postgresql \
       DB_NAME=coverline \
