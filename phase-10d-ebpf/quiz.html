@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 10d Quiz — eBPF Runtime Security</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .progress-bar-wrap { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: #e2e8f0; z-index: 100; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); transition: width 0.4s ease; }
+    .header { position: fixed; top: 12px; right: 20px; font-size: 13px; color: #94a3b8; z-index: 100; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 48px; max-width: 680px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.06); animation: fadeUp 0.35s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .phase-label { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6366f1; margin-bottom: 12px; }
+    .question { font-size: 20px; font-weight: 600; line-height: 1.5; color: #0f172a; margin-bottom: 32px; }
+    .question code { background: #f1f5f9; color: #4f46e5; padding: 2px 7px; border-radius: 5px; font-size: 15px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .options { display: flex; flex-direction: column; gap: 12px; }
+    .option { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; user-select: none; }
+    .option:hover:not(.disabled) { border-color: #6366f1; background: #eef2ff; transform: translateX(3px); }
+    .option-key { width: 28px; height: 28px; min-width: 28px; border: 1.5px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #64748b; transition: all 0.15s; }
+    .option-text { font-size: 15px; line-height: 1.5; color: #334155; padding-top: 3px; }
+    .option-text code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .option.correct { border-color: #22c55e; background: #f0fdf4; }
+    .option.correct .option-key { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .option.correct .option-text { color: #166534; }
+    .option.wrong { border-color: #ef4444; background: #fef2f2; }
+    .option.wrong .option-key { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .option.wrong .option-text { color: #991b1b; }
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+    .explanation { margin-top: 20px; padding: 16px 18px; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.65; color: #475569; animation: fadeUp 0.25s ease; }
+    .explanation code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .btn-next { margin-top: 28px; padding: 14px 32px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .score-screen { text-align: center; }
+    .score-circle { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 28px; }
+    .score-number { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+    .score-total { font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .score-title { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+    .score-subtitle { font-size: 15px; color: #64748b; margin-bottom: 32px; line-height: 1.6; }
+    .score-breakdown { display: flex; gap: 12px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+    .score-tag { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-restart { padding: 14px 40px; background: transparent; color: #6366f1; font-size: 15px; font-weight: 600; border: 1.5px solid #6366f1; border-radius: 10px; cursor: pointer; transition: background 0.15s; margin-right: 12px; }
+    .btn-restart:hover { background: #eef2ff; }
+    .btn-back { padding: 14px 40px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s; text-decoration: none; display: inline-block; }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+<div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+<div class="header" id="questionCounter"></div>
+<div class="card" id="quizCard"></div>
+<script>
+const questions = [
+  {
+    q: "An attacker achieves RCE inside the coverline-backend pod and runs <code>execve('/bin/sh', ...)</code>. A Tetragon <code>TracingPolicyNamespaced</code> with <code>action: Sigkill</code> on <code>security_bprm_check</code> is active. What happens?",
+    options: [
+      "The shell starts, Tetragon logs the event, and Falco sends an alert after the fact",
+      "The shell is killed before it starts — SIGKILL is sent in-kernel before the exec returns to userspace",
+      "The exec is rejected by the Kubernetes admission webhook before reaching the node",
+      "The exec succeeds but the shell process has no network access due to NetworkPolicies"
+    ],
+    answer: 1,
+    explanation: "Tetragon's eBPF program runs in the same kernel execution context as <code>security_bprm_check</code>. The SIGKILL is sent before the kernel returns from the check — the shell process never gets a chance to execute a single instruction. Exit code 137 is returned to the caller."
+  },
+  {
+    q: "What is the key difference between Falco and Tetragon as runtime security tools?",
+    options: [
+      "Falco runs as a sidecar container; Tetragon runs as a DaemonSet",
+      "Falco uses kernel modules; Tetragon uses eBPF",
+      "Falco detects threats after syscalls complete; Tetragon enforces before syscalls complete",
+      "Falco is namespace-scoped; Tetragon is cluster-wide only"
+    ],
+    answer: 2,
+    explanation: "Both tools use eBPF. The critical difference is timing. Falco reads events from an eBPF ring buffer in userspace — the syscall has already completed by the time Falco evaluates it. Tetragon's enforcement actions (<code>Sigkill</code>) execute in-kernel, in the same BPF context as the hook point, before the syscall returns."
+  },
+  {
+    q: "You apply a <code>TracingPolicyNamespaced</code> with <code>action: Sigkill</code> to the <code>coverline</code> namespace to block shell execution. A Kubernetes Job in the <code>kube-system</code> namespace runs a shell script. What happens?",
+    options: [
+      "The Job is killed — TracingPolicyNamespaced applies cluster-wide",
+      "The Job is unaffected — TracingPolicyNamespaced only applies to the specified namespace",
+      "The Job is killed only if it uses the same base image as the backend",
+      "The Job is killed and a Falco alert fires in the monitoring namespace"
+    ],
+    answer: 1,
+    explanation: "<code>TracingPolicyNamespaced</code> is scoped to the namespace it is created in. Tetragon uses the pod's namespace (derived from the cgroup or network namespace) to filter which processes the policy applies to. Pods in <code>kube-system</code>, <code>monitoring</code>, and other namespaces are unaffected."
+  },
+  {
+    q: "A security engineer wants to start monitoring reads to <code>/run/secrets/kubernetes.io/serviceaccount/token</code> before blocking them. Which Tetragon action should they use first?",
+    options: [
+      "<code>action: Sigkill</code> — enforcement is always safer than observation",
+      "<code>action: Post</code> — generates an event without taking any enforcement action",
+      "<code>action: Override</code> — returns an error to the process without killing it",
+      "<code>action: Audit</code> — writes to the kernel audit log only"
+    ],
+    answer: 1,
+    explanation: "<code>action: Post</code> tells Tetragon to generate a structured event and send it via gRPC without taking any enforcement action. This is the 'observe mode' recommended before switching to <code>action: Sigkill</code>. It lets you baseline normal behaviour and rule out false positives — for example, a legitimate init container that reads the token during startup."
+  },
+  {
+    q: "The backend pod drops <code>ALL</code> capabilities including <code>SYS_PTRACE</code>. Why does the Tetragon <code>block-ptrace</code> policy still matter?",
+    options: [
+      "Capability drops are enforced by AppArmor, not the kernel — Tetragon is the backup",
+      "Container runtime CVEs have historically re-exposed dropped capabilities; in-kernel enforcement is a second independent layer",
+      "Tetragon policies override capability settings, so the capability drop is redundant",
+      "GKE does not honour capability drops on node pools running COS"
+    ],
+    answer: 1,
+    explanation: "Defence in depth means no single control is load-bearing. Container runtime CVEs (e.g., runc CVEs that expose host namespaces) have re-enabled dropped capabilities in running containers. Tetragon enforcement hooks the syscall at the kernel level — even if the capability check is bypassed by a runtime bug, the Tetragon BPF program still fires and sends SIGKILL."
+  },
+  {
+    q: "You want to export Tetragon events to Cloud Logging. Which approach is correct?",
+    options: [
+      "Install the Tetragon Cloud Logging Helm plugin with <code>--set cloudLogging.enabled=true</code>",
+      "Pipe the <code>export-stdout</code> container's log output to <code>gcloud logging write</code>",
+      "Enable Tetragon's built-in Cloud Logging integration via a <code>TracingPolicy</code> with <code>action: CloudLog</code>",
+      "Configure GKE Workload Identity on the Tetragon service account and set the GCP project in a ConfigMap"
+    ],
+    answer: 1,
+    explanation: "Tetragon writes structured JSON events to stdout via the <code>export-stdout</code> sidecar container. These are picked up by the GKE logging agent and can be piped to <code>gcloud logging write</code> or streamed directly: <code>kubectl logs ds/tetragon -c export-stdout -f | gcloud logging write tetragon-events - --payload-type=json</code>"
+  },
+  {
+    q: "Why does GKE Dataplane V2 make Tetragon installation straightforward compared to clusters with other CNIs?",
+    options: [
+      "GKE Dataplane V2 pre-installs Tetragon CRDs on every cluster",
+      "GKE Dataplane V2 uses Cilium as its CNI — Tetragon is part of the Cilium project and installs alongside it without replacing the CNI",
+      "GKE Dataplane V2 enables kernel 5.15+ by default, which Tetragon requires for all features",
+      "GKE Dataplane V2 automatically trusts Tetragon Helm charts from the Cilium repository"
+    ],
+    answer: 1,
+    explanation: "GKE Dataplane V2 is built on Cilium. Tetragon is a sibling project from the same Cilium/Isovalent team. Installing Tetragon on a GKE Dataplane V2 cluster is straightforward because the eBPF infrastructure, kernel version requirements, and CNI plumbing are already in place. Tetragon adds its own DaemonSet and CRDs without touching the existing CNI configuration."
+  },
+  {
+    q: "A Falco rule is tagged <code>[coverline, shell, t1059, mitre_execution]</code>. What does the <code>t1059</code> tag represent?",
+    options: [
+      "A Tetragon TracingPolicy version number",
+      "A MITRE ATT&CK technique ID — Command and Scripting Interpreter",
+      "A Falco rule severity threshold for PagerDuty routing",
+      "A CVE identifier for the shell execution vulnerability"
+    ],
+    answer: 1,
+    explanation: "<code>t1059</code> is MITRE ATT&CK Technique T1059 — Command and Scripting Interpreter. Tagging Falco rules with MITRE technique IDs allows SIEMs that understand MITRE (Elastic, Chronicle, Splunk) to automatically generate ATT&CK heatmaps, track adversary TTPs, and satisfy compliance frameworks that require MITRE coverage reporting."
+  }
+];
+
+let current = 0, score = 0, answered = false;
+const results = [];
+
+function render() {
+  const q = questions[current];
+  const pct = (current / questions.length) * 100;
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('questionCounter').textContent = `${current + 1} / ${questions.length}`;
+  document.getElementById('quizCard').innerHTML = `
+    <div class="phase-label">Phase 10d — eBPF Runtime Security</div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="options">
+      ${q.options.map((o, i) => `
+        <div class="option" data-i="${i}" onclick="pick(${i})">
+          <div class="option-key">${String.fromCharCode(65+i)}</div>
+          <div class="option-text">${o}</div>
+        </div>`).join('')}
+    </div>
+  `;
+  answered = false;
+}
+
+function pick(i) {
+  if (answered) return;
+  answered = true;
+  const q = questions[current];
+  const opts = document.querySelectorAll('.option');
+  opts.forEach(o => o.classList.add('disabled'));
+  if (i === q.answer) {
+    opts[i].classList.add('correct');
+    score++;
+    results.push(true);
+  } else {
+    opts[i].classList.add('wrong');
+    opts[q.answer].classList.add('correct');
+    opts.forEach((o, idx) => { if (idx !== i && idx !== q.answer) o.classList.add('dimmed'); });
+    results.push(false);
+  }
+  const exp = document.createElement('div');
+  exp.className = 'explanation';
+  exp.innerHTML = q.explanation;
+  document.getElementById('options').after(exp);
+  const btn = document.createElement('button');
+  btn.className = 'btn-next';
+  btn.textContent = current < questions.length - 1 ? 'Next question →' : 'See results';
+  btn.onclick = () => { current++; current < questions.length ? render() : showScore(); };
+  exp.after(btn);
+}
+
+function showScore() {
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('questionCounter').textContent = '';
+  const pct = Math.round((score / questions.length) * 100);
+  const title = pct === 100 ? 'Perfect score.' : pct >= 75 ? 'Solid understanding.' : pct >= 50 ? 'Good start — review the gaps.' : 'Worth another pass through the README.';
+  const subtitle = pct === 100
+    ? 'You understand eBPF enforcement, Tetragon, and the detection vs enforcement distinction.'
+    : 'Focus on the questions you missed — the enforcement timing question is the most important concept in this phase.';
+  document.getElementById('quizCard').innerHTML = `
+    <div class="score-screen">
+      <div class="score-circle">
+        <div class="score-number">${score}</div>
+        <div class="score-total">of ${questions.length}</div>
+      </div>
+      <div class="score-title">${title}</div>
+      <div class="score-subtitle">${subtitle}</div>
+      <div class="score-breakdown">
+        ${results.map((r, i) => `<span class="score-tag ${r ? 'correct' : 'wrong'}">Q${i+1} ${r ? '✓' : '✗'}</span>`).join('')}
+      </div>
+      <button class="btn-restart" onclick="restart()">Restart</button>
+      <a class="btn-back" href="../README.md">Back to lab</a>
+    </div>`;
+}
+
+function restart() { current = 0; score = 0; results.length = 0; render(); }
+render();
+</script>
+</body>
+</html>

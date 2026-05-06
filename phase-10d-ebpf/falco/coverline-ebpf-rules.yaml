@@ -1,0 +1,108 @@
+# Falco custom rules — Phase 10d eBPF Runtime Security
+#
+# These rules complement Tetragon enforcement:
+#   - Tetragon kills processes in-kernel (enforcement)
+#   - Falco fires structured alerts (detection + routing)
+#
+# Deploy via:
+#   kubectl create configmap falco-ebpf-rules \
+#     --from-file=phase-10d-ebpf/falco/coverline-ebpf-rules.yaml \
+#     --namespace falco --dry-run=client -o yaml | kubectl apply -f -
+#
+# Then mount the ConfigMap in the Falco DaemonSet:
+#   --set falco.rulesFile[1]=/etc/falco/coverline-ebpf-rules.yaml
+# ---
+
+- rule: Shell Spawned in CoverLine Container
+  desc: >
+    A shell binary was executed inside a CoverLine application container.
+    Tetragon should have killed the process; this rule fires if Falco
+    independently observes the exec attempt — double coverage.
+  condition: >
+    spawned_process and
+    container and
+    k8s.ns.name = "coverline" and
+    proc.name in (shell_binaries)
+  output: >
+    Shell spawned in CoverLine container
+    (ns=%k8s.ns.name pod=%k8s.pod.name container=%container.name
+     user=%user.name shell=%proc.name parent=%proc.pname
+     cmdline=%proc.cmdline)
+  priority: CRITICAL
+  tags: [coverline, shell, t1059, mitre_execution]
+
+- rule: Sensitive File Read in CoverLine Container
+  desc: >
+    A process inside a CoverLine pod read /etc/passwd, /etc/shadow,
+    or a Kubernetes service account token. Possible credential theft.
+  condition: >
+    open_read and
+    container and
+    k8s.ns.name = "coverline" and
+    (fd.name = "/etc/passwd" or
+     fd.name = "/etc/shadow" or
+     fd.name startswith "/run/secrets/kubernetes.io")
+  output: >
+    Sensitive file read in CoverLine container
+    (ns=%k8s.ns.name pod=%k8s.pod.name container=%container.name
+     file=%fd.name proc=%proc.name user=%user.name)
+  priority: ERROR
+  tags: [coverline, credential-access, t1003, mitre_credential_access]
+
+- rule: Ptrace Syscall Attempt in CoverLine Container
+  desc: >
+    A process attempted to call ptrace inside a CoverLine pod.
+    Used for process injection and memory scraping. Tetragon kills it;
+    Falco provides the audit event.
+  condition: >
+    syscall.type = "ptrace" and
+    container and
+    k8s.ns.name = "coverline"
+  output: >
+    Ptrace syscall attempt in CoverLine container
+    (ns=%k8s.ns.name pod=%k8s.pod.name container=%container.name
+     proc=%proc.name user=%user.name)
+  priority: CRITICAL
+  tags: [coverline, process-injection, t1055, mitre_defense_evasion]
+
+- rule: Environment Variable Scraping in CoverLine Container
+  desc: >
+    A process read /proc/<pid>/environ of another process — a technique
+    used to steal DB_PASSWORD, JWT_SECRET, and other env-var credentials.
+  condition: >
+    open_read and
+    container and
+    k8s.ns.name = "coverline" and
+    fd.name glob "/proc/*/environ" and
+    not proc.name in (python3, gunicorn, node, java)
+  output: >
+    Process environ scraping in CoverLine container
+    (ns=%k8s.ns.name pod=%k8s.pod.name container=%container.name
+     file=%fd.name proc=%proc.name user=%user.name)
+  priority: ERROR
+  tags: [coverline, credential-access, t1552, mitre_credential_access]
+
+- rule: Unexpected Outbound Connection from CoverLine Backend
+  desc: >
+    The backend pod made an outbound TCP connection to a destination
+    not in its approved list (postgres:5432, redis:6379, metrics).
+    NetworkPolicies should block this at L3; Falco catches it at the
+    syscall layer as an independent detection path.
+  condition: >
+    outbound and
+    container and
+    k8s.pod.label.app = "coverline-backend" and
+    not (fd.rip in (allowed_outbound_ips)) and
+    not (fd.sport in (5432, 6379, 9090, 443, 80))
+  output: >
+    Unexpected outbound connection from backend
+    (ns=%k8s.ns.name pod=%k8s.pod.name container=%container.name
+     dst=%fd.rip:%fd.rport proc=%proc.name)
+  priority: WARNING
+  tags: [coverline, network, t1041, mitre_exfiltration]
+
+- list: shell_binaries
+  items: [sh, bash, zsh, dash, fish, tcsh, ksh]
+
+- list: allowed_outbound_ips
+  items: []   # populated via Helm values in production

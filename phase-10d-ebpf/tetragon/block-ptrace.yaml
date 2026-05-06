@@ -1,0 +1,30 @@
+# Tetragon TracingPolicyNamespaced — block ptrace syscall in the coverline namespace
+#
+# ptrace is the primary syscall used for process inspection, memory reads,
+# and register manipulation. Dropping SYS_PTRACE capability (Phase 10)
+# prevents most cases. This TracingPolicy covers the in-kernel enforcement
+# path as a second layer — even if a container somehow retains the capability,
+# the syscall is killed before it completes.
+#
+# Required for compliance: MITRE ATT&CK T1055 (Process Injection).
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: block-ptrace
+  namespace: coverline
+spec:
+  tracepoints:
+    - subsystem: "raw_syscalls"
+      event: "sys_enter"
+      args:
+        - index: 4
+          type: "uint64"
+      selectors:
+        - matchArgs:
+            - index: 4
+              operator: "Equal"
+              values:
+                - "101"   # ptrace (x86_64 syscall number)
+          matchActions:
+            - action: Sigkill
+              argError: -1

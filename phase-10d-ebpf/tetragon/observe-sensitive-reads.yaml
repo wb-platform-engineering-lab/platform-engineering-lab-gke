@@ -1,0 +1,49 @@
+# Tetragon TracingPolicyNamespaced — observe reads of sensitive files
+#
+# This policy does NOT kill — it observes and generates a structured event.
+# Falco (via falcosidekick) picks up the event and routes it to Slack/PagerDuty.
+#
+# Files monitored:
+#   /etc/passwd           — credential enumeration
+#   /etc/shadow           — credential theft (unlikely to exist in containers)
+#   /run/secrets/         — Kubernetes service account tokens
+#   /proc/*/environ       — environment variable scraping (DB_PASSWORD etc.)
+#
+# Use action: Sigkill instead of action: Post to enforce rather than observe.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: observe-sensitive-reads
+  namespace: coverline
+spec:
+  kprobes:
+    - call: "security_file_open"
+      syscall: false
+      return: false
+      args:
+        - index: 0
+          type: "file"
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: "Prefix"
+              values:
+                - "/etc/passwd"
+                - "/etc/shadow"
+                - "/run/secrets/kubernetes.io"
+                - "/proc"
+          matchArgsPath:
+            - index: 0
+              operator: "Postfix"
+              values:
+                - "/environ"
+          matchActions:
+            - action: Post
+        - matchArgs:
+            - index: 0
+              operator: "Equal"
+              values:
+                - "/etc/passwd"
+                - "/etc/shadow"
+          matchActions:
+            - action: Post
