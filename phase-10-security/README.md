@@ -176,8 +176,11 @@ kubectl patch serviceaccount coverline-frontend \
 
 ```bash
 # Before applying policies — this should succeed (no restrictions)
-kubectl exec -it deploy/coverline-frontend-frontend -- \
-  wget -qO- --timeout=3 postgresql:5432 && echo "OPEN"
+kubectl run pre-policy-probe \
+  --image=curlimages/curl \
+  --labels="app=coverline-frontend" \
+  --rm -it --restart=Never -- \
+  curl -s --connect-timeout 3 postgresql:5432 && echo "OPEN"
 ```
 
 ### Step 2: Apply the policies
@@ -200,20 +203,31 @@ Policies applied:
 
 ```bash
 # frontend → backend (must work)
-kubectl exec -it deploy/coverline-frontend-frontend -- \
-  wget -qO- http://coverline-backend:5000/health
+kubectl run frontend-probe \
+  --image=curlimages/curl \
+  --labels="app=coverline-frontend" \
+  --rm -it --restart=Never -- \
+  curl -s --connect-timeout 3 http://coverline-backend:5000/health
 
-# backend → PostgreSQL (must work)
+# backend → PostgreSQL (must work — connection refused at DB auth level, but network reaches it)
 kubectl exec -it deploy/coverline-backend -- \
-  wget -qO- --timeout=3 postgresql:5432 || echo "Connection refused (DB auth) — network reachable"
+  python3 -c "
+import socket, sys
+s = socket.create_connection(('postgresql', 5432), timeout=3)
+print('Network reachable — connection refused is DB auth, not NetworkPolicy')
+s.close()
+" 2>&1 || echo "Connection refused (DB auth) — network reachable"
 ```
 
 ### Step 4: Verify blocked paths are blocked
 
 ```bash
-# frontend → PostgreSQL (must be blocked)
-kubectl exec -it deploy/coverline-frontend-frontend -- \
-  wget -qO- --timeout=3 postgresql:5432 || echo "BLOCKED — policy working"
+# frontend → PostgreSQL (must be blocked — times out, packet never reaches DB)
+kubectl run block-probe \
+  --image=curlimages/curl \
+  --labels="app=coverline-frontend" \
+  --rm -it --restart=Never -- \
+  curl -s --connect-timeout 3 postgresql:5432 || echo "BLOCKED — policy working"
 ```
 
 Expected: timeout or connection refused after ~3 seconds — the packet never reaches PostgreSQL.

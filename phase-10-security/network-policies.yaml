@@ -2,7 +2,7 @@
 # NetworkPolicies for the default namespace
 #
 # Strategy: default-deny all, then explicitly allow only required paths.
-# Test every rule with kubectl exec + wget after applying.
+# Test every rule with a curlimages/curl probe pod after applying.
 #
 # Required traffic map:
 #   frontend → backend:5000
