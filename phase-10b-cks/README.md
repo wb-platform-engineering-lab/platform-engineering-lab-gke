@@ -598,11 +598,16 @@ Answer: `phase-10b-cks/scenarios/backend-netpol.yaml`
 
 ```bash
 kubectl apply -f phase-10b-cks/scenarios/backend-netpol.yaml
-# Verify
-kubectl exec -it deploy/coverline-frontend -- \
-  wget -qO- --timeout=3 http://coverline-backend:5000/health   # allowed
+# Verify — allowed: pod labelled app=coverline-frontend in coverline namespace
+kubectl run frontend-probe \
+  --image=curlimages/curl \
+  --namespace=coverline \
+  --labels="app=coverline-frontend" \
+  --rm -it --restart=Never -- \
+  curl -s --connect-timeout 3 http://coverline-backend:5000/health
+# Verify — blocked: pod outside coverline namespace (no matching NetworkPolicy allow rule)
 kubectl run probe --image=curlimages/curl --rm -it --restart=Never -- \
-  curl -s --connect-timeout 3 coverline-backend.coverline:5000  # blocked
+  curl -s --connect-timeout 3 coverline-backend.coverline:5000
 ```
 
 ### Scenario 3 — RBAC: create a scoped service account
