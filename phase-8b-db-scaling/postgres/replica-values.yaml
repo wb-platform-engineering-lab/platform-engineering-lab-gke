@@ -1,0 +1,70 @@
+# Phase 8b — PostgreSQL read replica (Bitnami chart)
+#
+# Upgrades the single postgresql-0 pod to a primary/read-replica architecture.
+# The primary handles all writes. The replica handles read-heavy endpoints
+# (GET /claims, dashboard queries, reporting).
+#
+# Apply with:
+#   helm upgrade postgresql bitnami/postgresql \
+#     --namespace default \
+#     --values phase-8b-db-scaling/postgres/replica-values.yaml \
+#     --reuse-values
+
+architecture: replication
+
+auth:
+  database: coverline
+  username: coverline
+  # Password pulled from existing secret — do not set here
+  existingSecret: postgresql-secret
+  secretKeys:
+    adminPasswordKey: postgres-password
+    userPasswordKey: password
+    replicationPasswordKey: replication-password
+
+primary:
+  persistence:
+    size: 20Gi
+    storageClass: standard
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  extendedConfiguration: |
+    shared_preload_libraries = 'pg_stat_statements'
+    pg_stat_statements.track = all
+    shared_buffers = 256MB
+    effective_cache_size = 768MB
+    work_mem = 8MB
+    maintenance_work_mem = 64MB
+    max_connections = 50
+    # Lower max_connections — PgBouncer handles the pool
+
+readReplicas:
+  replicaCount: 1
+  persistence:
+    size: 20Gi
+    storageClass: standard
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  extendedConfiguration: |
+    max_connections = 50
+    shared_buffers = 256MB
+    hot_standby = on
+    hot_standby_feedback = on   # prevents replica from cancelling long-running queries
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    labels:
+      release: prometheus

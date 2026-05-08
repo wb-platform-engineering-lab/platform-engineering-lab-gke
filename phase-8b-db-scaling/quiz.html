@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 8b Quiz — Database Scaling</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .progress-bar-wrap { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: #e2e8f0; z-index: 100; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); transition: width 0.4s ease; }
+    .header { position: fixed; top: 12px; right: 20px; font-size: 13px; color: #94a3b8; z-index: 100; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 48px; max-width: 680px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.06); animation: fadeUp 0.35s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .phase-label { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6366f1; margin-bottom: 12px; }
+    .question { font-size: 20px; font-weight: 600; line-height: 1.5; color: #0f172a; margin-bottom: 32px; }
+    .question code { background: #f1f5f9; color: #4f46e5; padding: 2px 7px; border-radius: 5px; font-size: 15px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .options { display: flex; flex-direction: column; gap: 12px; }
+    .option { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; user-select: none; }
+    .option:hover:not(.disabled) { border-color: #6366f1; background: #eef2ff; transform: translateX(3px); }
+    .option-key { width: 28px; height: 28px; min-width: 28px; border: 1.5px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #64748b; transition: all 0.15s; }
+    .option-text { font-size: 15px; line-height: 1.5; color: #334155; padding-top: 3px; }
+    .option-text code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .option.correct { border-color: #22c55e; background: #f0fdf4; }
+    .option.correct .option-key { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .option.correct .option-text { color: #166534; }
+    .option.wrong { border-color: #ef4444; background: #fef2f2; }
+    .option.wrong .option-key { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .option.wrong .option-text { color: #991b1b; }
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+    .explanation { margin-top: 20px; padding: 16px 18px; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.65; color: #475569; animation: fadeUp 0.25s ease; }
+    .explanation code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .btn-next { margin-top: 28px; padding: 14px 32px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .score-screen { text-align: center; }
+    .score-circle { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 28px; }
+    .score-number { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+    .score-total { font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .score-title { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+    .score-subtitle { font-size: 15px; color: #64748b; margin-bottom: 32px; line-height: 1.6; }
+    .score-breakdown { display: flex; gap: 12px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+    .score-tag { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-restart { padding: 14px 40px; background: transparent; color: #6366f1; font-size: 15px; font-weight: 600; border: 1.5px solid #6366f1; border-radius: 10px; cursor: pointer; transition: background 0.15s; margin-right: 12px; }
+    .btn-restart:hover { background: #eef2ff; }
+    .btn-back { padding: 14px 40px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s; text-decoration: none; display: inline-block; }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+<div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+<div class="header" id="questionCounter"></div>
+<div class="card" id="quizCard"></div>
+<script>
+const questions = [
+  {
+    q: "HPA scaled the backend from 3 to 20 pods during open enrollment. PostgreSQL CPU immediately spiked to 97% even though query volume only increased 4×. What is the most likely cause?",
+    options: [
+      "HPA set the wrong resource limits — pods are consuming more CPU than allowed",
+      "Each new pod opened its own set of database connections — PostgreSQL forked a process per connection, exhausting CPU on connection management rather than query execution",
+      "The 20 pods triggered a read replica failover, causing the primary to handle both read and write traffic",
+      "The PostgreSQL shared_buffers setting is too large for the node — memory pressure caused swap"
+    ],
+    answer: 1,
+    explanation: "PostgreSQL uses a process-per-connection model — every client connection spawns a backend process. At 9 threads per pod × 20 pods = 180 processes, PostgreSQL spends significant CPU on process scheduling, memory allocation per process, and context switching. Query throughput drops even though query volume is moderate. Connection pooling (PgBouncer) reduces this to ~20 real PostgreSQL processes regardless of how many pods are running."
+  },
+  {
+    q: "PgBouncer is configured in <code>transaction</code> pool mode. A developer's feature uses <code>SET search_path TO myschema</code> at the start of each request. What problem will they encounter?",
+    options: [
+      "No problem — transaction mode fully supports SET statements",
+      "The SET is applied to the connection, but in transaction mode the connection is returned to the pool after the transaction. The next client gets a connection where search_path is still set to myschema",
+      "PgBouncer blocks SET statements entirely in transaction mode — the query returns an error",
+      "SET statements are automatically reset by PgBouncer between transactions"
+    ],
+    answer: 1,
+    explanation: "In transaction mode, a server connection is returned to the pool after each COMMIT or ROLLBACK. Session-level state set with SET (search_path, timezone, application_name) persists on the server connection and is inherited by the next client that gets that connection from the pool. This causes subtle, hard-to-reproduce bugs. The fix: use session pool mode for workloads that use SET, or use search_path in the connection string instead of SET statements."
+  },
+  {
+    q: "A member submits a claim and immediately refreshes the claims list. They don't see their new claim. The claim is in the database. What is the most likely cause?",
+    options: [
+      "The cache TTL has not expired — the GET /claims endpoint is returning a stale cached response",
+      "Write-through invalidation failed — the POST /claims handler did not delete the member's cache key after the INSERT",
+      "The GET request was routed to the read replica, which has not yet received the replication event for the new claim",
+      "All of the above are possible causes"
+    ],
+    answer: 3,
+    explanation: "All three are real causes of 'I just wrote it but can't read it': (1) cache TTL hasn't expired and the stale value is returned, (2) the invalidation code didn't run (bug or Redis timeout), (3) the read replica has a replication lag of 1–3 seconds and the GET went to the replica before the WAL event was applied. In production you typically handle this by routing the confirmation page read to the primary, or by using a short 'read-your-own-writes' window where requests from the same user go to the primary."
+  },
+  {
+    q: "You run <code>EXPLAIN ANALYZE</code> on a query and see <code>Seq Scan on claims (rows=8000000)</code>. You add an index and re-run — now it shows <code>Seq Scan on claims (rows=8000000)</code> still. What is the most likely reason the planner is ignoring the index?",
+    options: [
+      "The index was created with CONCURRENTLY — concurrent indexes are never used by the planner until a VACUUM runs",
+      "The query returns a large fraction of the table — the planner correctly determined a sequential scan is cheaper than random I/O through the index",
+      "The index statistics are stale — run REINDEX to update them",
+      "PostgreSQL only uses indexes on tables with fewer than 1 million rows"
+    ],
+    answer: 1,
+    explanation: "The query planner uses indexes only when they are selective — when they return a small fraction of rows. If a query returns 30%+ of the table, a sequential scan is almost always faster because it reads pages sequentially (efficient for disk I/O) rather than jumping around the heap via index pointers (random I/O). The fix is not to force the index — it's to rethink the query or partition the data so the relevant rows are a smaller fraction of the scanned set."
+  },
+  {
+    q: "The claims table is range-partitioned by <code>created_at</code> (quarterly). A query runs: <code>SELECT * FROM claims WHERE member_id = 12345</code> with no date filter. How many partitions does PostgreSQL scan?",
+    options: [
+      "One — PostgreSQL always prunes to the most recent partition",
+      "All partitions — without a filter on the partition key (created_at), the planner cannot prune",
+      "The partition containing the most rows for member_id 12345",
+      "Two — PostgreSQL scans the current and previous partition by default"
+    ],
+    answer: 1,
+    explanation: "Partition pruning only works when the query includes a filter on the partition key. A query on member_id with no created_at filter forces a full scan of all partitions — it may actually be slower than the unpartitioned table because of the overhead of scanning multiple child tables. This is why the partition key should match the most common query pattern. For CoverLine, date-range queries on claims benefit from partitioning; member_id lookups do not — those need an index."
+  },
+  {
+    q: "What is a partial index and when is it more appropriate than a regular index on the same column?",
+    options: [
+      "A partial index covers only some columns of a row — use it when rows are very wide",
+      "A partial index covers only rows matching a WHERE condition — use it when queries consistently filter on a low-cardinality value that represents a small fraction of the table",
+      "A partial index is built incrementally — use it on large tables to avoid a table lock during index creation",
+      "A partial index is an index on a subset of columns — use it instead of a composite index"
+    ],
+    answer: 1,
+    explanation: "A partial index (CREATE INDEX ... WHERE condition) only indexes rows satisfying the condition. For <code>status = 'pending'</code> on a claims table where 99.25% of rows are 'approved' or 'rejected', a full index on status would index 8 million rows to help queries that only need 60,000. A partial index on <code>WHERE status = 'pending'</code> indexes only those 60,000 rows — it is smaller, faster to scan, and cheaper to maintain on writes. The trade-off: it only helps queries that include exactly that condition."
+  },
+  {
+    q: "You want to find which queries are consuming the most database time overall — not the slowest individual query, but the queries worth fixing first. Which metric from <code>pg_stat_statements</code> should you sort by?",
+    options: [
+      "<code>max_exec_time</code> — the worst-case execution time reveals the most impactful outliers",
+      "<code>mean_exec_time</code> — optimising the slowest average query always has the highest impact",
+      "<code>total_exec_time</code> — total time across all calls identifies queries consuming the most aggregate DB resources",
+      "<code>stddev_exec_time</code> — high variance indicates inconsistent performance that is hardest to reproduce"
+    ],
+    answer: 2,
+    explanation: "<code>total_exec_time = mean_exec_time × calls</code>. A query taking 38ms called 2.8 million times consumes 106,400 seconds of DB time. A query taking 1,200ms called 14 times consumes 16,800 seconds. The 38ms query is the correct fix first, even though it looks fast in isolation. Sorting by <code>total_exec_time DESC</code> always shows the highest-leverage optimisation targets."
+  },
+  {
+    q: "A cache-aside implementation caches the result of <code>GET /claims/<member_id></code> with a 5-minute TTL. A member submits a new claim via <code>POST /claims</code>. The POST handler does not invalidate the cache key. What happens?",
+    options: [
+      "The member's next GET returns the new claim — Redis automatically syncs with PostgreSQL on write",
+      "The member's next GET returns stale data for up to 5 minutes — the new claim is not visible until the TTL expires",
+      "The POST fails — Redis rejects writes when a matching read key exists",
+      "The member's next GET bypasses Redis and hits the DB directly because the POST invalidated the connection"
+    ],
+    answer: 1,
+    explanation: "Cache-aside is not self-healing. If the write path does not explicitly delete (or update) the cache key, the next read returns the cached value regardless of what is in the database. The member submitted a claim and cannot see it for 5 minutes — a clear product bug. The fix: always <code>redis.delete(claims_key(member_id))</code> immediately after a successful INSERT. Do not rely on TTL expiry for write-triggered invalidation."
+  }
+];
+
+let current = 0, score = 0, answered = false;
+const results = [];
+
+function render() {
+  const q = questions[current];
+  const pct = (current / questions.length) * 100;
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('questionCounter').textContent = `${current + 1} / ${questions.length}`;
+  document.getElementById('quizCard').innerHTML = `
+    <div class="phase-label">Phase 8b — Database Scaling</div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="options">
+      ${q.options.map((o, i) => `
+        <div class="option" data-i="${i}" onclick="pick(${i})">
+          <div class="option-key">${String.fromCharCode(65+i)}</div>
+          <div class="option-text">${o}</div>
+        </div>`).join('')}
+    </div>
+  `;
+  answered = false;
+}
+
+function pick(i) {
+  if (answered) return;
+  answered = true;
+  const q = questions[current];
+  const opts = document.querySelectorAll('.option');
+  opts.forEach(o => o.classList.add('disabled'));
+  if (i === q.answer) {
+    opts[i].classList.add('correct');
+    score++;
+    results.push(true);
+  } else {
+    opts[i].classList.add('wrong');
+    opts[q.answer].classList.add('correct');
+    opts.forEach((o, idx) => { if (idx !== i && idx !== q.answer) o.classList.add('dimmed'); });
+    results.push(false);
+  }
+  const exp = document.createElement('div');
+  exp.className = 'explanation';
+  exp.innerHTML = q.explanation;
+  document.getElementById('options').after(exp);
+  const btn = document.createElement('button');
+  btn.className = 'btn-next';
+  btn.textContent = current < questions.length - 1 ? 'Next question →' : 'See results';
+  btn.onclick = () => { current++; current < questions.length ? render() : showScore(); };
+  exp.after(btn);
+}
+
+function showScore() {
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('questionCounter').textContent = '';
+  const pct = Math.round((score / questions.length) * 100);
+  const title = pct === 100 ? 'Perfect score.' : pct >= 75 ? 'Solid understanding.' : pct >= 50 ? 'Good start — review the gaps.' : 'Worth another pass through the README.';
+  const subtitle = pct === 100
+    ? 'You understand connection pooling, read replicas, partitioning, indexing, and cache invalidation.'
+    : 'Focus on the partition pruning question and the cache invalidation question — those are where the real production bugs live.';
+  document.getElementById('quizCard').innerHTML = `
+    <div class="score-screen">
+      <div class="score-circle">
+        <div class="score-number">${score}</div>
+        <div class="score-total">of ${questions.length}</div>
+      </div>
+      <div class="score-title">${title}</div>
+      <div class="score-subtitle">${subtitle}</div>
+      <div class="score-breakdown">
+        ${results.map((r, i) => `<span class="score-tag ${r ? 'correct' : 'wrong'}">Q${i+1} ${r ? '✓' : '✗'}</span>`).join('')}
+      </div>
+      <button class="btn-restart" onclick="restart()">Restart</button>
+      <a class="btn-back" href="../README.md">Back to lab</a>
+    </div>`;
+}
+
+function restart() { current = 0; score = 0; results.length = 0; render(); }
+render();
+</script>
+</body>
+</html>

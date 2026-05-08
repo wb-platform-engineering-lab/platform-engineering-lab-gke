@@ -1,0 +1,56 @@
+# Phase 8b — PgBouncer connection pooler (Bitnami chart)
+#
+# PgBouncer sits between the backend pods and PostgreSQL.
+# Backend pods connect to PgBouncer (up to 200 connections).
+# PgBouncer maintains a pool of 20 real connections to PostgreSQL.
+#
+# Install:
+#   helm repo add bitnami https://charts.bitnami.com/bitnami
+#   helm upgrade --install pgbouncer bitnami/pgbouncer \
+#     --namespace default \
+#     --values phase-8b-db-scaling/pgbouncer/pgbouncer-values.yaml
+
+# PgBouncer config
+pgbouncer:
+  # transaction pooling: connection returned to pool after each transaction
+  # (vs session pooling: held for the entire client session)
+  # transaction mode is correct for stateless apps — do not use session mode
+  # unless you use SET, advisory locks, or prepared statements
+  poolMode: transaction
+
+  # Server connections (real connections to PostgreSQL)
+  maxClientConn: 200        # max connections from backend pods → PgBouncer
+  defaultPoolSize: 20       # real connections PgBouncer holds → PostgreSQL primary
+  reservePoolSize: 5        # emergency connections if pool is exhausted
+  reservePoolTimeout: 5     # seconds to wait before using reserve pool
+
+  # Timeouts
+  serverIdleTimeout: 600    # close server connections idle > 10 minutes
+  clientIdleTimeout: 0      # never close idle client connections (app reconnects)
+  serverLifetime: 3600      # recycle server connections every hour
+
+# Connect to PostgreSQL primary
+postgresql:
+  host: postgresql-primary  # Bitnami chart creates this service with replication enabled
+  port: 5432
+  database: coverline
+  username: coverline
+  existingSecret: postgresql-secret
+  existingSecretPasswordKey: password
+
+# Service — backend pods connect to this
+service:
+  type: ClusterIP
+  port: 5432
+
+# Resources — PgBouncer is very lightweight
+resources:
+  requests:
+    cpu: 50m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 64Mi
+
+# Run 2 replicas for HA — PgBouncer is stateless
+replicaCount: 2
