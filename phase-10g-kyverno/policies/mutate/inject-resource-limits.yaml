@@ -1,0 +1,35 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: inject-default-resource-limits
+  annotations:
+    policies.kyverno.io/title: Inject Default Resource Limits
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >
+      If a container does not declare resource limits, mutate the pod spec to
+      inject safe defaults. This prevents node starvation without blocking
+      deployments from teams that haven't set limits yet.
+      Use alongside require-resource-limits in Audit mode during migration.
+spec:
+  rules:
+    - name: inject-cpu-memory-limits
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [coverline, default]
+      mutate:
+        foreach:
+          - list: "request.object.spec.containers"
+            patchStrategicMerge:
+              spec:
+                containers:
+                  - (name): "{{ element.name }}"
+                    resources:
+                      limits:
+                        +(cpu): "500m"
+                        +(memory): "256Mi"
+                      requests:
+                        +(cpu): "100m"
+                        +(memory): "128Mi"

@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: legacy-db-migrator-exception
+  namespace: coverline
+  annotations:
+    owner: platform-team
+    approved-by: will@coverline.io
+    approved-date: "2026-05-08"
+    ticket: "ENG-4821"
+    review-date: "2026-08-08"
+    reason: >
+      The db-migrator Job runs as root to execute pg_restore with superuser
+      privileges required by the legacy schema. A root-free migration path is
+      tracked in ENG-4821. This exception expires 2026-08-08 — if ENG-4821 is
+      not complete by then, the exception must be explicitly renewed with CISO sign-off.
+spec:
+  exceptions:
+    - policyName: require-non-root
+      ruleNames:
+        - check-run-as-non-root
+    - policyName: require-resource-limits
+      ruleNames:
+        - check-container-limits
+  match:
+    any:
+      - resources:
+          kinds: [Pod]
+          namespaces: [coverline]
+          selector:
+            matchLabels:
+              app: db-migrator

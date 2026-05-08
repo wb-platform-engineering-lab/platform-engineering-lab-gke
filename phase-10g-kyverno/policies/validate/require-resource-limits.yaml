@@ -1,0 +1,42 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-limits
+  annotations:
+    policies.kyverno.io/title: Require Resource Limits
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >
+      Every container must declare CPU and memory limits. Without limits a single
+      misbehaving pod can starve adjacent workloads on the same node — a common
+      cause of cascading failures during traffic spikes.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-container-limits
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [coverline, default]
+      exclude:
+        any:
+          - resources:
+              annotations:
+                kyverno.io/exempt: "true"
+      validate:
+        message: >
+          Container '{{ request.object.spec.containers[0].name }}' must declare
+          resources.limits.cpu and resources.limits.memory.
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.resources.limits.cpu | length(@) }}"
+                    operator: Equals
+                    value: 0
+                  - key: "{{ element.resources.limits.memory | length(@) }}"
+                    operator: Equals
+                    value: 0

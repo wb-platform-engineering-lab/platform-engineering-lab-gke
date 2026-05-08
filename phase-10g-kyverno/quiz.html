@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phase 10g Quiz — Policy as Code (Kyverno)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+    .progress-bar-wrap { position: fixed; top: 0; left: 0; right: 0; height: 4px; background: #e2e8f0; z-index: 100; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8); transition: width 0.4s ease; }
+    .header { position: fixed; top: 12px; right: 20px; font-size: 13px; color: #94a3b8; z-index: 100; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 48px; max-width: 680px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.06); animation: fadeUp 0.35s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .phase-label { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6366f1; margin-bottom: 12px; }
+    .question { font-size: 20px; font-weight: 600; line-height: 1.5; color: #0f172a; margin-bottom: 32px; }
+    .question code { background: #f1f5f9; color: #4f46e5; padding: 2px 7px; border-radius: 5px; font-size: 15px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .options { display: flex; flex-direction: column; gap: 12px; }
+    .option { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.1s; user-select: none; }
+    .option:hover:not(.disabled) { border-color: #6366f1; background: #eef2ff; transform: translateX(3px); }
+    .option-key { width: 28px; height: 28px; min-width: 28px; border: 1.5px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #64748b; transition: all 0.15s; }
+    .option-text { font-size: 15px; line-height: 1.5; color: #334155; padding-top: 3px; }
+    .option-text code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .option.correct { border-color: #22c55e; background: #f0fdf4; }
+    .option.correct .option-key { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .option.correct .option-text { color: #166534; }
+    .option.wrong { border-color: #ef4444; background: #fef2f2; }
+    .option.wrong .option-key { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .option.wrong .option-text { color: #991b1b; }
+    .option.dimmed { opacity: 0.35; }
+    .option.disabled { cursor: default; }
+    .explanation { margin-top: 20px; padding: 16px 18px; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.65; color: #475569; animation: fadeUp 0.25s ease; }
+    .explanation code { background: #f1f5f9; color: #4f46e5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .btn-next { margin-top: 28px; padding: 14px 32px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s, transform 0.1s; width: 100%; }
+    .btn-next:hover { background: #4f46e5; transform: translateY(-1px); }
+    .score-screen { text-align: center; }
+    .score-circle { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 28px; }
+    .score-number { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+    .score-total { font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .score-title { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+    .score-subtitle { font-size: 15px; color: #64748b; margin-bottom: 32px; line-height: 1.6; }
+    .score-breakdown { display: flex; gap: 12px; justify-content: center; margin-bottom: 32px; flex-wrap: wrap; }
+    .score-tag { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .score-tag.correct { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .score-tag.wrong   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-restart { padding: 14px 40px; background: transparent; color: #6366f1; font-size: 15px; font-weight: 600; border: 1.5px solid #6366f1; border-radius: 10px; cursor: pointer; transition: background 0.15s; margin-right: 12px; }
+    .btn-restart:hover { background: #eef2ff; }
+    .btn-back { padding: 14px 40px; background: #6366f1; color: #fff; font-size: 15px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; transition: background 0.15s; text-decoration: none; display: inline-block; }
+    .btn-back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+<div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+<div class="header" id="questionCounter"></div>
+<div class="card" id="quizCard"></div>
+<script>
+const questions = [
+  {
+    q: "A Kyverno <code>ClusterPolicy</code> with <code>validationFailureAction: Enforce</code> is applied. A developer runs <code>kubectl apply</code> for a pod that violates the policy. What happens?",
+    options: [
+      "The pod is admitted but a PolicyReport violation is recorded",
+      "The pod is rejected at admission — kubectl apply returns an error",
+      "The pod is admitted, Kyverno logs the violation, and an alert fires in Prometheus",
+      "The pod is admitted but immediately deleted by the background controller"
+    ],
+    answer: 1,
+    explanation: "<code>Enforce</code> mode rejects the resource at the Kubernetes admission webhook — the API server returns an error and the resource is never created. <code>Audit</code> mode admits the resource but records the violation in a <code>PolicyReport</code>. Audit is used for migration periods; Enforce is the production target."
+  },
+  {
+    q: "You apply a <code>mutate</code> policy that injects default resource limits and a <code>validate</code> policy that rejects pods without resource limits. A pod with no limits is submitted. Which runs first?",
+    options: [
+      "Validate runs first — the pod is rejected before mutate can inject defaults",
+      "Mutate runs first — defaults are injected, then validate sees a compliant pod and admits it",
+      "Both run in parallel — the outcome depends on which webhook responds faster",
+      "The order is random — Kyverno uses a leader election algorithm to decide"
+    ],
+    answer: 1,
+    explanation: "Kyverno always runs mutate rules before validate rules in the admission chain. This is intentional: mutation can fix a non-compliant resource before validation rejects it. If you want validate to catch resources that are missing limits, do not also run an inject-defaults mutate policy in Enforce mode — the mutation will hide the violation."
+  },
+  {
+    q: "A generate policy creates a <code>default-deny-all</code> NetworkPolicy with <code>synchronize: true</code>. An engineer deletes the NetworkPolicy with <code>kubectl delete</code>. What happens?",
+    options: [
+      "The NetworkPolicy is gone permanently — generate only fires on resource creation",
+      "Kyverno recreates the NetworkPolicy automatically within a few seconds",
+      "Kyverno recreates the NetworkPolicy only after the next namespace update",
+      "Kyverno logs a PolicyReport violation but does not recreate the resource"
+    ],
+    answer: 1,
+    explanation: "<code>synchronize: true</code> makes Kyverno act as a controller for the generated resource. It watches for deletion and recreates the resource. This is useful for mandatory resources like default-deny NetworkPolicies that must always exist in a namespace. Without <code>synchronize: true</code>, generate fires once at creation time only."
+  },
+  {
+    q: "What is a <code>PolicyReport</code> and when is it populated?",
+    options: [
+      "A real-time alert resource — it fires as soon as a validate policy blocks a pod",
+      "A namespace-scoped resource populated by Kyverno's background controller — it shows violations in existing resources that may pre-date the policy",
+      "A cluster-scoped audit log of all admission decisions, both pass and fail",
+      "A Prometheus metric that counts policy violations per namespace per hour"
+    ],
+    answer: 1,
+    explanation: "PolicyReports are written by the Kyverno background scanner, which continuously evaluates existing resources against active policies. They are the retrospective view — they catch resources that were created before a policy was applied. Admission enforcement catches new resources going forward. Both are needed for complete coverage."
+  },
+  {
+    q: "The legacy <code>db-migrator</code> Job must run as root but violates the <code>require-non-root</code> ClusterPolicy. What is the correct Kyverno approach?",
+    options: [
+      "Set <code>validationFailureAction: Audit</code> on the policy to stop it blocking anything",
+      "Add a <code>PolicyException</code> scoped to the db-migrator pod with a ticket reference and review date",
+      "Exclude the entire <code>coverline</code> namespace from the policy",
+      "Delete the <code>require-non-root</code> policy and re-apply it after the migration job completes"
+    ],
+    answer: 1,
+    explanation: "A <code>PolicyException</code> grants a named workload an exemption from a specific policy rule without weakening the global policy for everyone else. It is a Kubernetes resource — it lives in Git, goes through PR review, and can carry governance metadata (ticket, approved-by, review-date). Switching to Audit mode or excluding a namespace removes protection from all workloads, not just the one that needs the exception."
+  },
+  {
+    q: "You want to catch Kyverno policy violations before a manifest reaches the cluster. Which approach achieves this?",
+    options: [
+      "Set <code>background: true</code> on the ClusterPolicy so it scans all incoming manifests",
+      "Run <code>kyverno apply policies/ --resource manifest.yaml</code> in the CI pipeline",
+      "Configure Kyverno's admission webhook to also scan Git push events",
+      "Use <code>kubectl apply --dry-run=server</code> — Kyverno webhooks fire on dry-run requests"
+    ],
+    answer: 1,
+    explanation: "The Kyverno CLI (<code>kyverno apply</code>) evaluates policies against local YAML files without a running cluster. Running it in CI shifts enforcement left to the PR stage — a developer gets a policy violation error in the PR check before the manifest ever reaches <code>kubectl apply</code>. <code>kubectl apply --dry-run=server</code> also triggers webhooks, but requires cluster access from CI."
+  },
+  {
+    q: "A Kyverno mutate policy uses the <code>+(cpu): \"500m\"</code> syntax. What does the <code>+</code> prefix mean?",
+    options: [
+      "Add 500m to the existing CPU limit value",
+      "Set cpu to 500m only if the key does not already exist — do not overwrite existing values",
+      "Set cpu to 500m and mark it as immutable — future mutations cannot change it",
+      "Append 500m to a list field named cpu"
+    ],
+    answer: 1,
+    explanation: "In Kyverno's <code>patchStrategicMerge</code>, the <code>+(key)</code> syntax is a conditional add — it sets the value only if the key is absent. Without the <code>+</code>, the mutation would overwrite existing values, which would break workloads that have intentionally set different limits. This makes mutate policies safe to apply to existing workloads."
+  },
+  {
+    q: "Why should Kyverno ClusterPolicies be managed via ArgoCD rather than applied directly with <code>kubectl apply</code>?",
+    options: [
+      "ArgoCD is the only tool that can apply Kyverno CRDs correctly",
+      "A policy change that blocks legitimate workloads will cause an outage — GitOps provides PR review, rollback, and a full audit trail",
+      "kubectl apply does not support Kyverno's custom API versions",
+      "ArgoCD automatically tests policies in a staging cluster before applying them to production"
+    ],
+    answer: 1,
+    explanation: "Kyverno policies sit in the admission path — a misconfigured Enforce policy can immediately block all pod creation in a namespace. Managing policies through GitOps means every change goes through PR review, has a one-command rollback (<code>git revert</code> → ArgoCD sync), and is recorded in the git history. Direct <code>kubectl apply</code> to the admission chain is the same risk as directly editing a production firewall rule."
+  }
+];
+
+let current = 0, score = 0, answered = false;
+const results = [];
+
+function render() {
+  const q = questions[current];
+  const pct = (current / questions.length) * 100;
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('questionCounter').textContent = `${current + 1} / ${questions.length}`;
+  document.getElementById('quizCard').innerHTML = `
+    <div class="phase-label">Phase 10g — Policy as Code (Kyverno)</div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="options">
+      ${q.options.map((o, i) => `
+        <div class="option" data-i="${i}" onclick="pick(${i})">
+          <div class="option-key">${String.fromCharCode(65+i)}</div>
+          <div class="option-text">${o}</div>
+        </div>`).join('')}
+    </div>
+  `;
+  answered = false;
+}
+
+function pick(i) {
+  if (answered) return;
+  answered = true;
+  const q = questions[current];
+  const opts = document.querySelectorAll('.option');
+  opts.forEach(o => o.classList.add('disabled'));
+  if (i === q.answer) {
+    opts[i].classList.add('correct');
+    score++;
+    results.push(true);
+  } else {
+    opts[i].classList.add('wrong');
+    opts[q.answer].classList.add('correct');
+    opts.forEach((o, idx) => { if (idx !== i && idx !== q.answer) o.classList.add('dimmed'); });
+    results.push(false);
+  }
+  const exp = document.createElement('div');
+  exp.className = 'explanation';
+  exp.innerHTML = q.explanation;
+  document.getElementById('options').after(exp);
+  const btn = document.createElement('button');
+  btn.className = 'btn-next';
+  btn.textContent = current < questions.length - 1 ? 'Next question →' : 'See results';
+  btn.onclick = () => { current++; current < questions.length ? render() : showScore(); };
+  exp.after(btn);
+}
+
+function showScore() {
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('questionCounter').textContent = '';
+  const pct = Math.round((score / questions.length) * 100);
+  const title = pct === 100 ? 'Perfect score.' : pct >= 75 ? 'Solid understanding.' : pct >= 50 ? 'Good start — review the gaps.' : 'Worth another pass through the README.';
+  const subtitle = pct === 100
+    ? 'You understand validate, mutate, generate, PolicyReports, and PolicyExceptions.'
+    : 'Focus on the mutate-before-validate ordering and the synchronize flag — those are the most commonly misunderstood concepts.';
+  document.getElementById('quizCard').innerHTML = `
+    <div class="score-screen">
+      <div class="score-circle">
+        <div class="score-number">${score}</div>
+        <div class="score-total">of ${questions.length}</div>
+      </div>
+      <div class="score-title">${title}</div>
+      <div class="score-subtitle">${subtitle}</div>
+      <div class="score-breakdown">
+        ${results.map((r, i) => `<span class="score-tag ${r ? 'correct' : 'wrong'}">Q${i+1} ${r ? '✓' : '✗'}</span>`).join('')}
+      </div>
+      <button class="btn-restart" onclick="restart()">Restart</button>
+      <a class="btn-back" href="../README.md">Back to lab</a>
+    </div>`;
+}
+
+function restart() { current = 0; score = 0; results.length = 0; render(); }
+render();
+</script>
+</body>
+</html>

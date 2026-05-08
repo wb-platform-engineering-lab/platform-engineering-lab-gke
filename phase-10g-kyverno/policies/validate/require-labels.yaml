@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    policies.kyverno.io/title: Require Team and Cost-Centre Labels
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/description: >
+      Every pod must carry team and cost-centre labels. These feed Kubecost
+      cost allocation (Phase 10e) and are required for on-call routing in PagerDuty.
+      Without them a production incident cannot be automatically routed to the
+      right team.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-team-label
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [coverline, default]
+      validate:
+        message: >
+          Pod must have labels 'team' and 'cost-centre'.
+          Example: team=claims-platform, cost-centre=engineering.
+        pattern:
+          metadata:
+            labels:
+              team: "?*"
+              cost-centre: "?*"

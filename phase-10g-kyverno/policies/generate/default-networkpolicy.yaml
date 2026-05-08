@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-default-networkpolicy
+  annotations:
+    policies.kyverno.io/title: Generate Default-Deny NetworkPolicy
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >
+      When a new namespace is created with label enforce-netpol=true, automatically
+      generate a default-deny-all NetworkPolicy. Teams can then add explicit allow
+      rules on top. This prevents a new team namespace from being wide-open by default
+      — the most common misconfiguration in multi-tenant clusters.
+spec:
+  rules:
+    - name: generate-default-deny
+      match:
+        any:
+          - resources:
+              kinds: [Namespace]
+              selector:
+                matchLabels:
+                  enforce-netpol: "true"
+      generate:
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        name: default-deny-all
+        namespace: "{{ request.object.metadata.name }}"
+        synchronize: true
+        data:
+          metadata:
+            labels:
+              generated-by: kyverno
+          spec:
+            podSelector: {}
+            policyTypes:
+              - Ingress
+              - Egress

@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-default-labels
+  annotations:
+    policies.kyverno.io/title: Add Default Labels
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/description: >
+      Mutate every pod to add a managed-by=kyverno label and stamp the
+      namespace name onto the pod. Used for cost allocation queries in Kubecost
+      and for Falco rule scoping. Does not overwrite existing labels.
+spec:
+  rules:
+    - name: add-managed-by-label
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [coverline, default]
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              +(managed-by): "platform-team"
+              +(namespace): "{{ request.object.metadata.namespace }}"
