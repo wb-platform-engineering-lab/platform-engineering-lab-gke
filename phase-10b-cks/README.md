@@ -267,8 +267,7 @@ helm upgrade coverline phase-4-helm/charts/backend/ \
 ### Step 3: Verify seccomp is active
 
 ```bash
-kubectl get pod -l app.kubernetes.io/name=backend \
-  -o jsonpath='{.items[0].spec.securityContext.seccompProfile}'
+kubectl get pod -l app.kubernetes.io/name=backend -o jsonpath='{.items[0].spec.containers[0].securityContext.seccompProfile}'
 # Expected: {"type":"RuntimeDefault"}
 ```
 
