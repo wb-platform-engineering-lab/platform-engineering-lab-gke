@@ -136,7 +136,9 @@ helm repo update
 kube-bench runs CIS checks as a Job inside the cluster — it has access to the node filesystem and kubelet config:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/aquasecurity/kube-bench/main/job.yaml
+# Use the GKE-specific manifest — the generic job.yaml uses kubeadm paths
+# (/usr/bin/kubelet) which don't exist on GKE nodes (/home/kubernetes/bin/kubelet)
+kubectl apply -f https://raw.githubusercontent.com/aquasecurity/kube-bench/main/job-gke.yaml
 kubectl wait --for=condition=complete job/kube-bench --timeout=120s
 kubectl logs job/kube-bench
 ```
