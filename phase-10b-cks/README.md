@@ -183,22 +183,16 @@ Key flags to know: `--anonymous-auth=false`, `--authorization-mode=Node,RBAC`, `
 By default every pod gets a mounted SA token. An attacker who reaches any pod can use it to query the Kubernetes API. Disable it on the `default` SA in each namespace:
 
 ```bash
-for ns in default coverline monitoring; do
-  if kubectl get namespace "$ns" &>/dev/null; then
-    kubectl patch serviceaccount default -n "$ns" \
-      -p '{"automountServiceAccountToken": false}'
-  else
-    echo "Namespace $ns not found — skipping (deploy Phase 4 app first)"
-  fi
+for ns in default monitoring; do
+  kubectl patch serviceaccount default -n "$ns" \
+    -p '{"automountServiceAccountToken": false}'
 done
 ```
-
-> If `coverline` is not found, run `bash bootstrap.sh --phase 10` to deploy the application before continuing.
 
 Verify:
 
 ```bash
-kubectl get serviceaccount default -n coverline -o yaml | grep automount
+kubectl get serviceaccount default -n default -o yaml | grep automount
 # Expected: automountServiceAccountToken: false
 ```
 
@@ -220,21 +214,21 @@ Flag anything with `cluster-admin`. The CI service account was already scoped in
 kubectl create role pod-reader \
   --verb=get,list,watch \
   --resource=pods \
-  --namespace=coverline
+  --namespace=default
 
 kubectl create rolebinding pod-reader-binding \
   --role=pod-reader \
-  --serviceaccount=coverline:coverline-backend \
-  --namespace=coverline
+  --serviceaccount=default:coverline-backend \
+  --namespace=default
 
 # Verify
 kubectl auth can-i get pods \
-  --as=system:serviceaccount:coverline:coverline-backend \
-  --namespace=coverline   # yes
+  --as=system:serviceaccount:default:coverline-backend \
+  --namespace=default   # yes
 
 kubectl auth can-i get secrets \
-  --as=system:serviceaccount:coverline:coverline-backend \
-  --namespace=coverline   # no
+  --as=system:serviceaccount:default:coverline-backend \
+  --namespace=default   # no
 ```
 
 > Exam tip: you can bind a `ClusterRole` with a `RoleBinding` — this scopes the ClusterRole to one namespace without granting cluster-wide access. This distinction is frequently tested.
@@ -313,7 +307,7 @@ kubectl get pods -n kyverno
 
 ### Step 2: Apply the require-non-root policy
 
-See [`policies/require-non-root.yaml`](policies/require-non-root.yaml) — `validationFailureAction: Enforce`, matches pods in `coverline` and `default` namespaces.
+See [`policies/require-non-root.yaml`](policies/require-non-root.yaml) — `validationFailureAction: Enforce`, matches pods in the `default` namespace.
 
 ```bash
 kubectl apply -f phase-10b-cks/policies/require-non-root.yaml
@@ -537,40 +531,41 @@ Find and fix all five issues: `hostPID`, `hostNetwork`, `privileged`, `runAsUser
 
 ### Scenario 2 — Write a NetworkPolicy
 
-The `coverline-backend` pod should only accept ingress from pods labelled `app=frontend` in the `coverline` namespace and from the `monitoring` namespace (Prometheus scraping). All other ingress blocked.
+The `coverline-backend` pod should only accept ingress from pods labelled `app=coverline-frontend` in the `default` namespace and from the `monitoring` namespace (Prometheus scraping). All other ingress blocked.
 
 Answer: [`scenarios/backend-netpol.yaml`](scenarios/backend-netpol.yaml)
 
 ```bash
 kubectl apply -f phase-10b-cks/scenarios/backend-netpol.yaml
-# Verify — allowed: pod labelled app=coverline-frontend in coverline namespace
+# Verify — allowed: pod labelled app=coverline-frontend in default namespace
 kubectl run frontend-probe \
   --image=curlimages/curl \
-  --namespace=coverline \
+  --namespace=default \
   --labels="app=coverline-frontend" \
   --rm -it --restart=Never -- \
   curl -s --connect-timeout 3 http://coverline-backend:5000/health
-# Verify — blocked: pod outside coverline namespace (no matching NetworkPolicy allow rule)
-kubectl run probe --image=curlimages/curl --rm -it --restart=Never -- \
-  curl -s --connect-timeout 3 coverline-backend.coverline:5000
+# Verify — blocked: pod in kube-system (no matching NetworkPolicy allow rule)
+kubectl run probe --image=curlimages/curl --rm -it --restart=Never \
+  --namespace=kube-system -- \
+  curl -s --connect-timeout 3 coverline-backend.default:5000
 ```
 
 ### Scenario 3 — RBAC: create a scoped service account
 
-Create a service account `reporter` in namespace `coverline` that can `get` and `list` pods and configmaps in that namespace only — not secrets, not any other namespace.
+Create a service account `reporter` in the `default` namespace that can `get` and `list` pods and configmaps in that namespace only — not secrets, not any other namespace.
 
 ```bash
-kubectl create serviceaccount reporter -n coverline
+kubectl create serviceaccount reporter -n default
 kubectl create role reporter-role \
-  --verb=get,list --resource=pods,configmaps --namespace=coverline
+  --verb=get,list --resource=pods,configmaps --namespace=default
 kubectl create rolebinding reporter-binding \
   --role=reporter-role \
-  --serviceaccount=coverline:reporter --namespace=coverline
+  --serviceaccount=default:reporter --namespace=default
 
 # Verify
-kubectl auth can-i list pods    --as=system:serviceaccount:coverline:reporter -n coverline  # yes
-kubectl auth can-i get  secrets --as=system:serviceaccount:coverline:reporter -n coverline  # no
-kubectl auth can-i list pods    --as=system:serviceaccount:coverline:reporter -n default    # no
+kubectl auth can-i list pods    --as=system:serviceaccount:default:reporter -n default   # yes
+kubectl auth can-i get  secrets --as=system:serviceaccount:default:reporter -n default   # no
+kubectl auth can-i list pods    --as=system:serviceaccount:default:reporter -n monitoring # no
 ```
 
 ### Scenario 4 — Write a Falco rule

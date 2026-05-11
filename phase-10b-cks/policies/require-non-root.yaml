@@ -10,7 +10,7 @@ spec:
         any:
           - resources:
               kinds: [Pod]
-              namespaces: [coverline, default]
+              namespaces: [default]
       validate:
         message: "Containers must set runAsNonRoot: true"
         pattern:

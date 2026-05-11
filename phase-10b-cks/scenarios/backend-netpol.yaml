@@ -8,7 +8,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: backend-allow-frontend-and-monitoring
-  namespace: coverline
+  namespace: default
 spec:
   podSelector:
     matchLabels:
@@ -20,7 +20,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: coverline
+              kubernetes.io/metadata.name: default
           podSelector:
             matchLabels:
               app: coverline-frontend
