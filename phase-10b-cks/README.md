@@ -384,13 +384,16 @@ cosign generate-key-pair
 In `.github/workflows/platform-pipeline.yml`, after the build step:
 
 ```yaml
-- name: Sign image with Cosign
+- name: Install Cosign
+  uses: sigstore/cosign-installer@v3
+
+- name: Sign backend image with Cosign
   env:
     COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
     COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
   run: |
     cosign sign --key env://COSIGN_PRIVATE_KEY \
-      ${{ env.REGISTRY }}/backend:${{ steps.meta.outputs.sha }}
+      ${{ env.REGISTRY }}/backend:${{ github.sha }}
 ```
 
 ### Step 3: Generate and attest an SBOM
