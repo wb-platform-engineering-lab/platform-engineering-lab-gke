@@ -184,10 +184,16 @@ By default every pod gets a mounted SA token. An attacker who reaches any pod ca
 
 ```bash
 for ns in default coverline monitoring; do
-  kubectl patch serviceaccount default -n $ns \
-    -p '{"automountServiceAccountToken": false}'
+  if kubectl get namespace "$ns" &>/dev/null; then
+    kubectl patch serviceaccount default -n "$ns" \
+      -p '{"automountServiceAccountToken": false}'
+  else
+    echo "Namespace $ns not found — skipping (deploy Phase 4 app first)"
+  fi
 done
 ```
+
+> If `coverline` is not found, run `bash bootstrap.sh --phase 10` to deploy the application before continuing.
 
 Verify:
 
