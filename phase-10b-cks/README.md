@@ -244,13 +244,7 @@ kubectl auth can-i get secrets \
 AppArmor restricts what a process can do at the kernel level. The `runtime/default` profile is the container runtime's built-in set of restrictions:
 
 ```bash
-kubectl patch deployment coverline-backend \
-  --type=json \
-  -p='[{
-    "op": "add",
-    "path": "/spec/template/metadata/annotations/container.apparmor.security.beta.kubernetes.io~1coverline-backend",
-    "value": "runtime/default"
-  }]'
+kubectl patch deployment coverline-backend --type=json -p='[{"op":"add","path":"/spec/template/spec/containers/0/securityContext/appArmorProfile","value":{"type":"RuntimeDefault"}}]'
 ```
 
 Verify:
