@@ -1,0 +1,38 @@
+# Scenario 2 answer — NetworkPolicy for coverline-backend
+#
+# Requirement: coverline-backend accepts ingress ONLY from:
+#   1. Pods labelled app=coverline-frontend in the coverline namespace
+#   2. The monitoring namespace (Prometheus scraping /metrics)
+# All other ingress is blocked.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-allow-frontend-and-monitoring
+  namespace: coverline
+spec:
+  podSelector:
+    matchLabels:
+      app: coverline-backend
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow traffic from the frontend pods in the same namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: coverline
+          podSelector:
+            matchLabels:
+              app: coverline-frontend
+      ports:
+        - protocol: TCP
+          port: 5000
+
+    # Allow Prometheus scraping from the monitoring namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9090   # metrics port

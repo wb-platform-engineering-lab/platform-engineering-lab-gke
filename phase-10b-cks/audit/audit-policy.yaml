@@ -1,0 +1,64 @@
+# Kubernetes Audit Policy — kubeadm reference
+#
+# On GKE, audit logging is enabled via:
+#   gcloud container clusters update <cluster> --logging=SYSTEM,WORKLOAD,API_SERVER
+#
+# On a kubeadm cluster (CKS exam), place this file at:
+#   /etc/kubernetes/audit/audit-policy.yaml
+#
+# Then add to /etc/kubernetes/manifests/kube-apiserver.yaml:
+#   --audit-policy-file=/etc/kubernetes/audit/audit-policy.yaml
+#   --audit-log-path=/var/log/kubernetes/audit.log
+#   --audit-log-maxage=30
+#   --audit-log-maxbackup=10
+#   --audit-log-maxsize=100
+#
+# And add a hostPath volume mount for /etc/kubernetes/audit and /var/log/kubernetes.
+
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+  # Log secret reads at RequestResponse level (captures the secret value in response)
+  - level: RequestResponse
+    resources:
+      - group: ""
+        resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # Log pod exec at Metadata level (captures who exec'd into which pod)
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: ["pods/exec", "pods/attach", "pods/portforward"]
+
+  # Log RBAC changes at RequestResponse level
+  - level: RequestResponse
+    resources:
+      - group: "rbac.authorization.k8s.io"
+        resources:
+          ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+
+  # Log ConfigMap and ServiceAccount changes at Request level
+  - level: Request
+    resources:
+      - group: ""
+        resources: ["configmaps", "serviceaccounts"]
+    verbs: ["create", "update", "patch", "delete"]
+
+  # Drop high-volume read noise from system components
+  - level: None
+    users:
+      - system:kube-proxy
+      - system:node
+    verbs: ["get", "list", "watch"]
+
+  - level: None
+    userGroups: ["system:nodes"]
+    verbs: ["get", "list", "watch"]
+
+  # Drop RequestReceived stage — we only care about responses
+  - level: None
+    stages: ["RequestReceived"]
+
+  # Catch-all: log everything else at Metadata level
+  - level: Metadata
