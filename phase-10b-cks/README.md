@@ -250,7 +250,7 @@ kubectl patch deployment coverline-backend --type=strategic -p '{"spec":{"templa
 Verify:
 
 ```bash
-kubectl get pod -l app=coverline-backend \
+kubectl get pod -l app.kubernetes.io/name=backend \
   -o jsonpath='{.items[0].metadata.annotations}'
 ```
 
@@ -267,7 +267,7 @@ helm upgrade coverline phase-4-helm/charts/backend/ \
 ### Step 3: Verify seccomp is active
 
 ```bash
-kubectl get pod -l app=coverline-backend \
+kubectl get pod -l app.kubernetes.io/name=backend \
   -o jsonpath='{.items[0].spec.securityContext.seccompProfile}'
 # Expected: {"type":"RuntimeDefault"}
 ```
