@@ -260,24 +260,7 @@ kubectl get pod -l app=coverline-backend \
 
 ### Step 2: Apply seccomp and drop capabilities via Helm
 
-`phase-10b-cks/security-context-values.yaml`:
-
-```yaml
-securityContext:
-  seccompProfile:
-    type: RuntimeDefault
-  runAsNonRoot: true
-  runAsUser: 1000
-
-containers:
-  - name: coverline-backend
-    securityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
-```
+See [`security-context-values.yaml`](security-context-values.yaml) — sets `seccompProfile: RuntimeDefault`, `runAsNonRoot: true`, drops all capabilities.
 
 ```bash
 helm upgrade coverline phase-4-helm/charts/backend/ \
@@ -322,30 +305,7 @@ kubectl get pods -n kyverno
 
 ### Step 2: Apply the require-non-root policy
 
-`phase-10b-cks/policies/require-non-root.yaml`:
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: require-non-root
-spec:
-  validationFailureAction: Enforce
-  rules:
-    - name: check-run-as-non-root
-      match:
-        any:
-          - resources:
-              kinds: [Pod]
-              namespaces: [coverline, default]
-      validate:
-        message: "Containers must set runAsNonRoot: true"
-        pattern:
-          spec:
-            containers:
-              - securityContext:
-                  runAsNonRoot: true
-```
+See [`policies/require-non-root.yaml`](policies/require-non-root.yaml) — `validationFailureAction: Enforce`, matches pods in `coverline` and `default` namespaces.
 
 ```bash
 kubectl apply -f phase-10b-cks/policies/require-non-root.yaml
@@ -362,30 +322,7 @@ kubectl run test-root --image=nginx --restart=Never \
 
 ### Step 3: Apply the block-hostpath policy
 
-`phase-10b-cks/policies/block-hostpath.yaml`:
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: block-hostpath
-spec:
-  validationFailureAction: Enforce
-  rules:
-    - name: no-hostpath-volumes
-      match:
-        any:
-          - resources:
-              kinds: [Pod]
-      validate:
-        message: "hostPath volumes are not allowed"
-        deny:
-          conditions:
-            any:
-              - key: "{{ request.object.spec.volumes[?hostPath] | length(@) }}"
-                operator: GreaterThan
-                value: "0"
-```
+See [`policies/block-hostpath.yaml`](policies/block-hostpath.yaml) — denies any pod spec containing a `hostPath` volume, cluster-wide.
 
 ```bash
 kubectl apply -f phase-10b-cks/policies/block-hostpath.yaml
@@ -523,7 +460,7 @@ Expected Falco log: `Notice A shell was spawned in a container with an attached 
 
 ### Step 3: Add a custom CoverLine rule
 
-Load the custom rule that fires when a non-Python process reads the `DB_PASSWORD` environment variable — a specific indicator of credential theft:
+Load [`falco/coverline-rules.yaml`](falco/coverline-rules.yaml) — fires when a non-Python process reads the `DB_PASSWORD` environment variable, a specific indicator of credential theft:
 
 ```bash
 kubectl create configmap falco-coverline-rules \
@@ -594,7 +531,7 @@ Find and fix all five issues: `hostPID`, `hostNetwork`, `privileged`, `runAsUser
 
 The `coverline-backend` pod should only accept ingress from pods labelled `app=frontend` in the `coverline` namespace and from the `monitoring` namespace (Prometheus scraping). All other ingress blocked.
 
-Answer: `phase-10b-cks/scenarios/backend-netpol.yaml`
+Answer: [`scenarios/backend-netpol.yaml`](scenarios/backend-netpol.yaml)
 
 ```bash
 kubectl apply -f phase-10b-cks/scenarios/backend-netpol.yaml
@@ -632,20 +569,7 @@ kubectl auth can-i list pods    --as=system:serviceaccount:coverline:reporter -n
 
 Write a Falco rule that fires at `WARNING` when any process reads `/etc/shadow` outside `kube-system`. Output must include process name, container name, and user.
 
-Answer in `phase-10b-cks/falco/coverline-rules.yaml`:
-
-```yaml
-- rule: Shadow file read outside kube-system
-  desc: A process read /etc/shadow in a non-system container
-  condition: >
-    open_read and fd.name = "/etc/shadow" and
-    not k8s.ns.name in (kube-system, kube-public)
-  output: >
-    Sensitive file read: /etc/shadow
-    (proc=%proc.name container=%container.name user=%user.name)
-  priority: WARNING
-  tags: [shadow-file, credential-access]
-```
+Answer in [`falco/coverline-rules.yaml`](falco/coverline-rules.yaml) — `WARNING` priority, matches `/etc/shadow` reads outside `kube-system`, outputs `proc`, `container`, and `user`.
 
 ### Step 5: Final posture check
 
