@@ -92,7 +92,7 @@ Each phase is motivated by a real engineering problem that emerged as CoverLine 
 | 10f | Chaos Engineering (LitmusChaos) | 1,000,000 | 3–4 days | ⬜ Not started |
 | 10g | Policy as Code (Kyverno) | 1,000,000 | 2–3 days | ⬜ Not started |
 | 11 | Capstone Project (+ Backstage IDP) | 2,000,000+ | 7–10 days | ⬜ Not started |
-| 12 | GenAI & Agentic Workflows (Claude API, Airflow + LLM) | 3,000,000+ | 4–6 days | ⬜ Not started |
+| 12 | AIOps (Claude API, automated RCA, anomaly detection, intelligent alerting) | 3,000,000+ | 4–6 days | ⬜ Not started |
 | | **Total lab work** | | **~80–107 days** | |
 | | **With cert study** | | **~7–10 months** | |
 

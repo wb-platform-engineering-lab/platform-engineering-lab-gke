@@ -1,8 +1,24 @@
-# Phase 12 — GenAI & Agentic Platform
+# Phase 12 — AIOps: AI-Driven Operations
 
-> **GenAI concepts introduced:** Anthropic SDK tool use, agentic loop, structured output, Prometheus Pushgateway | **Builds on:** Phase 7 observability, Phase 9 data platform
+> **AIOps concepts introduced:** automated root cause analysis, anomaly detection, intelligent alerting, LLM-powered incident response, agentic tool use | **Builds on:** Phase 7 observability, Phase 9 data platform
 
 [📝 Take the quiz](https://wb-platform-engineering-lab.github.io/platform-engineering-lab-gke/phase-12-genai/quiz.html)
+
+---
+
+## What is AIOps?
+
+**AIOps** (Artificial Intelligence for IT Operations) is the practice of using AI/ML to augment or automate the work that operations teams do manually: correlating alerts, finding root causes, predicting failures, and deciding how to respond.
+
+The traditional ops loop is: alert fires → engineer wakes up → reads logs → queries metrics → forms a hypothesis → acts. AIOps compresses that loop. It doesn't replace engineers — it eliminates the mechanical parts of incident response so engineers can focus on decisions that require judgment.
+
+Three AIOps capabilities this phase builds:
+
+| Capability | The ops problem it solves |
+|---|---|
+| **Automated RCA** | Engineers spend 60% of an incident trying to understand what happened. The on-call assistant queries Grafana, Loki, and Prometheus and delivers a structured hypothesis in under 30 seconds. |
+| **Anomaly detection** | Threshold-based alerts only fire when you already know what to look for. LLM-interpreted metrics catch distribution drift — the model starts making unusual decisions at scale before any threshold is crossed. |
+| **Workflow automation** | 8,000 claims/day cannot be triaged by hand. An agentic loop queries real policy data, applies business rules, and writes structured decisions to PostgreSQL — fully automated, fully auditable. |
 
 ---
 
@@ -10,10 +26,12 @@
 
 | Concept | What it does | Why we need it |
 |---|---|---|
-| **Tool use** | The model calls Python functions to query the database and reasons over the results | The agent can answer "is this claim covered?" by looking up real policy data — not by guessing |
-| **Agentic loop** | The model calls tools and receives results until it reaches a final answer | Claims triage requires 3–5 sequential data lookups that cannot be done in a single prompt |
+| **Automated RCA** | The on-call assistant uses tool use to gather alert context, log evidence, and metric trends, then synthesises a root cause hypothesis | Cuts mean time to understand (MTTU) from 20–40 minutes to under 30 seconds |
+| **Anomaly detection alerts** | PrometheusRules fire on decision distribution drift and LLM cost spikes, not just on fixed thresholds | Catches model behavioural drift before it affects regulated claims output |
+| **Agentic loop** | The model calls tools and receives results until it reaches a final answer | Claims triage and incident investigation both require sequential data lookups driven by what was discovered in the previous step |
 | **Structured output** | The model returns a fixed JSON schema (`decision`, `confidence`, `reason`) | Production systems need machine-readable decisions, not prose |
 | **Prometheus Pushgateway** | Receives metrics pushed by short-lived jobs and holds them for Prometheus to scrape | The triage agent exits when done — it cannot expose a `/metrics` endpoint like a server |
+| **Circuit breaker** | Caps the agentic loop by turn count and token budget; routes overruns to human review | Prevents runaway cost if a tool always returns unexpected data; mandatory in regulated workflows |
 | **Airflow DAG** | Wraps the agent in a scheduled pipeline with retry logic and XCom state passing | The agent runs daily, handles failures gracefully, and integrates with the existing data platform |
 
 ---
@@ -22,11 +40,18 @@
 
 > *CoverLine — Series D, 3,000,000+ covered members.*
 >
-> The claims operations team is drowning. With 3 million members, over 8,000 claims arrive every day. Manual triage — a human reviewer reads the claim, checks the member's policy, cross-references their history, and decides whether to approve, flag, or reject — takes 48 to 72 hours per claim and costs €4 in reviewer time. At scale, that is €32,000 per day in labour, and the backlog is growing faster than the team can hire.
+> Two operational crises are converging.
+>
+> **Claims backlog.** 8,000 claims arrive every day. Manual triage — a human reviewer reads the claim, checks the member's policy, cross-references their history, and decides whether to approve, flag, or reject — takes 48 to 72 hours per claim and costs €4 in reviewer time. At scale, that is €32,000 per day in labour, and the backlog is growing faster than the team can hire.
+>
+> **Alert fatigue.** The observability stack (Phase 7) generates 200+ alerts per week. 80% are noise — thresholds hit by normal traffic spikes. Engineers spend the first 20 minutes of every incident reading logs and querying Prometheus to understand what actually happened. At 3 AM, that's the most expensive 20 minutes in the company.
 >
 > The CTO's directive: *"I want LLM cost on the same Grafana dashboard as cluster cost. I want the p95 response time, the daily token spend, and the decision distribution before I approve this for production. And I want a circuit breaker — if the model starts making unusual decisions at scale, I need to know before the claims team does."*
 
-The decision: an agentic triage assistant built on the Anthropic SDK — queries real policy data via tool use, writes structured decisions to PostgreSQL, emits metrics to Prometheus, and runs daily as an Airflow DAG. Not a chatbot. A production workflow.
+The decision: two AIOps agents built on the Anthropic SDK.
+
+1. A **claims triage agent** — queries real policy data via tool use, writes structured decisions to PostgreSQL, emits metrics to Prometheus, runs daily as an Airflow DAG. Not a chatbot. A production workflow.
+2. An **on-call assistant** — a webhook server that fires when a Grafana alert triggers, investigates using Grafana + Loki + Prometheus APIs, and posts a structured root cause hypothesis before the engineer has finished reading the page.
 
 ---
 
@@ -57,20 +82,20 @@ flowchart TD
         TRIAGE["claim_triage"]
     end
 
-    subgraph Observability["Observability"]
+    subgraph Observability["Observability — AIOps layer"]
         PGW["Prometheus\nPushgateway"]
         PROM["Prometheus"]
         GRAF["Grafana\nLLM dashboard"]
-        ALERT["Grafana\nAlerting"]
+        ALERT["Grafana\nAlerting\n(anomaly rules)"]
     end
 
-    subgraph OnCall["on_call_assistant.py — webhook :8888"]
-        WH["HTTP server"]
-        INV["Investigation loop"]
-        TG["get_alert_details"]
-        TL["query_loki"]
-        TP["query_prometheus"]
-        SLACK["Slack webhook"]
+    subgraph OnCall["on_call_assistant.py — AIOps incident response"]
+        WH["HTTP webhook :8888"]
+        INV["RCA investigation loop"]
+        TG["get_alert_details\n(Grafana API)"]
+        TL["query_loki\n(LogQL)"]
+        TP["query_prometheus\n(PromQL)"]
+        SLACK["Slack webhook\n(structured hypothesis)"]
         WH --> INV --> TG & TL & TP --> SLACK
     end
 
@@ -96,7 +121,7 @@ flowchart TD
 phase-12-genai/
 ├── claims_triage_agent.py    ← Triage agent: tool use loop + PostgreSQL reads/writes + metrics push
 ├── weekly_summary_agent.py   ← Weekly summary: BigQuery query → Slack webhook
-├── on_call_assistant.py      ← Alert investigation agent + HTTP webhook server
+├── on_call_assistant.py      ← AIOps RCA agent + HTTP webhook server
 ├── dags/
 │   └── claims_triage_dag.py  ← Airflow DAG wrapping the triage agent (daily schedule)
 └── k8s/
@@ -340,16 +365,16 @@ The `claims_triage` DAG runs two tasks in sequence: `fetch_pending_claims` queri
 
 ---
 
-## Challenge 4 — Build the LLM observability dashboard
+## Challenge 4 — Build the AIOps observability dashboard
 
-The triage agent pushes four metrics per claim to the Pushgateway:
+AIOps requires observing the AI itself, not just the infrastructure. The triage agent pushes four metrics per claim to the Pushgateway. These metrics are the AIOps observability layer — they tell you whether the AI is behaving correctly, not just whether it is running.
 
-| Metric | Description |
+| Metric | AIOps meaning |
 |---|---|
-| `llm_input_tokens_total` | Input tokens consumed per claim |
-| `llm_output_tokens_total` | Output tokens generated per claim |
-| `llm_latency_ms` | End-to-end agent latency in milliseconds |
-| `llm_cost_usd` | Estimated cost ($3/$15 per 1M input/output tokens) |
+| `llm_input_tokens_total` | Cost driver — spikes indicate unexpected prompt growth or data anomalies |
+| `llm_output_tokens_total` | Verbosity signal — unusually long outputs may indicate prompt confusion |
+| `llm_latency_ms` | SLA metric — p95 > 5000ms means claims are missing the 06:30 processing window |
+| `llm_cost_usd` | Budget guardrail — alerts before a runaway batch doubles the daily spend |
 
 ### Step 1: Verify metrics are reachable in Prometheus
 
@@ -404,13 +429,17 @@ Key panels:
 
 After a triage run the dashboard shows daily cost, a decision distribution pie chart (mostly `approve`, some `review`), and latency in the 1500–3000 ms range.
 
+> **AIOps insight:** The decision distribution panel is the most important AIOps signal on this board. A healthy run is ~75% approve, ~15% review, ~10% reject. If reject climbs above 30%, something changed — in the data pipeline, in the claims data itself, or in the model's behaviour. That is anomaly detection without a fixed threshold.
+
 ![LLM Claims Triage Grafana Dashboard](screenshots/phase-12-grafana-llm-dashboard.png)
 
 ---
 
-## Challenge 5 — Deploy the on-call assistant
+## Challenge 5 — Deploy the AIOps on-call assistant
 
-The on-call assistant fires when a Grafana alert triggers. It investigates using three tools — Grafana Alerting API, Loki log query, and Prometheus metric query — then posts a structured root cause hypothesis to a webhook.
+The on-call assistant is the core AIOps incident response component. When a Grafana alert fires, it automatically investigates the alert using three data sources — Grafana Alerting API, Loki log query, and Prometheus metric query — then posts a structured root cause hypothesis to a Slack webhook.
+
+This is AIOps in its most direct form: the AI does the first 20 minutes of incident investigation so the engineer starts with a hypothesis, not a blank screen.
 
 ### Step 1: Deploy the assistant
 
@@ -462,6 +491,8 @@ Expected output:
   "severity": "high"
 }
 ```
+
+The agent queries three data sources and synthesises a root cause hypothesis in under 30 seconds. Without the assistant, an engineer would spend 15–20 minutes running those same queries manually at 3 AM.
 
 ### Step 4: Add the assistant to the notification policy
 
@@ -581,9 +612,9 @@ return {
 }
 ```
 
-### Step 5: Add a decision distribution alert
+### Step 5: Add anomaly detection alerts for decision drift
 
-An unusual spike in rejections — or in approvals — may indicate the model is encountering data outside its design parameters, a prompt regression, or a data pipeline issue. Add a PrometheusRule that fires when the rejection rate exceeds 30% over a 1-hour window:
+An unusual spike in rejections — or in approvals — may indicate the model is encountering data outside its design parameters, a prompt regression, or a data pipeline issue. This is anomaly detection: not a fixed threshold on a known metric, but a distribution check on AI behaviour itself.
 
 ```bash
 kubectl apply -f - <<'EOF'
@@ -617,6 +648,8 @@ spec:
             summary: "Claims triage circuit breaker tripped — claims routed to manual review"
 EOF
 ```
+
+> **AIOps vs threshold alerting:** Traditional alerting fires when a metric crosses a fixed line (CPU > 80%). The `LLMHighRejectionRate` alert is different — it fires when the *ratio* of AI decisions drifts from expected distribution. The threshold (30%) is not based on infrastructure behaviour; it is based on knowledge of what a healthy triage run looks like. This is behavioural anomaly detection applied to an AI system.
 
 ### Step 6: Run the agent and verify guardrails are active
 
@@ -684,41 +717,58 @@ psql -h localhost -U coverline -d coverline \
 
 ---
 
-## GenAI concept: agentic loops vs single-shot prompts
+## AIOps concept: why agentic loops and not single-shot prompts
 
 A **single-shot prompt** sends all context in one message and expects the answer directly. This works when the context is static: "summarise this paragraph," "classify this email."
 
-An **agentic loop** is needed when the model must gather information before it can answer — and cannot know which information it needs until it starts looking. Claims triage is a canonical example: the model needs the claim details, the member's policy, and recent claim history. It cannot know which policy to look up until it reads the claim. It cannot check history until it knows the member ID. The three lookups must happen in sequence, driven by what the model discovers at each step.
+An **agentic loop** is needed when the AI must gather information before it can answer — and cannot know which information it needs until it starts looking. Both use cases in this phase require it:
+
+**Claims triage:** The model needs the claim details, the member's policy, and recent claim history. It cannot know which policy to look up until it reads the claim. It cannot check history until it knows the member ID. The three lookups must happen in sequence, driven by what the model discovers at each step.
+
+**Incident investigation:** The model needs the alert details before it knows which Loki query to run. It needs the Loki results before it knows which Prometheus metric to check. The investigation is inherently sequential.
 
 The loop structure is simple. The `stop_reason` field controls it:
 
 - `tool_use` → execute the requested tools, add results to the conversation, continue
 - `end_turn` → the model has enough information; parse the final answer
 
-The key design decisions for production agentic loops:
+The key design decisions for production agentic loops in an AIOps context:
 - **Max turns:** cap the loop (typically 6) to prevent runaway cost if a tool always returns unexpected data
-- **Structured output:** require a fixed JSON schema so the final answer is machine-readable
-- **Schema validation:** validate the output with `pydantic` before any database write
-- **Audit trail:** log every turn — which tools were called, what they returned, what the model decided
+- **Structured output:** require a fixed JSON schema so the final answer feeds directly into downstream systems
+- **Schema validation:** validate with Pydantic before any database write or Slack post
+- **Audit trail:** log every turn — which tools were called, what they returned, what the model decided. In regulated environments this is mandatory; in AIOps contexts it is what makes the AI's reasoning inspectable
 
 ---
 
 ## Production considerations
 
 ### 1. Version prompts alongside code
+
 The system prompt is a first-class artefact. A prompt change can shift decision distribution as significantly as a code change. Store prompts in version control, log the prompt version in `claim_triage`, and treat prompt changes like code changes: review, test on a held-out claims dataset, document the expected shift in decision distribution.
 
 ### 2. Audit trail is non-negotiable for regulated workloads
+
 Health insurance claims are subject to regulatory audit requirements. Every decision must be traceable: model version, prompt version, input data, output. Extend `claim_triage` with a `prompt_version` column and write the full raw API request and response to an append-only GCS + BigQuery audit log. Never delete or update audit rows.
 
 ### 3. Build a proper Docker image for the on-call assistant
+
 The `k8s/on-call-assistant.yaml` runs `pip install anthropic` at startup — this takes ~20 seconds and causes readiness probe failures. Build a proper image with `anthropic` pre-installed and reference it in the Deployment to eliminate the startup delay and the ConfigMap volume mount.
+
+### 4. Human-in-the-loop for the right decisions
+
+AIOps does not mean removing humans from the loop — it means removing humans from the parts of the loop that do not require human judgment. The confidence gate and circuit breaker in Challenge 6 are the mechanism: high-confidence decisions are automated; borderline decisions go to human reviewers. Track the review rate over time — if it drifts above 25%, the model is encountering data it was not designed for.
 
 ---
 
 ## Outcome
 
-CoverLine's claims backlog — growing at 8,000 claims/day — is now processed automatically each morning. Straightforward claims are approved, borderline cases are flagged for human review, and clearly uncovered claims are rejected, all with a written reason and a confidence score. The decision distribution and daily API cost appear on the same Grafana dashboard as cluster cost. When an alert fires at 2 AM, the on-call engineer receives a structured root cause hypothesis before they have finished reading the page. Human reviewers now focus on the 15–20% of claims that genuinely require judgment — not on the 80% that were always going to be approved.
+CoverLine's two operational crises are resolved.
+
+**Claims backlog:** The 8,000 daily claims are processed automatically each morning. Straightforward claims are approved, borderline cases are flagged for human review, and clearly uncovered claims are rejected — all with a written reason, a confidence score, and a full audit trail. Human reviewers now focus on the 15–20% of claims that genuinely require judgment, not the 80% that were always going to be approved.
+
+**Alert fatigue:** When an alert fires at 2 AM, the on-call engineer receives a structured root cause hypothesis — with log evidence and metric trends — within 30 seconds of the page. They start the incident with a diagnosis, not a blank screen.
+
+**AI observability:** LLM cost, latency p95, and decision distribution appear on the same Grafana dashboard as cluster cost. If the model starts behaving unexpectedly at scale, the anomaly detection alerts fire before the claims team notices. The AI is observable and auditable — a prerequisite for deploying it in a regulated environment.
 
 ---
 
