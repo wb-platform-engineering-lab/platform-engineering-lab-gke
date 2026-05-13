@@ -206,6 +206,8 @@ Run these commands against the cluster where ArgoCD is installed (dev):
 ```bash
 kubectl config use-context gke_platform-eng-lab-will_us-central1_platform-eng-lab-will-dev-gke
 
+kubectl port-forward svc/argocd-server -n argocd 8080:443 &
+
 argocd login --insecure --grpc-web localhost:8080 \
   --username admin \
   --password "$(kubectl -n argocd get secret argocd-initial-admin-secret \
@@ -702,4 +704,4 @@ The CTO's mandate is complete.
 
 ---
 
-[Back to main README](../README.md) | [Next: Phase 12 — GenAI](../phase-12-genai/README.md)
+[Back to main README](../README.md) | [Next: Phase 12 — AIOps](../phase-12-genai/README.md)
