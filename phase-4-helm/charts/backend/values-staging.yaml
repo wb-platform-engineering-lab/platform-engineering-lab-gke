@@ -1,5 +1,10 @@
 replicaCount: 2
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "250m"
+    memory: "256Mi"
 image:
-  tag: "b1a6af3" # Updated by platform-pipeline promote job
-vault:
-  enabled: false
+  tag: ""
