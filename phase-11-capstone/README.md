@@ -349,8 +349,10 @@ helm repo add backstage https://backstage.github.io/charts
 helm repo update
 kubectl create namespace backstage
 
-K8S_CA=$(kubectl config view --raw --minify \
-  --output jsonpath='{.clusters[0].cluster.certificate-authority-data}')
+K8S_CA=$(gcloud container clusters describe platform-eng-lab-will-dev-gke \
+  --region us-central1 \
+  --project platform-eng-lab-will \
+  --format='value(masterAuth.clusterCaCertificate)')
 K8S_TOKEN=$(kubectl create token backstage-sa -n backstage --duration=8760h 2>/dev/null || \
   kubectl get secret -n backstage -o jsonpath='{.items[0].data.token}' | base64 -d)
 
