@@ -113,6 +113,53 @@ kubectl exec -n default postgresql-0 -- \
 
 Once the count is ≥ 40, the rollout restart will bring all Airflow pods to `Running`.
 
+### Troubleshooting: Fernet key secret exists but is empty
+
+**Symptom:** Migration pod shows `Error: couldn't find key fernet-key in Secret airflow/airflow-fernet-key` and stays in `CreateContainerConfigError`.
+
+**Cause:** The first `bootstrap.sh` run timed out after creating the namespace and the secret object, but before the secret data was written. The secret exists with no data. When you re-run the bootstrap it sees the secret already exists and skips creation — leaving it empty.
+
+**Fix:**
+
+```bash
+kubectl delete secret airflow-fernet-key -n airflow
+FERNET_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+kubectl create secret generic airflow-fernet-key --namespace airflow --from-literal=fernet-key="$FERNET_KEY"
+```
+
+Then re-run the Helm install.
+
+### Troubleshooting: Airflow triggerer stuck in `Pending` — SSD quota exceeded
+
+**Symptom:** `airflow-triggerer-0` stays `Pending`. PVC `logs-airflow-triggerer-0` shows `ProvisioningFailed: QUOTA_EXCEEDED: Quota 'SSD_TOTAL_GB' exceeded`.
+
+**Cause:** The triggerer StatefulSet creates a log PVC on `standard-rwo` (SSD-backed) storage. If the GCP project has hit its SSD disk quota in the region (default 250 GB), the disk cannot be provisioned.
+
+**Fix:** Disable the triggerer's log persistence in `phase-9-data-platform/airflow/values.yaml` (already done in this repo). Then delete the stuck StatefulSet and PVC so Helm can recreate them without a volume claim:
+
+```bash
+kubectl delete statefulset airflow-triggerer -n airflow
+kubectl delete pvc logs-airflow-triggerer-0 -n airflow
+```
+
+Then re-run the Helm upgrade. The triggerer will use an `emptyDir` volume for logs instead of a PVC.
+
+### Troubleshooting: Wrong PostgreSQL password
+
+**Symptom:** Migration job fails with a PostgreSQL authentication error, or the migration pod loops in `CrashLoopBackOff`.
+
+**Cause:** The password hardcoded in `values.yaml` (`coverline123`) does not match the actual password in the `postgresql` secret. This happens when a previous PostgreSQL PVC exists from an earlier install — Bitnami ignores the Helm password value and uses whatever is stored in the PVC.
+
+**Fix:** Read the actual password from the secret and pass it as a Helm override:
+
+```bash
+PG_PASS=$(kubectl get secret postgresql -n default -o jsonpath='{.data.password}' | base64 -d)
+helm upgrade --install airflow apache-airflow/airflow --namespace airflow \
+  -f phase-9-data-platform/airflow/values.yaml \
+  --version "1.13.*" \
+  --set "data.metadataConnection.pass=${PG_PASS}"
+```
+
 ---
 
 Local tools — dbt runs in a virtual environment to avoid conflicts with the system Python.

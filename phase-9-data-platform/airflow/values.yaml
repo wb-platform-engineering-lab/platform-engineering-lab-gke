@@ -39,6 +39,10 @@ logs:
   persistence:
     enabled: false
 
+triggerer:
+  persistence:
+    enabled: false
+
 # Disable bundled PostgreSQL — use the cluster's existing postgresql.default instead.
 # Old Bitnami images (16.1.0-debian-11-r15) are no longer freely available post-Aug 2025.
 postgresql:
