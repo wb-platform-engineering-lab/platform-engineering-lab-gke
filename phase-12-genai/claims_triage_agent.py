@@ -22,6 +22,7 @@ DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_NAME = os.environ.get("DB_NAME", "coverline")
 DB_USER = os.environ.get("DB_USER", "coverline")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "coverline")
+DB_SCHEMA = os.environ.get("DB_SCHEMA", "phase12")
 
 PUSHGATEWAY_URL = os.environ.get("PUSHGATEWAY_URL", "http://prometheus-pushgateway.monitoring.svc.cluster.local:9091")
 
@@ -93,8 +94,8 @@ def query_claim(claim_id: int) -> dict:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT claim_id, member_id, claim_date, claim_type, amount_eur, description, status "
-            "FROM claims WHERE claim_id = %s",
+            f"SELECT claim_id, member_id, claim_date, claim_type, amount_eur, description, status "
+            f"FROM {DB_SCHEMA}.claims WHERE claim_id = %s",
             (claim_id,),
         )
         row = cur.fetchone()
@@ -119,8 +120,8 @@ def get_policy(member_id: int) -> dict:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT member_id, plan_type, deductible_eur, annual_limit_eur, covered_services "
-            "FROM policies WHERE member_id = %s",
+            f"SELECT member_id, plan_type, deductible_eur, annual_limit_eur, covered_services "
+            f"FROM {DB_SCHEMA}.policies WHERE member_id = %s",
             (member_id,),
         )
         row = cur.fetchone()
@@ -143,8 +144,8 @@ def get_claim_history(member_id: int) -> dict:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT claim_id, claim_date, claim_type, amount_eur, status "
-            "FROM claims WHERE member_id = %s ORDER BY claim_date DESC LIMIT 10",
+            f"SELECT claim_id, claim_date, claim_type, amount_eur, status "
+            f"FROM {DB_SCHEMA}.claims WHERE member_id = %s ORDER BY claim_date DESC LIMIT 10",
             (member_id,),
         )
         rows = cur.fetchall()
@@ -333,9 +334,9 @@ def write_decision(claim_id: int, decision: TriageDecision, usage: dict) -> None
     try:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO claim_triage "
-            "(claim_id, decision, confidence, reason, model, input_tokens, output_tokens, latency_ms) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            f"INSERT INTO {DB_SCHEMA}.claim_triage "
+            f"(claim_id, decision, confidence, reason, model, input_tokens, output_tokens, latency_ms) "
+            f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
             (
                 claim_id,
                 decision.decision,
@@ -396,7 +397,7 @@ def fetch_pending_claims() -> list[int]:
     conn = _connect()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT claim_id FROM claims WHERE status = 'pending' ORDER BY claim_id")
+        cur.execute(f"SELECT claim_id FROM {DB_SCHEMA}.claims WHERE status = 'pending' ORDER BY claim_id")
         return [row[0] for row in cur.fetchall()]
     finally:
         conn.close()
